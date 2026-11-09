@@ -28,7 +28,10 @@ export function EventImage({ path, tag, className = "" }: Props) {
           onError={() => setBroken(true)}
         />
       ) : (
-        <Icon name="image" size={28} strokeWidth={1.6} className="event-image__placeholder" />
+        <div className="event-image__placeholder">
+          <Icon name="image" size={28} strokeWidth={1.6} />
+          <span>Нет фото</span>
+        </div>
       )}
       {tag && <span className="event-image__tag">{tag}</span>}
     </div>
