@@ -2,6 +2,20 @@
 
 Локальное приложение: собирает анонсы мероприятий из публичных Telegram-каналов, Claude превращает посты в карточки событий и склеивает дубли.
 
+## Запуск
+
+```bash
+cd frontend && npm install && npm run build && cd ..
+uv run where-to-go --ui frontend/dist
+```
+
+Приложение откроется на http://127.0.0.1:18765, данные хранятся в `~/Library/Application Support/where-to-go`.
+
+## Фронтенд
+
+React + TypeScript (Vite) в `frontend/`. Типы API генерируются из схемы бэкенда: `npm run api:types`.
+Для разработки: бэкенд `uv run where-to-go` и `npm run dev` в `frontend/` (http://localhost:5180, запросы к API идут через прокси).
+
 ## Бэкенд
 
 ```bash

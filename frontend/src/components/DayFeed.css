@@ -1,0 +1,37 @@
+.day-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.day-feed__day {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.day-feed__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.day-feed__heading h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.day-feed__heading span {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.day-feed__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
