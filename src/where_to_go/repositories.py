@@ -291,7 +291,7 @@ class MentionRepository:
     def _row(row: sqlite3.Row) -> Mention:
         data = ExtractedEventCodec.load(row["data"])
         images = json.loads(row["image_paths"])
-        index = data.image_index if data.image_index is not None else 0
+        index = data.image_index
         return Mention(
             id=row["id"],
             post_id=row["post_id"],
@@ -300,7 +300,7 @@ class MentionRepository:
             data=data,
             published_at=datetime.fromisoformat(row["published_at"]),
             source_id=row["source_id"],
-            image_path=images[index] if 0 <= index < len(images) else None,
+            image_path=images[index] if index is not None and 0 <= index < len(images) else None,
             locked=bool(row["locked"]),
         )
 
