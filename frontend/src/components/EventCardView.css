@@ -15,6 +15,7 @@
 
 .card__image-link {
   display: block;
+  text-decoration: none;
 }
 
 .card__image {
