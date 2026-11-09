@@ -116,6 +116,7 @@
 }
 
 .button {
+  white-space: nowrap;
   height: 40px;
   border: none;
   border-radius: 9px;

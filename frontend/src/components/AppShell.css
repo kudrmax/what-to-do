@@ -134,3 +134,9 @@
   background: var(--bg-muted);
   color: var(--text);
 }
+
+@media (max-width: 1000px) {
+  .shell__nav {
+    flex-basis: 200px;
+  }
+}
