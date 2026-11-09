@@ -43,8 +43,8 @@ PROVISIONAL_TAGS = [
     "Детям",
 ]
 
-EXTRACTION_MODEL = "claude-sonnet-5-5"
-MATCHING_MODEL = "claude-sonnet-5-5"
+EXTRACTION_MODEL = "claude-haiku-5-5"
+MATCHING_MODEL = "claude-haiku-5-5"
 
 
 @dataclass

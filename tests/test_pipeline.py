@@ -7,6 +7,7 @@ import respx
 from tests.helpers import channel_page, extraction_by_text, judge_same_titles, raw_event
 from where_to_go.container import Container
 from where_to_go.domain import Mark, Plan, SourceKind
+from where_to_go.llm import LlmError
 from where_to_go.refresh import Stage
 from where_to_go.repositories import SettingsRepository
 
@@ -107,3 +108,95 @@ async def test_manual_split_and_merge_are_kept(app):
     assert len(container.events.get(kafana.id).source_ids) == 2
     with pytest.raises(KeyError):
         container.events.get(split_id)
+
+
+class FailingOnce:
+    """Wraps a fake: the first `failures` calls raise like a Claude outage would."""
+
+    def __init__(self, inner, failures: int = 1) -> None:
+        self._inner, self._failures, self.calls = inner, failures, 0
+
+    async def complete_json(self, system, prompt, schema):
+        self.calls += 1
+        if self.calls <= self._failures:
+            raise LlmError("rate limited")
+        return await self._inner.complete_json(system, prompt, schema)
+
+
+async def build(tmp_path, extraction, judge):
+    container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, http=httpx.AsyncClient())
+    city = container.cities.add("Белград", "Europe/Belgrade")
+    container.settings.set(SettingsRepository.ACTIVE_CITY, str(city.id))
+    container.sources.add(city.id, SourceKind.TELEGRAM, "kafana", "Кафана")
+    container.sources.add(city.id, SourceKind.TELEGRAM, "afisha", "Афиша")
+    return container
+
+
+@respx.mock
+async def test_posts_claude_failed_to_read_are_retried_next_refresh(tmp_path):
+    extraction = FailingOnce(extraction_by_text({"кафаны": [raw_event("Кафаны", "2026-11-13")]}))
+    container = await build(tmp_path, extraction, judge_same_titles())
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+
+    container.refresh.start()
+    first = await container.refresh.wait()
+    assert first.stage is Stage.DONE and any("не разобрал" in e for e in first.errors)
+    assert container.events.in_city(1) == []
+
+    container.refresh.start()
+    await container.refresh.wait()
+    assert [e.original_title for e in container.events.in_city(1)] == ["Кафаны"]
+    await container.close()
+
+
+@respx.mock
+async def test_mentions_left_unmerged_by_a_failure_are_merged_next_refresh(tmp_path):
+    extraction = extraction_by_text({"дайджест": [raw_event("Кафаны", "2026-11-13"), raw_event("Кафаны", "2026-11-13", "19:30")]})
+    judge = FailingOnce(judge_same_titles())
+    container = await build(tmp_path, extraction, judge)
+    serve_channels([], [(7, RECENT, "дайджест недели")])
+
+    container.refresh.start()
+    first = await container.refresh.wait()
+    assert any("склеить" in e for e in first.errors)
+    assert container.events.in_city(1) == []
+    assert len(container.mentions.unassigned()) == 2
+
+    container.refresh.start()
+    await container.refresh.wait()
+    [event] = container.events.in_city(1)
+    assert len(container.mentions.of_event(event.id)) == 2
+    await container.close()
+
+
+@respx.mock
+async def test_refresh_without_city_fails_visibly(tmp_path):
+    container = Container.build(tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), http=httpx.AsyncClient())
+    container.refresh.start()
+    progress = await container.refresh.wait()
+    assert progress.stage is Stage.FAILED and "город" in progress.errors[0]
+    await container.close()
+
+
+@respx.mock
+async def test_only_sources_of_the_active_city_are_refreshed(tmp_path):
+    container = await build(tmp_path, extraction_by_text({}), judge_same_titles())
+    other = container.cities.add("Бангкок", "Asia/Bangkok")
+    container.sources.add(other.id, SourceKind.TELEGRAM, "bkk", "Бангкок афиша")
+    serve_channels([], [])
+    bangkok = respx.get("https://t.me/s/bkk").respond(200, text=channel_page("bkk", []))
+    container.refresh.start()
+    await container.refresh.wait()
+    assert not bangkok.called
+    await container.close()
+
+
+@respx.mock
+async def test_second_start_while_running_does_not_start_another(app):
+    container, extraction, _ = app
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+    first = container.refresh.start()
+    second = container.refresh.start()
+    assert first is second
+    await container.refresh.wait()
+    assert len(extraction.calls) == 1

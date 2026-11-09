@@ -245,7 +245,7 @@ class TagRepository:
         return Tag(row["id"], row["name"], row["position"], bool(row["is_fallback"]))
 
     def all(self) -> list[Tag]:
-        return [self._row(r) for r in self._db.query("SELECT * FROM tags ORDER BY position")]
+        return [self._row(r) for r in self._db.query("SELECT * FROM tags ORDER BY is_fallback, position")]
 
     def ensure_seeded(self, names: list[str]) -> None:
         if self._db.query_one("SELECT 1 FROM tags"):
