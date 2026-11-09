@@ -46,3 +46,15 @@ def test_unknown_time_is_filled_by_any_source_that_knows_it():
 def test_fallback_tag_only_when_no_real_tag():
     event = resolver.resolve(1, 1, [mention(1, tags=("не распознано",)), mention(2, tags=("Концерт",))])
     assert event.tags == ("Концерт",)
+
+
+def test_card_text_comes_from_the_full_announcement_not_a_later_digest_line():
+    from dataclasses import replace
+
+    full = mention(1, published=EARLY)
+    full = replace(full, data=replace(full.data, title="Керамика: кружка своими руками", description="Длинное подробное описание занятия с глиной."))
+    digest = mention(2, at=time(17, 0), published=LATE)
+    digest = replace(digest, data=replace(digest.data, title="Керамика", description="Коротко."))
+    event = resolver.resolve(1, 1, [full, digest])
+    assert (event.title, event.description) == ("Керамика: кружка своими руками", "Длинное подробное описание занятия с глиной.")
+    assert event.start_time == time(17, 0)

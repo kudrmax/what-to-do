@@ -13,7 +13,8 @@ MAX_TAGS = 3
 class EventResolver:
     """Builds an event card from every post that mentions it.
 
-    The organizer's own channel outranks an afisha, a newer post outranks an older one.
+    The organizer's own channel outranks an afisha. For dates, times and prices a newer post outranks an older one;
+    for the text of the card the fullest announcement does, not a one-line digest entry posted later.
     Disagreements are kept visible as conflicts, except where a reschedule superseded older posts.
     """
 
@@ -24,15 +25,16 @@ class EventResolver:
         if not mentions:
             raise ValueError("an event needs at least one mention")
         ranked = sorted(mentions, key=lambda m: (m.data.from_organizer, m.published_at), reverse=True)
+        richest = sorted(mentions, key=lambda m: (m.data.from_organizer, len(m.data.description)), reverse=True)
         schedule = self._schedule_mentions(ranked)
         lead = schedule[0].data
         return Event(
             id=event_id,
             city_id=city_id,
             kind=lead.kind,
-            title=self._first(ranked, lambda m: m.data.title) or lead.title,
-            original_title=self._first(ranked, lambda m: m.data.original_title) or lead.original_title,
-            description=self._first(ranked, lambda m: m.data.description) or "",
+            title=self._first(richest, lambda m: m.data.title) or lead.title,
+            original_title=self._first(richest, lambda m: m.data.original_title) or lead.original_title,
+            description=self._first(richest, lambda m: m.data.description) or "",
             start_date=lead.start_date,
             end_date=lead.end_date if lead.kind is EventKind.MULTIDAY else None,
             start_time=self._first(schedule, lambda m: m.data.start_time if m.data.start_date == lead.start_date else None),
@@ -41,7 +43,7 @@ class EventResolver:
             address=self._first(ranked, lambda m: m.data.address),
             price=self._first(ranked, lambda m: m.data.price),
             tags=self._tags(ranked),
-            image_path=self._first(ranked, lambda m: m.image_path),
+            image_path=self._first(richest, lambda m: m.image_path),
             is_cancelled=self._is_cancelled(mentions),
             conflicts=self._conflicts(schedule),
             source_ids=tuple(sorted({m.source_id for m in mentions})),
