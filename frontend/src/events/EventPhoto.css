@@ -1,0 +1,22 @@
+.photo {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-image);
+}
+
+.photo__backdrop {
+  position: absolute;
+  inset: -24px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px) saturate(1.1);
+  opacity: 0.55;
+}
+
+.photo__image {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

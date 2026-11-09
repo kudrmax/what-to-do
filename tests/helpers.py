@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, time
 from typing import Any
 
-from where_to_go.domain import EventKind, ExtractedEvent, Mention, UpdateKind
+from where_to_go.models import EventKind, ExtractedEvent, Mention, Post, Source, UpdateKind
 
 
 class FakeLlm:
@@ -14,9 +14,11 @@ class FakeLlm:
     def __init__(self, answer: Callable[[str, str], dict[str, Any]]) -> None:
         self._answer = answer
         self.calls: list[tuple[str, str]] = []
+        self.schemas: list[dict[str, Any]] = []
 
     async def complete_json(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
         self.calls.append((system, prompt))
+        self.schemas.append(schema)
         return self._answer(system, prompt)
 
 
@@ -47,6 +49,7 @@ def raw_event(title: str, day: str, at: str | None = "19:00", **extra: Any) -> d
         "venue": "Бар",
         "address": None,
         "price": None,
+        "currency": None,
         "tags": ["Лекция"],
         "update_kind": "announcement",
         "from_organizer": False,
@@ -84,29 +87,33 @@ def mention(
     source_id: int = 1,
     title: str = "Лекция",
     tags: tuple[str, ...] = ("Лекция",),
-    price: str | None = None,
+    price: float | None = None,
+    description: str | None = None,
 ) -> Mention:
-    return Mention(
+    """A mention with its post, as the repository gives it."""
+    post = Post(
         id=mention_id,
-        post_id=mention_id,
-        event_id=1,
-        item_index=0,
-        data=ExtractedEvent(
-            title=title,
-            original_title=title,
-            description=f"{title} от {source_id}",
-            kind=EventKind.SINGLE,
-            start_date=day,
-            start_time=at,
-            price=price,
-            tags=tags,
-            update_kind=update,
-            from_organizer=organizer,
-        ),
-        published_at=published,
         source_id=source_id,
-        image_path=None,
+        external_id=mention_id,
+        url=f"https://t.me/s{source_id}/{mention_id}",
+        published_at=published,
+        text="текст",
+        source=Source(id=source_id, city_id=1, handle=f"s{source_id}", title=f"Канал {source_id}"),
     )
+    data = ExtractedEvent(
+        title=title,
+        original_title=title,
+        description=description or f"{title} от {source_id}",
+        kind=EventKind.SINGLE,
+        start_date=day,
+        start_time=at,
+        price=price,
+        currency="RSD" if price else None,
+        tags=list(tags),
+        update_kind=update,
+        from_organizer=organizer,
+    )
+    return Mention(id=mention_id, post_id=mention_id, event_id=1, item_index=0, data=data, post=post)
 
 
 def channel_page(handle: str, posts: list[tuple[int, str, str]], before: int | None = None) -> str:

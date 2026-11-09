@@ -4,9 +4,9 @@ import { addDays, ago, dateRange, dayHeading, longDate, plural, todayIn, weekSta
 
 describe("dates", () => {
   it("names today and tomorrow, other days by date", () => {
-    expect(dayHeading("2026-11-09", "2026-11-09")).toEqual({ title: "Сегодня", subtitle: "9 ноября, понедельник" });
-    expect(dayHeading("2026-11-10", "2026-11-09")).toEqual({ title: "Завтра", subtitle: "10 ноября, вторник" });
-    expect(dayHeading("2026-11-11", "2026-11-09")).toEqual({ title: "11 ноября", subtitle: "среда" });
+    expect(dayHeading("2026-11-09", "2026-11-09")).toEqual({ title: "Сегодня", subtitle: "9 ноября, понедельник", relative: true });
+    expect(dayHeading("2026-11-10", "2026-11-09")).toEqual({ title: "Завтра", subtitle: "10 ноября, вторник", relative: true });
+    expect(dayHeading("2026-11-11", "2026-11-09")).toEqual({ title: "11 ноября", subtitle: "среда", relative: false });
   });
 
   it("formats ranges inside and across months", () => {

@@ -1,0 +1,61 @@
+/* Every rule for narrow windows (a side panel, a small laptop), at one width. */
+@media (max-width: 1100px) {
+  .shell__nav {
+    flex-basis: 200px;
+  }
+
+  .screen {
+    padding: 24px 24px 36px;
+  }
+
+  .week__day {
+    padding: 8px 3px;
+  }
+
+  .week__item {
+    padding: 6px 5px;
+  }
+
+  .week__title {
+    font-size: 12px;
+  }
+
+  .details__body {
+    padding: 20px 22px 24px;
+  }
+
+  .modal {
+    padding: 16px;
+  }
+
+  .setting-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .sources-table__row {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "name name name actions" "updated count state state";
+    row-gap: 6px;
+  }
+
+  .sources-table__name {
+    grid-area: name;
+  }
+
+  .sources-table__updated {
+    grid-area: updated;
+  }
+
+  .sources-table__count {
+    grid-area: count;
+  }
+
+  .sources-table__state {
+    grid-area: state;
+  }
+
+  .sources-table__actions {
+    grid-area: actions;
+  }
+}

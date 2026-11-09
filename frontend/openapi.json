@@ -2,7 +2,7 @@
  "openapi": "3.1.0",
  "info": {
   "title": "Чем заняться",
-  "description": "\nLocal backend of «Чем заняться». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only.\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
+  "description": "\nLocal backend of «Чем заняться». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
   "version": "0.1.0"
  },
  "paths": {
@@ -68,13 +68,35 @@
     }
    }
   },
+  "/settings/defaults": {
+   "get": {
+    "tags": [
+     "settings"
+    ],
+    "summary": "Default Settings",
+    "description": "What every setting is out of the box; «вернуть как было» takes the value from here.",
+    "operationId": "default_settings_settings_defaults_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AppSettings"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/cities": {
    "get": {
     "tags": [
      "settings"
     ],
     "summary": "List Cities",
-    "description": "Every city the user has added; old ones stay after a move.",
+    "description": "Every city the user has added; old ones stay after a move. The active one is `active_city_id` in settings.",
     "operationId": "list_cities_cities_get",
     "responses": {
      "200": {
@@ -83,7 +105,7 @@
        "application/json": {
         "schema": {
          "items": {
-          "$ref": "#/components/schemas/CityOut"
+          "$ref": "#/components/schemas/CityPublic"
          },
          "type": "array",
          "title": "Response List Cities Cities Get"
@@ -104,7 +126,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/CityIn"
+        "$ref": "#/components/schemas/CityBase"
        }
       }
      },
@@ -116,7 +138,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/CityOut"
+         "$ref": "#/components/schemas/CityPublic"
         }
        }
       }
@@ -149,7 +171,7 @@
        "application/json": {
         "schema": {
          "items": {
-          "$ref": "#/components/schemas/SourceOut"
+          "$ref": "#/components/schemas/SourcePublic"
          },
          "type": "array",
          "title": "Response List Sources Sources Get"
@@ -170,7 +192,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/SourceIn"
+        "$ref": "#/components/schemas/SourceRequest"
        }
       }
      },
@@ -182,7 +204,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/SourceOut"
+         "$ref": "#/components/schemas/SourcePublic"
         }
        }
       }
@@ -224,7 +246,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/SourcePatch"
+        "$ref": "#/components/schemas/SourceRename"
        }
       }
      }
@@ -235,7 +257,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/SourceOut"
+         "$ref": "#/components/schemas/SourcePublic"
         }
        }
       }
@@ -293,7 +315,7 @@
      "tags"
     ],
     "summary": "List Tags",
-    "description": "Tags in display order; the fallback «не распознано» is always last.",
+    "description": "Tags in display order; the fallback tag is always last.",
     "operationId": "list_tags_tags_get",
     "responses": {
      "200": {
@@ -302,7 +324,7 @@
        "application/json": {
         "schema": {
          "items": {
-          "$ref": "#/components/schemas/TagOut"
+          "$ref": "#/components/schemas/TagPublic"
          },
          "type": "array",
          "title": "Response List Tags Tags Get"
@@ -323,7 +345,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/TagIn"
+        "$ref": "#/components/schemas/TagBase"
        }
       }
      },
@@ -335,7 +357,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/TagOut"
+         "$ref": "#/components/schemas/TagPublic"
         }
        }
       }
@@ -359,7 +381,7 @@
      "tags"
     ],
     "summary": "Rename Tag",
-    "description": "Renames a tag everywhere, on existing cards too.",
+    "description": "Renames a tag everywhere, on existing cards too. 422 for the fallback tag.",
     "operationId": "rename_tag_tags__tag_id__patch",
     "parameters": [
      {
@@ -377,7 +399,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/TagIn"
+        "$ref": "#/components/schemas/TagBase"
        }
       }
      }
@@ -388,7 +410,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/TagOut"
+         "$ref": "#/components/schemas/TagPublic"
         }
        }
       }
@@ -429,10 +451,10 @@
          "type": "null"
         }
        ],
-       "description": "First day; default: today in the city's time zone",
+       "description": "First day; default: today in the city's time zone, or the earliest event when only end is given",
        "title": "Start"
       },
-      "description": "First day; default: today in the city's time zone"
+      "description": "First day; default: today in the city's time zone, or the earliest event when only end is given"
      },
      {
       "name": "end",
@@ -448,10 +470,10 @@
          "type": "null"
         }
        ],
-       "description": "Last day, inclusive; default: start + 14 days",
+       "description": "Last day, inclusive; default: as far as the city has dated events",
        "title": "End"
       },
-      "description": "Last day, inclusive; default: start + 14 days"
+      "description": "Last day, inclusive; default: as far as the city has dated events"
      },
      {
       "name": "tags",
@@ -490,13 +512,13 @@
       "schema": {
        "type": "array",
        "items": {
-        "$ref": "#/components/schemas/Plan"
+        "$ref": "#/components/schemas/PlanFilter"
        },
-       "description": "Only these plans, e.g. maybe and sure for «Собираюсь пойти»",
+       "description": "Only cards with these plans; none = not marked yet. Default: all",
        "default": [],
        "title": "Plans"
       },
-      "description": "Only these plans, e.g. maybe and sure for «Собираюсь пойти»"
+      "description": "Only cards with these plans; none = not marked yet. Default: all"
      },
      {
       "name": "only_timed",
@@ -521,18 +543,6 @@
        "title": "Hide Multiday"
       },
       "description": "Hide exhibitions, festivals and other multiday events"
-     },
-     {
-      "name": "hide_marked",
-      "in": "query",
-      "required": false,
-      "schema": {
-       "type": "boolean",
-       "description": "Hide cards whose plan is no or went; interest does not matter",
-       "default": true,
-       "title": "Hide Marked"
-      },
-      "description": "Hide cards whose plan is no or went; interest does not matter"
      }
     ],
     "responses": {
@@ -543,7 +553,7 @@
         "schema": {
          "type": "array",
          "items": {
-          "$ref": "#/components/schemas/OccurrenceOut"
+          "$ref": "#/components/schemas/Occurrence"
          },
          "title": "Response Feed Events Get"
         }
@@ -568,9 +578,9 @@
     "tags": [
      "events"
     ],
-    "summary": "Event Detail",
-    "description": "An open card with the original posts it is built from.",
-    "operationId": "event_detail_events__event_id__get",
+    "summary": "Event Card",
+    "description": "One card.",
+    "operationId": "event_card_events__event_id__get",
     "parameters": [
      {
       "name": "event_id",
@@ -588,7 +598,54 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/EventDetailOut"
+         "$ref": "#/components/schemas/EventPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/events/{event_id}/mentions": {
+   "get": {
+    "tags": [
+     "events"
+    ],
+    "summary": "Event Mentions",
+    "description": "The original posts a card is built from, oldest first.",
+    "operationId": "event_mentions_events__event_id__mentions_get",
+    "parameters": [
+     {
+      "name": "event_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Event Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/MentionPublic"
+         },
+         "title": "Response Event Mentions Events  Event Id  Mentions Get"
         }
        }
       }
@@ -612,7 +669,7 @@
      "events"
     ],
     "summary": "Set Mark",
-    "description": "Sets interest and plan of a card. Both fields are written as sent.",
+    "description": "Sets interest and plan of a card. Both fields are written as sent: null clears a value.",
     "operationId": "set_mark_events__event_id__mark_put",
     "parameters": [
      {
@@ -630,7 +687,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/MarkIn"
+        "$ref": "#/components/schemas/Mark"
        }
       }
      }
@@ -641,7 +698,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/EventOut"
+         "$ref": "#/components/schemas/EventPublic"
         }
        }
       }
@@ -683,7 +740,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/MergeIn"
+        "$ref": "#/components/schemas/MergeRequest"
        }
       }
      }
@@ -694,7 +751,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/EventDetailOut"
+         "$ref": "#/components/schemas/EventPublic"
         }
        }
       }
@@ -718,7 +775,7 @@
      "events"
     ],
     "summary": "Split",
-    "description": "Moves one source's post out into a card of its own and returns the new card.\nClaude never undoes a manual split. 422: the card has a single source.",
+    "description": "Moves one mention out into a card of its own and returns the new card.\nClaude never undoes a manual split. 422: the card has a single source.",
     "operationId": "split_events__event_id__split_post",
     "parameters": [
      {
@@ -736,7 +793,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/SplitIn"
+        "$ref": "#/components/schemas/SplitRequest"
        }
       }
      }
@@ -747,7 +804,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/EventDetailOut"
+         "$ref": "#/components/schemas/EventPublic"
         }
        }
       }
@@ -780,7 +837,7 @@
        "application/json": {
         "schema": {
          "items": {
-          "$ref": "#/components/schemas/PlaceOut"
+          "$ref": "#/components/schemas/PlacePublic"
          },
          "type": "array",
          "title": "Response Places Places Get"
@@ -841,7 +898,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/RefreshOut"
+         "$ref": "#/components/schemas/RefreshProgress"
         }
        }
       }
@@ -861,7 +918,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/RefreshOut"
+         "$ref": "#/components/schemas/RefreshProgress"
         }
        }
       }
@@ -900,13 +957,34 @@
       "title": "Recent Posts",
       "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh",
       "default": 20
+     },
+     "extraction_prompt": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Extraction Prompt",
+      "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
+      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
+     },
+     "matching_prompt": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Matching Prompt",
+      "description": "Instructions Claude gets for merging duplicates",
+      "default": "You merge duplicate event announcements collected from several Telegram channels.\n\nYou get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.\n\nSame event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.\nNot the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.\n\nNever set both same_as_card and same_as_announcement."
      }
     },
     "type": "object",
+    "required": [
+     "active_city_id",
+     "description_language",
+     "recent_posts",
+     "extraction_prompt",
+     "matching_prompt"
+    ],
     "title": "AppSettings",
     "description": "Every setting of the app, described once: storage, the API and its change request all come from here."
    },
-   "CityIn": {
+   "CityBase": {
     "properties": {
      "name": {
       "type": "string",
@@ -919,6 +997,7 @@
      "timezone": {
       "type": "string",
       "title": "Timezone",
+      "description": "IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it",
       "examples": [
        "Europe/Belgrade"
       ]
@@ -929,44 +1008,43 @@
      "name",
      "timezone"
     ],
-    "title": "CityIn"
+    "title": "CityBase"
    },
-   "CityOut": {
+   "CityPublic": {
     "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
-     },
      "name": {
       "type": "string",
-      "title": "Name"
+      "minLength": 1,
+      "title": "Name",
+      "examples": [
+       "Белград"
+      ]
      },
      "timezone": {
       "type": "string",
       "title": "Timezone",
-      "description": "IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it"
+      "description": "IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it",
+      "examples": [
+       "Europe/Belgrade"
+      ]
      },
-     "active": {
-      "type": "boolean",
-      "title": "Active",
-      "description": "The feed, sources and refresh work with the active city only"
+     "id": {
+      "type": "integer",
+      "title": "Id"
      }
     },
     "type": "object",
     "required": [
-     "id",
      "name",
      "timezone",
-     "active"
+     "id"
     ],
-    "title": "CityOut"
+    "title": "CityPublic"
    },
-   "ConflictOut": {
+   "Conflict": {
     "properties": {
      "field": {
-      "type": "string",
-      "title": "Field",
-      "description": "start_date or start_time"
+      "$ref": "#/components/schemas/ConflictField"
      },
      "values": {
       "items": {
@@ -974,13 +1052,7 @@
       },
       "type": "array",
       "title": "Values",
-      "description": "Every value the sources give; the card shows the first one",
-      "examples": [
-       [
-        "19:00",
-        "19:30"
-       ]
-      ]
+      "description": "Every value the sources give; the card shows the first one"
      }
     },
     "type": "object",
@@ -988,206 +1060,15 @@
      "field",
      "values"
     ],
-    "title": "ConflictOut"
+    "title": "Conflict"
    },
-   "EventDetailOut": {
-    "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
-     },
-     "kind": {
-      "$ref": "#/components/schemas/EventKind",
-      "description": "single: one date; multiday: start_date…end_date; recurring: repeats by `recurrence`"
-     },
-     "title": {
-      "type": "string",
-      "title": "Title",
-      "description": "Claude's own title in the description language"
-     },
-     "original_title": {
-      "type": "string",
-      "title": "Original Title",
-      "description": "The title as the organizer or the channel wrote it"
-     },
-     "description": {
-      "type": "string",
-      "title": "Description",
-      "description": "Claude's summary in the author's manner; the main element of a card"
-     },
-     "start_date": {
-      "type": "string",
-      "format": "date",
-      "title": "Start Date",
-      "description": "For recurring events: the first occurrence"
-     },
-     "end_date": {
-      "anyOf": [
-       {
-        "type": "string",
-        "format": "date"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "End Date",
-      "description": "multiday only"
-     },
-     "start_time": {
-      "anyOf": [
-       {
-        "type": "string",
-        "format": "time"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Start Time",
-      "description": "null: time is not known yet («время уточняется»)"
-     },
-     "recurrence": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Recurrence",
-      "description": "RFC 5545 RRULE body, recurring only",
-      "examples": [
-       "FREQ=WEEKLY;BYDAY=TU"
-      ]
-     },
-     "venue": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Venue"
-     },
-     "address": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Address"
-     },
-     "map_url": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Map Url",
-      "description": "Google Maps search for the address or venue"
-     },
-     "price": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Price",
-      "description": "As the post gives it",
-      "examples": [
-       "800 RSD"
-      ]
-     },
-     "tags": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array",
-      "title": "Tags"
-     },
-     "image_url": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Image Url",
-      "description": "Relative to the API root",
-      "examples": [
-       "/images/3f2a.jpg"
-      ]
-     },
-     "is_cancelled": {
-      "type": "boolean",
-      "title": "Is Cancelled"
-     },
-     "conflicts": {
-      "items": {
-       "$ref": "#/components/schemas/ConflictOut"
-      },
-      "type": "array",
-      "title": "Conflicts",
-      "description": "Sources disagree; show «в источниках расходится»"
-     },
-     "source_ids": {
-      "items": {
-       "type": "integer"
-      },
-      "type": "array",
-      "title": "Source Ids"
-     },
-     "mark": {
-      "$ref": "#/components/schemas/MarkOut"
-     },
-     "mentions": {
-      "items": {
-       "$ref": "#/components/schemas/MentionOut"
-      },
-      "type": "array",
-      "title": "Mentions",
-      "description": "Original posts, oldest first"
-     }
-    },
-    "type": "object",
-    "required": [
-     "id",
-     "kind",
-     "title",
-     "original_title",
-     "description",
+   "ConflictField": {
+    "type": "string",
+    "enum": [
      "start_date",
-     "end_date",
-     "start_time",
-     "recurrence",
-     "venue",
-     "address",
-     "map_url",
-     "price",
-     "tags",
-     "image_url",
-     "is_cancelled",
-     "conflicts",
-     "source_ids",
-     "mark",
-     "mentions"
+     "start_time"
     ],
-    "title": "EventDetailOut"
+    "title": "ConflictField"
    },
    "EventKind": {
     "type": "string",
@@ -1198,36 +1079,55 @@
     ],
     "title": "EventKind"
    },
-   "EventOut": {
+   "EventPublic": {
     "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
+     "interest": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 5.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interest"
      },
-     "kind": {
-      "$ref": "#/components/schemas/EventKind",
-      "description": "single: one date; multiday: start_date…end_date; recurring: repeats by `recurrence`"
+     "plan": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Plan"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "title": {
       "type": "string",
       "title": "Title",
-      "description": "Claude's own title in the description language"
+      "description": "Your own short title in the description language that says what the event is, understandable without the description"
      },
      "original_title": {
       "type": "string",
       "title": "Original Title",
-      "description": "The title as the organizer or the channel wrote it"
+      "description": "The name as the post gives it, in the post's language"
      },
      "description": {
       "type": "string",
       "title": "Description",
-      "description": "Claude's summary in the author's manner; the main element of a card"
+      "description": "2–4 sentences in the description language: what happens and what it is like. Keep the author's manner and tone, do not advertise, do not repeat date, time, place or price"
+     },
+     "kind": {
+      "$ref": "#/components/schemas/EventKind",
+      "description": "single: one date; multiday: runs over a period (exhibition, festival) from start_date to end_date; recurring: a regular schedule described by rrule"
      },
      "start_date": {
       "type": "string",
       "format": "date",
       "title": "Start Date",
-      "description": "For recurring events: the first occurrence"
+      "description": "Resolve relative dates against the publication date; without a year, the nearest date not long before it. For recurring events: the first occurrence on or after the publication date"
      },
      "end_date": {
       "anyOf": [
@@ -1253,9 +1153,9 @@
        }
       ],
       "title": "Start Time",
-      "description": "null: time is not known yet («время уточняется»)"
+      "description": "Local time; null when the post does not say. Do not guess"
      },
-     "recurrence": {
+     "rrule": {
       "anyOf": [
        {
         "type": "string"
@@ -1264,11 +1164,8 @@
         "type": "null"
        }
       ],
-      "title": "Recurrence",
-      "description": "RFC 5545 RRULE body, recurring only",
-      "examples": [
-       "FREQ=WEEKLY;BYDAY=TU"
-      ]
+      "title": "Rrule",
+      "description": "recurring only: an RFC 5545 RRULE body such as \"FREQ=WEEKLY;BYDAY=TU\""
      },
      "venue": {
       "anyOf": [
@@ -1279,7 +1176,8 @@
         "type": "null"
        }
       ],
-      "title": "Venue"
+      "title": "Venue",
+      "description": "The venue's name as the post gives it"
      },
      "address": {
       "anyOf": [
@@ -1290,41 +1188,70 @@
         "type": "null"
        }
       ],
-      "title": "Address"
-     },
-     "map_url": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Map Url",
-      "description": "Google Maps search for the address or venue"
+      "title": "Address",
+      "description": "The address as the post gives it"
      },
      "price": {
       "anyOf": [
        {
-        "type": "string"
+        "type": "number",
+        "minimum": 0.0
        },
        {
         "type": "null"
        }
       ],
       "title": "Price",
-      "description": "As the post gives it",
-      "examples": [
-       "800 RSD"
-      ]
+      "description": "The price as a number: 0 when free, the lowest one when the post gives several, null when it does not say or the entry is a donation of any size"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "description": "ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0"
      },
      "tags": {
       "items": {
        "type": "string"
       },
       "type": "array",
-      "title": "Tags"
+      "title": "Tags",
+      "description": "One or two tags from the allowed list"
+     },
+     "is_cancelled": {
+      "type": "boolean",
+      "title": "Is Cancelled",
+      "default": false
+     },
+     "conflicts": {
+      "items": {
+       "$ref": "#/components/schemas/Conflict"
+      },
+      "type": "array",
+      "title": "Conflicts",
+      "description": "Sources disagree on these"
+     },
+     "source_ids": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Source Ids"
+     },
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "is_going": {
+      "type": "boolean",
+      "title": "Is Going",
+      "readOnly": true
      },
      "image_url": {
       "anyOf": [
@@ -1336,57 +1263,206 @@
        }
       ],
       "title": "Image Url",
-      "description": "Relative to the API root",
-      "examples": [
-       "/images/3f2a.jpg"
-      ]
+      "readOnly": true
      },
-     "is_cancelled": {
-      "type": "boolean",
-      "title": "Is Cancelled"
+     "place": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Place",
+      "description": "The venue and the address as one line, or whichever is known.",
+      "readOnly": true
      },
-     "conflicts": {
-      "items": {
-       "$ref": "#/components/schemas/ConflictOut"
-      },
-      "type": "array",
-      "title": "Conflicts",
-      "description": "Sources disagree; show «в источниках расходится»"
-     },
-     "source_ids": {
-      "items": {
-       "type": "integer"
-      },
-      "type": "array",
-      "title": "Source Ids"
-     },
-     "mark": {
-      "$ref": "#/components/schemas/MarkOut"
+     "map_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Map Url",
+      "readOnly": true
      }
     },
     "type": "object",
     "required": [
-     "id",
-     "kind",
+     "interest",
+     "plan",
      "title",
      "original_title",
      "description",
+     "kind",
      "start_date",
      "end_date",
      "start_time",
-     "recurrence",
+     "rrule",
      "venue",
      "address",
-     "map_url",
      "price",
+     "currency",
      "tags",
-     "image_url",
      "is_cancelled",
      "conflicts",
      "source_ids",
-     "mark"
+     "id",
+     "is_going",
+     "image_url",
+     "place",
+     "map_url"
     ],
-    "title": "EventOut"
+    "title": "EventPublic"
+   },
+   "ExtractedEvent": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "title": "Title",
+      "description": "Your own short title in the description language that says what the event is, understandable without the description"
+     },
+     "original_title": {
+      "type": "string",
+      "title": "Original Title",
+      "description": "The name as the post gives it, in the post's language"
+     },
+     "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "2–4 sentences in the description language: what happens and what it is like. Keep the author's manner and tone, do not advertise, do not repeat date, time, place or price"
+     },
+     "kind": {
+      "$ref": "#/components/schemas/EventKind",
+      "description": "single: one date; multiday: runs over a period (exhibition, festival) from start_date to end_date; recurring: a regular schedule described by rrule"
+     },
+     "start_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Start Date",
+      "description": "Resolve relative dates against the publication date; without a year, the nearest date not long before it. For recurring events: the first occurrence on or after the publication date"
+     },
+     "end_date": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "End Date",
+      "description": "multiday only"
+     },
+     "start_time": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Start Time",
+      "description": "Local time; null when the post does not say. Do not guess"
+     },
+     "rrule": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Rrule",
+      "description": "recurring only: an RFC 5545 RRULE body such as \"FREQ=WEEKLY;BYDAY=TU\""
+     },
+     "venue": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Venue",
+      "description": "The venue's name as the post gives it"
+     },
+     "address": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Address",
+      "description": "The address as the post gives it"
+     },
+     "price": {
+      "anyOf": [
+       {
+        "type": "number",
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Price",
+      "description": "The price as a number: 0 when free, the lowest one when the post gives several, null when it does not say or the entry is a donation of any size"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency",
+      "description": "ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0"
+     },
+     "tags": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Tags",
+      "description": "One or two tags from the allowed list"
+     },
+     "update_kind": {
+      "$ref": "#/components/schemas/UpdateKind",
+      "description": "announcement: a normal announcement; reschedule: moves an event announced earlier (give the new date and time); cancellation: cancels one; details: only adds details to one announced earlier",
+      "default": "announcement"
+     },
+     "from_organizer": {
+      "type": "boolean",
+      "title": "From Organizer",
+      "description": "true when the channel itself organizes or hosts the event, false for afisha and repost channels",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "original_title",
+     "description",
+     "kind",
+     "start_date"
+    ],
+    "title": "ExtractedEvent",
+    "description": "One event as one post describes it."
    },
    "HTTPValidationError": {
     "properties": {
@@ -1401,7 +1477,7 @@
     "type": "object",
     "title": "HTTPValidationError"
    },
-   "MarkIn": {
+   "Mark": {
     "properties": {
      "interest": {
       "anyOf": [
@@ -1428,48 +1504,23 @@
      }
     },
     "type": "object",
-    "title": "MarkIn",
-    "description": "Both fields are written as sent: null clears a value."
+    "title": "Mark",
+    "description": "What the user decided about an event: how interesting it is, and whether they are going."
    },
-   "MarkOut": {
-    "properties": {
-     "interest": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Interest",
-      "description": "1 (not interesting at all) … 5 (very interesting)"
-     },
-     "plan": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/Plan"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "description": "maybe, sure, no, went"
-     }
-    },
-    "type": "object",
-    "required": [
-     "interest",
-     "plan"
-    ],
-    "title": "MarkOut"
-   },
-   "MentionOut": {
+   "MentionPublic": {
     "properties": {
      "id": {
       "type": "integer",
       "title": "Id",
-      "description": "Pass it to /split to move this source into a card of its own"
+      "description": "Pass it to split to move this post into a card of its own"
+     },
+     "data": {
+      "$ref": "#/components/schemas/ExtractedEvent"
+     },
+     "locked": {
+      "type": "boolean",
+      "title": "Locked",
+      "description": "Placed by the user; Claude never moves it"
      },
      "source_id": {
       "type": "integer",
@@ -1483,45 +1534,31 @@
       "type": "string",
       "title": "Post Url"
      },
-     "published_at": {
-      "type": "string",
-      "format": "date-time",
-      "title": "Published At"
-     },
-     "original_title": {
-      "type": "string",
-      "title": "Original Title"
-     },
      "post_text": {
       "type": "string",
       "title": "Post Text"
      },
-     "from_organizer": {
-      "type": "boolean",
-      "title": "From Organizer",
-      "description": "Posted by the organizer or the venue, not by an afisha"
-     },
-     "update_kind": {
-      "$ref": "#/components/schemas/UpdateKind",
-      "description": "announcement, reschedule, cancellation or details"
+     "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Published At"
      }
     },
     "type": "object",
     "required": [
      "id",
+     "data",
+     "locked",
      "source_id",
      "source_title",
      "post_url",
-     "published_at",
-     "original_title",
      "post_text",
-     "from_organizer",
-     "update_kind"
+     "published_at"
     ],
-    "title": "MentionOut",
-    "description": "One post that announced this event."
+    "title": "MentionPublic",
+    "description": "One original post behind a card."
    },
-   "MergeIn": {
+   "MergeRequest": {
     "properties": {
      "other_event_id": {
       "type": "integer",
@@ -1533,18 +1570,18 @@
     "required": [
      "other_event_id"
     ],
-    "title": "MergeIn"
+    "title": "MergeRequest"
    },
-   "OccurrenceOut": {
+   "Occurrence": {
     "properties": {
      "date": {
       "type": "string",
       "format": "date",
       "title": "Date",
-      "description": "The day this card is shown on: a recurring event appears once per day, a multiday one once, on the first day inside the requested range"
+      "description": "The day the card is shown on: a recurring event appears once per day, a multiday one once, on the first day inside the range"
      },
      "event": {
-      "$ref": "#/components/schemas/EventOut"
+      "$ref": "#/components/schemas/EventPublic"
      }
     },
     "type": "object",
@@ -1552,14 +1589,10 @@
      "date",
      "event"
     ],
-    "title": "OccurrenceOut"
+    "title": "Occurrence"
    },
-   "PlaceOut": {
+   "PlacePublic": {
     "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
-     },
      "name": {
       "type": "string",
       "title": "Name"
@@ -1577,7 +1610,12 @@
      },
      "description": {
       "type": "string",
-      "title": "Description"
+      "title": "Description",
+      "description": "One or two sentences in the description language"
+     },
+     "id": {
+      "type": "integer",
+      "title": "Id"
      },
      "post_url": {
       "type": "string",
@@ -1586,14 +1624,13 @@
     },
     "type": "object",
     "required": [
-     "id",
      "name",
      "address",
      "description",
+     "id",
      "post_url"
     ],
-    "title": "PlaceOut",
-    "description": "A place without a date (a bar, a climbing gym); kept apart from the feed."
+    "title": "PlacePublic"
    },
    "Plan": {
     "type": "string",
@@ -1605,15 +1642,23 @@
     ],
     "title": "Plan"
    },
-   "RefreshOut": {
+   "PlanFilter": {
+    "type": "string",
+    "enum": [
+     "none",
+     "maybe",
+     "sure",
+     "no",
+     "went"
+    ],
+    "title": "PlanFilter",
+    "description": "A plan to show, or none for cards the user has not marked yet."
+   },
+   "RefreshProgress": {
     "properties": {
      "stage": {
       "$ref": "#/components/schemas/Stage",
-      "description": "idle → collecting → reading → merging → done | failed"
-     },
-     "running": {
-      "type": "boolean",
-      "title": "Running"
+      "default": "idle"
      },
      "started_at": {
       "anyOf": [
@@ -1642,21 +1687,25 @@
      "new_posts": {
       "type": "integer",
       "title": "New Posts",
-      "description": "Posts downloaded in this refresh"
+      "description": "Posts downloaded in this refresh",
+      "default": 0
      },
      "posts_to_read": {
       "type": "integer",
       "title": "Posts To Read",
-      "description": "Posts Claude reads in this refresh"
+      "description": "Posts Claude reads in this refresh",
+      "default": 0
      },
      "posts_read": {
       "type": "integer",
-      "title": "Posts Read"
+      "title": "Posts Read",
+      "default": 0
      },
      "events_touched": {
       "type": "integer",
       "title": "Events Touched",
-      "description": "Cards created or updated"
+      "description": "Cards created or updated",
+      "default": 0
      },
      "errors": {
       "items": {
@@ -1665,21 +1714,26 @@
       "type": "array",
       "title": "Errors",
       "description": "Human-readable, ready to show"
+     },
+     "running": {
+      "type": "boolean",
+      "title": "Running",
+      "readOnly": true
      }
     },
     "type": "object",
     "required": [
      "stage",
-     "running",
      "started_at",
      "finished_at",
      "new_posts",
      "posts_to_read",
      "posts_read",
      "events_touched",
-     "errors"
+     "errors",
+     "running"
     ],
-    "title": "RefreshOut"
+    "title": "RefreshProgress"
    },
    "SettingsChange": {
     "properties": {
@@ -1721,13 +1775,128 @@
       ],
       "title": "Recent Posts",
       "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh"
+     },
+     "extraction_prompt": {
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Extraction Prompt",
+      "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}"
+     },
+     "matching_prompt": {
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Matching Prompt",
+      "description": "Instructions Claude gets for merging duplicates"
      }
     },
     "type": "object",
     "title": "SettingsChange",
     "description": "Only the fields that are sent change."
    },
-   "SourceIn": {
+   "SourceKind": {
+    "type": "string",
+    "enum": [
+     "telegram"
+    ],
+    "title": "SourceKind"
+   },
+   "SourcePublic": {
+    "properties": {
+     "kind": {
+      "$ref": "#/components/schemas/SourceKind",
+      "default": "telegram"
+     },
+     "handle": {
+      "type": "string",
+      "title": "Handle"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title",
+      "description": "The name the user gave, or the channel's own title"
+     },
+     "last_refreshed_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Refreshed At"
+     },
+     "last_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Error",
+      "description": "Shown next to the source; null when the last refresh went fine"
+     },
+     "events_found": {
+      "type": "integer",
+      "title": "Events Found",
+      "description": "Cards this source contributes to",
+      "default": 0
+     },
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url",
+      "readOnly": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind",
+     "handle",
+     "title",
+     "last_refreshed_at",
+     "last_error",
+     "events_found",
+     "id",
+     "url"
+    ],
+    "title": "SourcePublic"
+   },
+   "SourceRename": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Title"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title"
+    ],
+    "title": "SourceRename"
+   },
+   "SourceRequest": {
     "properties": {
      "link": {
       "type": "string",
@@ -1755,110 +1924,21 @@
     "required": [
      "link"
     ],
-    "title": "SourceIn"
+    "title": "SourceRequest"
    },
-   "SourceKind": {
-    "type": "string",
-    "enum": [
-     "telegram"
-    ],
-    "title": "SourceKind"
-   },
-   "SourceOut": {
-    "properties": {
-     "id": {
-      "type": "integer",
-      "title": "Id"
-     },
-     "city_id": {
-      "type": "integer",
-      "title": "City Id"
-     },
-     "kind": {
-      "$ref": "#/components/schemas/SourceKind"
-     },
-     "title": {
-      "type": "string",
-      "title": "Title",
-      "description": "The name the user gave, or the channel's own title"
-     },
-     "url": {
-      "type": "string",
-      "title": "Url",
-      "examples": [
-       "https://t.me/vstrechi_v_belgrade"
-      ]
-     },
-     "last_refreshed_at": {
-      "anyOf": [
-       {
-        "type": "string",
-        "format": "date-time"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Last Refreshed At",
-      "description": "null until the first refresh"
-     },
-     "last_error": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Last Error",
-      "description": "Shown to the user next to the source; null when the last refresh went fine"
-     },
-     "events_found": {
-      "type": "integer",
-      "title": "Events Found",
-      "description": "Cards this source contributes to"
-     }
-    },
-    "type": "object",
-    "required": [
-     "id",
-     "city_id",
-     "kind",
-     "title",
-     "url",
-     "last_refreshed_at",
-     "last_error",
-     "events_found"
-    ],
-    "title": "SourceOut"
-   },
-   "SourcePatch": {
-    "properties": {
-     "title": {
-      "type": "string",
-      "minLength": 1,
-      "title": "Title"
-     }
-    },
-    "type": "object",
-    "required": [
-     "title"
-    ],
-    "title": "SourcePatch"
-   },
-   "SplitIn": {
+   "SplitRequest": {
     "properties": {
      "mention_id": {
       "type": "integer",
-      "title": "Mention Id"
+      "title": "Mention Id",
+      "description": "The mention to move into a card of its own"
      }
     },
     "type": "object",
     "required": [
      "mention_id"
     ],
-    "title": "SplitIn"
+    "title": "SplitRequest"
    },
    "Stage": {
     "type": "string",
@@ -1872,7 +1952,7 @@
     ],
     "title": "Stage"
    },
-   "TagIn": {
+   "TagBase": {
     "properties": {
      "name": {
       "type": "string",
@@ -1887,31 +1967,35 @@
     "required": [
      "name"
     ],
-    "title": "TagIn"
+    "title": "TagBase"
    },
-   "TagOut": {
+   "TagPublic": {
     "properties": {
+     "name": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Name",
+      "examples": [
+       "Танцы"
+      ]
+     },
      "id": {
       "type": "integer",
       "title": "Id"
      },
-     "name": {
-      "type": "string",
-      "title": "Name"
-     },
      "is_fallback": {
       "type": "boolean",
       "title": "Is Fallback",
-      "description": "The «не распознано» tag: Claude puts it when no tag fits; always last"
+      "description": "Put by Claude when no tag fits; always last, cannot be renamed"
      }
     },
     "type": "object",
     "required": [
-     "id",
      "name",
+     "id",
      "is_fallback"
     ],
-    "title": "TagOut"
+    "title": "TagPublic"
    },
    "UpdateKind": {
     "type": "string",

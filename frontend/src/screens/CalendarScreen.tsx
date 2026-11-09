@@ -1,72 +1,68 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 
-import type { Occurrence } from "../api/client";
-import { useFeed } from "../api/hooks";
-import { EventTime } from "../components/EventTime";
-import { Icon } from "../components/Icon";
-import { EmptyState, Screen } from "../components/Screen";
+import { useFeed } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
-import { addDays, dayNumber, monthTitle, weekStart, weekdayShort } from "../domain/dates";
+import { feedFromHref, SECTIONS } from "../app/routes";
+import { addDays, dayAndMonth, dayNumber, monthTitle, weekStart, weekdayShort } from "../domain/dates";
+import { groupByDay } from "../domain/feed";
+import { SHOWN_PLANS } from "../domain/plans";
+import { EventTime } from "../events/EventTime";
+import { FilterBar } from "../events/FilterBar";
+import { useEventFilters } from "../events/useEventFilters";
+import { useOpenEvent } from "../events/navigation";
+import { IconButton } from "../ui/IconButton";
+import { Screen } from "../ui/Screen";
+import { NoCity } from "./NoCity";
 import "./CalendarScreen.css";
 
-/** A week at a time, for planning ahead; events the user plans to visit stand out. */
+/** A week at a time, for planning ahead: what is not marked yet and what the user is going to, the latter highlighted. */
 export function CalendarScreen() {
   const { city, today } = useActiveCity();
-  const [params, setParams] = useSearchParams();
-  const monday = params.get("week") ?? (today ? weekStart(today) : null);
+  const filters = useEventFilters();
+  const open = useOpenEvent();
+  const monday = filters.params.get("week") ?? (today ? weekStart(today) : null);
   const days = monday ? Array.from({ length: 7 }, (_, i) => addDays(monday, i)) : [];
-  const feed = useFeed({ start: days[0], end: days[6], hideMarked: true }, monday !== null);
-  const goTo = (week: string) => setParams(week === (today && weekStart(today)) ? {} : { week }, { replace: true });
+  const feed = useFeed({ ...filters.query, start: days[0], end: days[6], plans: SHOWN_PLANS.calendar }, monday !== null);
+  const goTo = (week: string) => filters.change((next) => (today && week === weekStart(today) ? next.delete("week") : next.set("week", week)));
 
   if (!city || !today || !monday) {
     return (
-      <Screen title="Календарь">
-        <EmptyState title="Здесь пока пусто" text="Добавьте город и источники." link={{ to: "/sources", label: "Добавить город и источники" }} />
+      <Screen title={SECTIONS.calendar.title}>
+        <NoCity />
       </Screen>
     );
   }
 
-  const byDay = new Map<string, Occurrence[]>(days.map((day) => [day, []]));
-  feed.data?.forEach((item) => byDay.get(item.date)?.push(item));
-  const months = [...new Set([monthTitle(days[0]), monthTitle(days[6])])].join(" – ");
-
+  const title = [...new Set([monthTitle(days[0]), monthTitle(days[6])])].join(" – ");
   return (
     <Screen
-      title={months}
+      title={title}
       action={
         <div className="week-nav">
-          <button type="button" aria-label="Предыдущая неделя" onClick={() => goTo(addDays(monday, -7))}>
-            <Icon name="chevronLeft" />
-          </button>
-          <button type="button" className="week-nav__today" onClick={() => goTo(weekStart(today))}>
+          <IconButton icon="chevronLeft" label="Предыдущая неделя" onClick={() => goTo(addDays(monday, -7))} />
+          <button type="button" className="button button--quiet button--small" onClick={() => goTo(weekStart(today))}>
             Сегодня
           </button>
-          <button type="button" aria-label="Следующая неделя" onClick={() => goTo(addDays(monday, 7))}>
-            <Icon name="chevronRight" />
-          </button>
+          <IconButton icon="chevronRight" label="Следующая неделя" onClick={() => goTo(addDays(monday, 7))} />
         </div>
       }
+      toolbar={<FilterBar filters={filters} />}
     >
       <div className="week">
-        <div className="week__grid">
-          {days.map((day) => (
-            <div key={day} className="week__day">
-              <div className="week__day-head">
-                <span className="week__weekday">{weekdayShort(day)}</span>
-                <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
-              </div>
-              {byDay.get(day)?.map(({ event }) => {
-                const planned = event.mark.plan === "maybe" || event.mark.plan === "sure";
-                return (
-                  <Link key={event.id} to={`/event/${event.id}?day=${day}`} className={`week__item${planned ? " week__item--planned" : ""}`}>
-                    <EventTime event={event} className="week__time" iconSize={14} />
-                    <span className="week__title">{event.title}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </div>
+        {groupByDay(feed.data ?? [], days).map(([day, items]) => (
+          <div key={day} className={`week__day${day < today ? " week__day--past" : ""}`}>
+            <Link to={feedFromHref(day)} className="week__head" data-tip={`Ближайшие с ${dayAndMonth(day)}`}>
+              <span className="week__weekday">{weekdayShort(day)}</span>
+              <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
+            </Link>
+            {items.map(({ event }) => (
+              <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}`} onClick={() => open(event.id, day)}>
+                <EventTime event={event} className="week__time" iconSize={14} />
+                <span className="week__title">{event.title}</span>
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
     </Screen>
   );

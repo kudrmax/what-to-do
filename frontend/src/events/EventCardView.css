@@ -1,0 +1,121 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.card {
+  container-type: inline-size;
+}
+
+.card__layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.card__photo {
+  aspect-ratio: 16 / 10;
+}
+
+/* A wide card (one column) puts the photo beside the text instead of over it. */
+@container (min-width: 560px) {
+  .card__layout {
+    flex-direction: row;
+  }
+
+  .card__photo {
+    flex: 0 0 38%;
+    aspect-ratio: auto;
+    min-height: 220px;
+  }
+
+  .card__body {
+    flex: 1;
+    min-width: 0;
+    padding: 18px 20px 16px;
+  }
+}
+
+.card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 14px;
+}
+
+.card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.card__time {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.card__end {
+  margin-left: auto;
+}
+
+.card__price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.card__title {
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.card--cancelled .card__title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.card__text {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: pre-line;
+}
+
+.card__marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  cursor: default;
+}
+
+.event-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.event-time__unknown,
+.event-time__repeat {
+  display: inline-flex;
+  color: var(--text-faint);
+}

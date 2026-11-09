@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from where_to_go.domain import Mark, Mention
+from where_to_go.models import Mark, Mention
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.repositories import EventRepository, MentionRepository
 from where_to_go.resolution import EventResolver
@@ -15,7 +15,7 @@ class EventCards:
         self._resolver = resolver
 
     def create(self, city_id: int, mention: Mention, locked: bool = False) -> int:
-        event_id = self._events.create(city_id, mention.data)
+        event_id = self._events.create(city_id, mention.data).id
         self._mentions.assign(mention.id, event_id, locked)
         return event_id
 
@@ -36,14 +36,7 @@ class EventCards:
             self._mentions.assign(mention.id, target_id, locked=True)
         for mention in self._mentions.of_event(target_id):
             self._mentions.assign(mention.id, target_id, locked=True)
-        if not target.mark.is_complete and other.mark != target.mark:
-            self._events.set_mark(
-                target_id,
-                Mark(
-                    interest=target.mark.interest or other.mark.interest,
-                    plan=target.mark.plan or other.mark.plan,
-                ),
-            )
+        self._events.set_mark(target_id, Mark(interest=target.interest or other.interest, plan=target.plan or other.plan))
         self._events.delete(other_id)
         self.refresh(target_id)
 
@@ -69,8 +62,7 @@ class EventCards:
         if not mentions:
             self._events.delete(event_id)
             return
-        current = self._events.get(event_id)
-        self._events.save_resolved(self._resolver.resolve(event_id, current.city_id, mentions, current.mark))
+        self._events.save(self._resolver.resolve(self._events.get(event_id), mentions))
 
 
 class EventLinker:

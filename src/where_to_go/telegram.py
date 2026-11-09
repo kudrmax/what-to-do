@@ -6,7 +6,7 @@ from datetime import datetime
 import httpx
 from selectolax.lexbor import LexborHTMLParser as HTMLParser, LexborNode as Node
 
-from where_to_go.domain import CollectedPost
+from where_to_go.models import CollectedPost, TelegramUrls
 
 _HANDLE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{3,31}$")
 _BACKGROUND_URL = re.compile(r"background-image:url\('([^']+)'\)")
@@ -53,7 +53,7 @@ class TelegramPageParser:
 
     def _post(self, node: Node) -> CollectedPost | None:
         ident = node.attributes.get("data-post") or ""
-        _, _, number = ident.rpartition("/")
+        handle, _, number = ident.rpartition("/")
         time_node = node.css_first(".tgme_widget_message_date time")
         if not number.isdigit() or time_node is None:
             return None
@@ -71,10 +71,10 @@ class TelegramPageParser:
             return None
         return CollectedPost(
             external_id=int(number),
-            url=f"https://t.me/{ident}",
+            url=TelegramUrls.post(handle, int(number)),
             published_at=datetime.fromisoformat(time_node.attributes["datetime"]),
             text=text,
-            image_urls=tuple(images),
+            image_urls=images,
         )
 
 
@@ -115,7 +115,6 @@ class HtmlText:
 
 
 class TelegramChannelReader:
-    BASE = "https://t.me/s/"
     MAX_PAGES = 15
 
     def __init__(self, client: httpx.AsyncClient) -> None:
@@ -147,13 +146,11 @@ class TelegramChannelReader:
     async def _page(self, handle: str, before: int | None) -> TelegramPageParser:
         params = {"before": before} if before else None
         try:
-            response = await self._client.get(self.BASE + handle, params=params, follow_redirects=False)
+            response = await self._client.get(TelegramUrls.preview(handle), params=params, follow_redirects=False)
         except httpx.HTTPError as error:
             raise SourceError(f"Telegram не ответил: {error.__class__.__name__}") from error
-        if response.status_code != 200:
-            raise SourceError("Канал закрыт или у него выключен веб-просмотр")
-        parser = TelegramPageParser(response.text)
-        if not parser.is_channel():
+        parser = TelegramPageParser(response.text) if response.status_code == 200 else None
+        if parser is None or not parser.is_channel():
             raise SourceError("Канал закрыт или у него выключен веб-просмотр")
         return parser
 

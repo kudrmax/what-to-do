@@ -24,7 +24,7 @@ def test_empty_app_asks_for_a_city_first(client):
 
 def test_first_city_becomes_active(client):
     city = client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"}).json()
-    assert city["active"] is True
+    assert client.get("/settings").json()["active_city_id"] == city["id"]
     assert client.post("/cities", json={"name": "Х", "timezone": "Mars/Base"}).status_code == 422
 
 
@@ -59,10 +59,10 @@ def test_add_source_refresh_and_mark(client):
 
     event_id = item["event"]["id"]
     marked = client.put(f"/events/{event_id}/mark", json={"interest": 2, "plan": "no"}).json()
-    assert marked["mark"] == {"interest": 2, "plan": "no"}
-    assert client.get("/events", params={"start": "2099-01-01", "end": "2099-01-07"}).json() == []
-    detail = client.get(f"/events/{event_id}").json()
-    assert detail["mentions"][0]["post_url"] == "https://t.me/quizbg/3"
+    assert (marked["interest"], marked["plan"], marked["is_going"]) == (2, "no", False)
+    assert client.get("/events", params={"start": "2099-01-01", "end": "2099-01-07", "plans": "none"}).json() == []
+    [mention] = client.get(f"/events/{event_id}/mentions").json()
+    assert mention["post_url"] == "https://t.me/quizbg/3" and mention["source_title"] == "Канал quizbg"
     assert client.get("/sources").json()[0]["events_found"] == 1
 
 
@@ -70,25 +70,19 @@ def seeded(client, *events):
     """Puts cards straight into storage: one post and mention per (source handle, raw event)."""
     from datetime import UTC, datetime
 
-    from where_to_go.domain import CollectedPost, SourceKind
-    from where_to_go.extraction import PostExtractor
-    from where_to_go.domain import Post
+    from where_to_go.models import CollectedPost, ExtractedEvent, Source
 
     c = client.app.state.container
-    city = c.cities.all()[0] if c.cities.all() else None
-    if city is None:
-        client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
-        city = c.cities.all()[0]
+    city = c.cities.active() or c.cities.add("Белград", "Europe/Belgrade")
     ids = []
     for handle, raw in events:
-        source = next((s for s in c.sources.in_city(city.id) if s.handle == handle), None) or c.sources.add(city.id, SourceKind.TELEGRAM, handle, handle)
+        source = next((s for s in c.sources.in_city(city.id) if s.handle == handle), None) or c.sources.add(Source(city_id=city.id, handle=handle, title=handle))
         external = len(c.posts.known_ids(source.id)) + 1
-        c.posts.add_new(source.id, CollectedPost(external, f"https://t.me/{handle}/{external}", datetime(2026, 11, 1, tzinfo=UTC), "текст"), [])
+        c.posts.add_new(source.id, CollectedPost(external_id=external, url=f"https://t.me/{handle}/{external}", published_at=datetime(2026, 11, 1, tzinfo=UTC), text="текст"), [])
         post = next(p for p in c.posts.unprocessed([source.id]) if p.external_id == external)
-        extracted = PostExtractor._event(raw, {"Лекция", "Концерт"}, "не распознано")
-        mention_id = c.mentions.add(post.id, 0, extracted)
+        mention = c.mentions.add(post.id, 0, ExtractedEvent.model_validate(raw), None)
         c.posts.mark_processed(post.id)
-        ids.append(c.cards.create(city.id, c.mentions.get(mention_id)))
+        ids.append(c.cards.create(city.id, mention))
         c.cards.refresh(ids[-1])
     return ids
 
@@ -96,17 +90,18 @@ def seeded(client, *events):
 def test_merge_and_split_through_the_api(client):
     a, b = seeded(client, ("kafana", raw_event("Кафаны", "2099-01-02", "19:00", from_organizer=True)), ("afisha", raw_event("Про кафаны", "2099-01-02", "19:30")))
     merged = client.post(f"/events/{a}/merge", json={"other_event_id": b}).json()
-    assert len(merged["mentions"]) == 2 and merged["start_time"] == "19:00:00"
+    mentions = client.get(f"/events/{a}/mentions").json()
+    assert len(mentions) == 2 and merged["start_time"] == "19:00:00"
     assert merged["conflicts"] == [{"field": "start_time", "values": ["19:00", "19:30"]}]
     assert client.get(f"/events/{b}").status_code == 404
     assert client.post(f"/events/{a}/merge", json={"other_event_id": a}).status_code == 422
 
-    afisha = next(m for m in merged["mentions"] if not m["from_organizer"])
+    afisha = next(m for m in mentions if not m["data"]["from_organizer"])
     split = client.post(f"/events/{a}/split", json={"mention_id": afisha["id"]}).json()
-    assert split["id"] != a and [m["id"] for m in split["mentions"]] == [afisha["id"]]
+    assert split["id"] != a and [m["id"] for m in client.get(f"/events/{split['id']}/mentions").json()] == [afisha["id"]]
     assert client.post(f"/events/{a}/split", json={"mention_id": afisha["id"]}).status_code == 404
-    lone = client.get(f"/events/{a}").json()["mentions"][0]["id"]
-    assert client.post(f"/events/{a}/split", json={"mention_id": lone}).status_code == 422
+    [lone] = client.get(f"/events/{a}/mentions").json()
+    assert client.post(f"/events/{a}/split", json={"mention_id": lone["id"]}).status_code == 422
 
 
 def test_feed_filters(client):
@@ -128,9 +123,11 @@ def test_feed_filters(client):
     assert ids(only_timed=True) == [lecture, concert]
     client.put(f"/events/{concert}/mark", json={"interest": 5, "plan": "sure"})
     client.put(f"/events/{lecture}/mark", json={"interest": 1, "plan": "no"})
-    assert ids() == [concert, untimed]
-    assert ids(hide_marked=False) == [lecture, concert, untimed]
+    assert ids(plans="none") == [untimed]
+    assert ids() == [lecture, concert, untimed]
     assert ids(plans=["maybe", "sure"]) == [concert]
+    past = client.get("/events", params={"end": "2099-01-02", "plans": "no"}).json()
+    assert [o["event"]["id"] for o in past] == [lecture]
     assert client.put(f"/events/{concert}/mark", json={"interest": 9}).status_code == 422
 
 
@@ -138,6 +135,8 @@ def test_tags_settings_and_unknown_ids(client):
     client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
     tags = client.get("/tags").json()
     assert tags[-1] == {"id": tags[-1]["id"], "name": "не распознано", "is_fallback": True}
+    renamed_fallback = client.patch(f"/tags/{tags[-1]['id']}", json={"name": "Другое"})
+    assert renamed_fallback.status_code == 422 and "не распознано" in renamed_fallback.json()["detail"]
     added = client.post("/tags", json={"name": "Танцы"}).json()
     assert client.get("/tags").json()[-2]["name"] == "Танцы"  # new tags go before the fallback
     assert client.patch(f"/tags/{added['id']}", json={"name": "Танцы и сальса"}).json()["name"] == "Танцы и сальса"
@@ -151,6 +150,9 @@ def test_tags_settings_and_unknown_ids(client):
     assert client.patch("/settings", json={"active_city_id": 999}).status_code == 404
     assert client.get("/events/999").status_code == 404
     assert client.get("/images/../where-to-go.sqlite3").status_code == 404
+    assert client.get("/settings/defaults").json()["recent_posts"] == 20
+    bad_prompt = client.patch("/settings", json={"extraction_prompt": "Город {town}"})
+    assert bad_prompt.status_code == 422 and "{town}" not in client.get("/settings").json()["extraction_prompt"]
 
 
 def test_renaming_a_tag_renames_it_on_cards(client):
@@ -175,8 +177,7 @@ def test_deleting_a_source_drops_cards_only_it_supported(client):
     assert client.delete(f"/sources/{a_id}").status_code == 204
 
     assert client.get(f"/events/{only_a}").status_code == 404
-    survivor = client.get(f"/events/{shared}").json()
-    assert [m["source_title"] for m in survivor["mentions"]] == ["b"]
+    assert [m["source_title"] for m in client.get(f"/events/{shared}/mentions").json()] == ["b"]
 
 
 @respx.mock

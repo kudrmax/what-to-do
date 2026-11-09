@@ -1,30 +1,39 @@
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from enum import StrEnum
 
 from dateutil.rrule import rrulestr
+from sqlmodel import Field, SQLModel
 
-from where_to_go.domain import Event, EventKind, Plan
+from where_to_go.models import Event, EventKind, EventPublic, Plan, Public
 from where_to_go.repositories import EventRepository
 
+PlanFilter = StrEnum("PlanFilter", {"NONE": "none", **{plan.name: plan.value for plan in Plan}})
+PlanFilter.__doc__ = "A plan to show, or none for cards the user has not marked yet."
 
-@dataclass(frozen=True)
-class Occurrence:
-    event: Event
-    date: date
+RECURRING_MIN_REACH = timedelta(weeks=4)
+
+
+class Occurrence(Public):
+    date: dt.date = Field(
+        description="The day the card is shown on: a recurring event appears once per day, a multiday one once, "
+        "on the first day inside the range"
+    )
+    event: EventPublic
 
 
 @dataclass(frozen=True)
 class FeedFilter:
     start: date
-    end: date
+    end: date | None = None
     tags: frozenset[str] = frozenset()
     source_ids: frozenset[int] = frozenset()
     only_timed: bool = False
     hide_multiday: bool = False
-    hide_marked: bool = True
-    plans: frozenset[Plan] = field(default_factory=frozenset)
+    plans: frozenset[PlanFilter] = field(default_factory=frozenset)
 
     def accepts(self, event: Event) -> bool:
         if self.tags and not self.tags & set(event.tags):
@@ -35,25 +44,34 @@ class FeedFilter:
             return False
         if self.hide_multiday and event.kind is EventKind.MULTIDAY:
             return False
-        if self.plans and event.mark.plan not in self.plans:
-            return False
-        if self.hide_marked and event.mark.is_dismissed:
-            return False
-        return True
+        return not self.plans or PlanFilter(event.plan or PlanFilter.NONE) in self.plans
 
 
 class Feed:
-    """Events of a city laid out on days: recurring ones repeat, multi-day ones show once."""
+    """Events of a city laid out on days: recurring ones repeat, multi-day ones show once.
+
+    Without an end the feed reaches the last dated event the city has; recurring events repeat up to there
+    (and at least four weeks ahead, so a city of regular events alone is not empty).
+    """
 
     def __init__(self, events: EventRepository) -> None:
         self._events = events
 
     def occurrences(self, city_id: int, criteria: FeedFilter) -> list[Occurrence]:
+        end = criteria.end or self._reach(city_id, criteria.start)
         result = []
-        for event in self._events.near(city_id, criteria.start, criteria.end):
+        for event in self._events.near(city_id, criteria.start, end):
             if criteria.accepts(event):
-                result.extend(Occurrence(event, day) for day in self._days(event, criteria.start, criteria.end))
+                public = EventPublic.model_validate(event)
+                result.extend(Occurrence(date=day, event=public) for day in self._days(event, criteria.start, end))
         return sorted(result, key=self._order)
+
+    def earliest(self, city_id: int) -> date | None:
+        return min((e.start_date for e in self._events.in_city(city_id)), default=None)
+
+    def _reach(self, city_id: int, start: date) -> date:
+        dated = [e.end_date or e.start_date for e in self._events.in_city(city_id) if e.kind is not EventKind.RECURRING]
+        return max([start + RECURRING_MIN_REACH, *dated])
 
     @staticmethod
     def _days(event: Event, start: date, end: date) -> list[date]:
@@ -71,6 +89,3 @@ class Feed:
         event = occurrence.event
         multiday = event.kind is EventKind.MULTIDAY
         return (occurrence.date, multiday, event.start_time is None, event.start_time or time(), event.title)
-
-
-DEFAULT_HORIZON = timedelta(days=14)

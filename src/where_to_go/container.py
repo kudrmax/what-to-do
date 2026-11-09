@@ -5,6 +5,7 @@ from pathlib import Path
 
 import httpx
 
+from where_to_go.about import USER_AGENT
 from where_to_go.db import Database
 from where_to_go.extraction import PostExtractor
 from where_to_go.feed import Feed
@@ -12,7 +13,7 @@ from where_to_go.images import ImageStore
 from where_to_go.linking import EventCards, EventLinker
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
-from where_to_go.refresh import RefreshService
+from where_to_go.refresh import PostReader, RefreshService
 from where_to_go.repositories import (
     CityRepository,
     EventRepository,
@@ -24,6 +25,7 @@ from where_to_go.repositories import (
     TagRepository,
 )
 from where_to_go.resolution import EventResolver
+from where_to_go.sources import SourceCatalog
 from where_to_go.telegram import TelegramChannelReader
 
 PROVISIONAL_TAGS = [
@@ -42,6 +44,7 @@ PROVISIONAL_TAGS = [
     "Маркет",
     "Детям",
 ]
+FALLBACK_TAG = "не распознано"
 
 EXTRACTION_MODEL = "claude-sonnet-5-5"
 MATCHING_MODEL = "claude-haiku-5-5"
@@ -54,15 +57,17 @@ class Container:
     settings: SettingsRepository
     cities: CityRepository
     sources: SourceRepository
+    catalog: SourceCatalog
     posts: PostRepository
     mentions: MentionRepository
     places: PlaceRepository
     tags: TagRepository
     events: EventRepository
     images: ImageStore
-    reader: TelegramChannelReader
     cards: EventCards
+    linker: EventLinker
     feed: Feed
+    post_reader: PostReader
     refresh: RefreshService
 
     @classmethod
@@ -74,21 +79,27 @@ class Container:
         http: httpx.AsyncClient | None = None,
     ) -> Container:
         db = Database(data_dir / "where-to-go.sqlite3")
-        http = http or httpx.AsyncClient(timeout=30, headers={"User-Agent": "where-to-go/0.1"})
+        http = http or httpx.AsyncClient(timeout=30, headers={"User-Agent": USER_AGENT})
         settings = SettingsRepository(db)
-        cities = CityRepository(db)
+        cities = CityRepository(db, settings)
         sources = SourceRepository(db)
         posts = PostRepository(db)
         mentions = MentionRepository(db)
         places = PlaceRepository(db)
         tags = TagRepository(db)
-        tags.ensure_seeded(PROVISIONAL_TAGS)
+        tags.ensure_seeded(PROVISIONAL_TAGS, FALLBACK_TAG)
         events = EventRepository(db)
         images = ImageStore(data_dir / "images", http)
         reader = TelegramChannelReader(http)
-        cards = EventCards(events, mentions, EventResolver(TagRepository.FALLBACK))
-        linker = EventLinker(
-            CandidateFinder(events), DuplicateJudge(matching_llm or ClaudeJsonLlm(MATCHING_MODEL)), cards
+        cards = EventCards(events, mentions, EventResolver(tags.fallback))
+        linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm or ClaudeJsonLlm(MATCHING_MODEL), lambda: settings.load().matching_prompt), cards)
+        post_reader = PostReader(
+            settings=settings,
+            tags=tags,
+            posts=posts,
+            mentions=mentions,
+            places=places,
+            extractor=PostExtractor(extraction_llm or ClaudeJsonLlm(EXTRACTION_MODEL)),
         )
         refresh = RefreshService(
             settings=settings,
@@ -96,11 +107,10 @@ class Container:
             sources=sources,
             posts=posts,
             mentions=mentions,
-            places=places,
-            tags=tags,
+            events=events,
             reader=reader,
             images=images,
-            extractor=PostExtractor(extraction_llm or ClaudeJsonLlm(EXTRACTION_MODEL)),
+            post_reader=post_reader,
             linker=linker,
         )
         return cls(
@@ -109,15 +119,17 @@ class Container:
             settings=settings,
             cities=cities,
             sources=sources,
+            catalog=SourceCatalog(sources, events, cards, reader),
             posts=posts,
             mentions=mentions,
             places=places,
             tags=tags,
             events=events,
             images=images,
-            reader=reader,
             cards=cards,
+            linker=linker,
             feed=Feed(events),
+            post_reader=post_reader,
             refresh=refresh,
         )
 
