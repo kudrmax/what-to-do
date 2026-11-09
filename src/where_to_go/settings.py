@@ -11,7 +11,7 @@ from where_to_go import prompts
 class AppSettings(BaseModel):
     """Every setting of the app, described once: storage, the API and its change request all come from here."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", json_schema_serialization_defaults_required=True)
 
     active_city_id: int | None = Field(default=None, description="null until the first city is added")
     description_language: str = Field(default="русский", min_length=1, description="Language Claude writes titles and descriptions in")

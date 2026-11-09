@@ -233,7 +233,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def feed(
         c: ContainerDep,
         city: CityDep,
-        start: Annotated[date | None, Query(description="First day; default: today in the city's time zone")] = None,
+        start: Annotated[date | None, Query(description="First day; default: today in the city's time zone, or the earliest event when only end is given")] = None,
         end: Annotated[date | None, Query(description="Last day, inclusive; default: as far as the city has dated events")] = None,
         tags: Annotated[list[str], Query(description="Any of these tags; repeat the parameter for several")] = [],
         sources: Annotated[list[int], Query(description="Cards that have a post from any of these sources")] = [],
@@ -242,7 +242,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         hide_multiday: Annotated[bool, Query(description="Hide exhibitions, festivals and other multiday events")] = False,
     ):
         """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day."""
-        first = start or datetime.now(ZoneInfo(city.timezone)).date()
+        first = start or (c.feed.earliest(city.id) if end else None) or datetime.now(ZoneInfo(city.timezone)).date()
         criteria = FeedFilter(
             start=first,
             end=end,

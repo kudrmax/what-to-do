@@ -1,7 +1,7 @@
 .day-feed {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 36px;
 }
 
 .day-feed__day {
@@ -10,28 +10,22 @@
   gap: 14px;
 }
 
-.day-feed__heading {
+.day-heading {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
-}
-
-.day-feed__heading h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: inherit;
 }
 
-.day-feed__heading span {
+.day-heading__sub {
   font-size: 14px;
   color: var(--text-muted);
 }
 
 .day-feed__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  align-items: start;
   gap: 16px;
 }

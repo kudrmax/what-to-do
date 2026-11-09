@@ -5,6 +5,8 @@ const MONTHS_GENITIVE = ["января", "февраля", "марта", "апр
 const MONTHS_NOMINATIVE = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 const WEEKDAYS = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
 const WEEKDAYS_SHORT = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+/** RFC 5545 weekday codes in JavaScript's weekday order (Sunday first). */
+export const WEEKDAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
 function parts(day: IsoDay): { year: number; month: number; date: number; weekday: number } {
   const [year, month, date] = day.split("-").map(Number);
@@ -49,11 +51,11 @@ export function longDate(day: IsoDay): string {
 }
 
 /** Day heading: "Сегодня" / "9 ноября, понедельник", "Завтра" / …, "11 ноября" / "среда". */
-export function dayHeading(day: IsoDay, today: IsoDay): { title: string; subtitle: string } {
+export function dayHeading(day: IsoDay, today: IsoDay): { title: string; subtitle: string; relative: boolean } {
   const weekday = WEEKDAYS[parts(day).weekday];
-  if (day === today) return { title: "Сегодня", subtitle: `${dayAndMonth(day)}, ${weekday}` };
-  if (day === addDays(today, 1)) return { title: "Завтра", subtitle: `${dayAndMonth(day)}, ${weekday}` };
-  return { title: dayAndMonth(day), subtitle: weekday };
+  if (day === today) return { title: "Сегодня", subtitle: `${dayAndMonth(day)}, ${weekday}`, relative: true };
+  if (day === addDays(today, 1)) return { title: "Завтра", subtitle: `${dayAndMonth(day)}, ${weekday}`, relative: true };
+  return { title: dayAndMonth(day), subtitle: weekday, relative: false };
 }
 
 /** "1–30 ноября" or "28 октября – 5 ноября". */

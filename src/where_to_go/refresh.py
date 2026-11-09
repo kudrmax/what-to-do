@@ -8,7 +8,7 @@ from enum import StrEnum
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import City, Post, Source
+from where_to_go.models import City, Post, Public, Source
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
 from where_to_go.linking import EventLinker
@@ -41,7 +41,7 @@ class Stage(StrEnum):
         return self in (Stage.COLLECTING, Stage.READING, Stage.MERGING)
 
 
-class RefreshProgress(SQLModel):
+class RefreshProgress(Public):
     stage: Stage = Stage.IDLE
     started_at: datetime | None = None
     finished_at: datetime | None = None

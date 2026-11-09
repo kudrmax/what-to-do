@@ -1,82 +1,46 @@
-import { useSearchParams } from "react-router-dom";
-
-import { useFeed, useSources, useTags } from "../api/hooks";
-import { DayFeed } from "../components/DayFeed";
-import { MultiSelectChip, ToggleChip } from "../components/Filters";
-import { RefreshButton } from "../components/RefreshButton";
-import { EmptyState, Screen } from "../components/Screen";
+import { useFeed, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
-import { addDays } from "../domain/dates";
+import { SECTIONS } from "../app/routes";
+import { dayAndMonth } from "../domain/dates";
+import { SHOWN_PLANS } from "../domain/plans";
+import { DayFeed } from "../events/DayFeed";
+import { FilterBar } from "../events/FilterBar";
+import { useEventFilters } from "../events/useEventFilters";
+import { RefreshButton } from "../events/RefreshButton";
+import { Icon } from "../ui/Icon";
+import { EmptyState, Screen } from "../ui/Screen";
+import { NoCity } from "./NoCity";
 
-const HORIZON_DAYS = 14;
-
-/** Filter state lives in the address, so back and forward keep it. */
-function useFeedFilters() {
-  const [params, setParams] = useSearchParams();
-  const update = (change: (next: URLSearchParams) => void) => {
-    const next = new URLSearchParams(params);
-    change(next);
-    setParams(next, { replace: true });
-  };
-  const flag = (name: string) => params.get(name) === "1";
-  const setFlag = (name: string, on: boolean) => update((next) => (on ? next.set(name, "1") : next.delete(name)));
-  const setList = (name: string, values: (string | number)[]) =>
-    update((next) => {
-      next.delete(name);
-      values.forEach((value) => next.append(name, String(value)));
-    });
-  return {
-    hideMarked: !flag("all"),
-    setHideMarked: (on: boolean) => setFlag("all", !on),
-    onlyTimed: flag("timed"),
-    setOnlyTimed: (on: boolean) => setFlag("timed", on),
-    hideMultiday: flag("nomulti"),
-    setHideMultiday: (on: boolean) => setFlag("nomulti", on),
-    tags: params.getAll("tag"),
-    setTags: (values: string[]) => setList("tag", values),
-    sources: params.getAll("source").map(Number),
-    setSources: (values: number[]) => setList("source", values),
-  };
-}
-
+/** Everything ahead that the user has not marked yet; a marked card moves to «Собираюсь пойти» or leaves. */
 export function FeedScreen() {
   const { city, today } = useActiveCity();
-  const filters = useFeedFilters();
-  const tags = useTags();
+  const filters = useEventFilters();
+  const from = filters.params.get("from");
+  const start = from ?? today ?? undefined;
   const sources = useSources(city !== null);
-  const feed = useFeed(
-    {
-      start: today ?? undefined,
-      end: today ? addDays(today, HORIZON_DAYS) : undefined,
-      hideMarked: filters.hideMarked,
-      onlyTimed: filters.onlyTimed,
-      hideMultiday: filters.hideMultiday,
-      tags: filters.tags,
-      sources: filters.sources,
-    },
-    today !== null,
-  );
+  const feed = useFeed({ ...filters.query, start, plans: SHOWN_PLANS.feed }, start !== undefined);
 
-  const filterBar = (
-    <div className="filters">
-      <ToggleChip label="Скрыть «не пойду»" on={filters.hideMarked} onChange={filters.setHideMarked} />
-      <MultiSelectChip label="Теги" options={(tags.data ?? []).map((t) => ({ value: t.name, label: t.name }))} selected={filters.tags} onChange={filters.setTags} />
-      <MultiSelectChip label="Источники" options={(sources.data ?? []).map((s) => ({ value: s.id, label: s.title }))} selected={filters.sources} onChange={filters.setSources} />
-      <ToggleChip label="Только точное время" on={filters.onlyTimed} onChange={filters.setOnlyTimed} />
-      <ToggleChip label="Без многодневных" on={filters.hideMultiday} onChange={filters.setHideMultiday} />
-    </div>
+  const toolbar = city && (
+    <FilterBar filters={filters}>
+      {from && (
+        <button type="button" className="chip" aria-pressed onClick={() => filters.change((next) => next.delete("from"))} data-tip="Показать с сегодняшнего дня">
+          С {dayAndMonth(from)}
+          <Icon name="close" size={14} />
+        </button>
+      )}
+    </FilterBar>
   );
 
   return (
-    <Screen title="Ближайшие" action={city && <RefreshButton />} filters={city && filterBar}>
-      {city === null ? (
-        <EmptyState title="Здесь пока пусто" text="Добавьте город и Telegram-каналы с афишами — события появятся после обновления." link={{ to: "/sources", label: "Добавить город и источники" }} />
+    <Screen title={SECTIONS.feed.title} action={city && <RefreshButton />} toolbar={toolbar}>
+      {!city ? (
+        <NoCity />
       ) : sources.data?.length === 0 ? (
-        <EmptyState title="Нет источников" text="Добавьте Telegram-каналы с афишами, потом нажмите «Обновить»." link={{ to: "/sources", label: "Добавить источники" }} />
+        <EmptyState title="Нет источников" text="Добавьте Telegram-каналы с афишами, потом нажмите «Обновить»." link={{ to: SECTIONS.sources.path, label: "Добавить источники" }} />
       ) : feed.data?.length === 0 ? (
-        <EmptyState title="Ничего не нашлось" text="В ближайшие две недели событий нет, или их скрывают фильтры." />
+        <EmptyState title="Всё разобрано" text="Неразмеченных событий впереди нет, или их скрывают фильтры. Размеченные — в «Собираюсь пойти»." />
       ) : (
-        today && feed.data && <DayFeed occurrences={feed.data} today={today} shownTags={filters.tags} />
+        today && feed.data && <DayFeed occurrences={feed.data} today={today} shownTags={filters.query.tags} />
       )}
     </Screen>
   );

@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import quote_plus
 
 from dateutil.rrule import rrulestr
-from pydantic import TypeAdapter, computed_field, model_validator
+from pydantic import ConfigDict, TypeAdapter, computed_field, model_validator
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, Relationship, SQLModel
@@ -91,6 +91,12 @@ class Typed(TypeDecorator):
 
 def json_field(python_type: Any, **kwargs: Any) -> Any:
     return Field(sa_type=Typed(python_type), **kwargs)
+
+
+class Public(SQLModel):
+    """An API answer: every field with a default is still always there, and the schema says so."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
 # ---------- an event ----------
@@ -210,7 +216,7 @@ class Event(EventCard, table=True):
     marked_at: datetime | None = None
 
 
-class EventPublic(EventCard):
+class EventPublic(EventCard, Public):
     id: int
 
     @computed_field
@@ -247,7 +253,7 @@ class City(CityBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
 
 
-class CityPublic(CityBase):
+class CityPublic(CityBase, Public):
     id: int
 
 
@@ -268,7 +274,7 @@ class Source(SourceBase, table=True):
     city_id: int = Field(foreign_key="cities.id", index=True)
 
 
-class SourcePublic(SourceBase):
+class SourcePublic(SourceBase, Public):
     id: int
 
     @computed_field
@@ -306,7 +312,7 @@ class Tag(TagBase, table=True):
     is_fallback: bool = False
 
 
-class TagPublic(TagBase):
+class TagPublic(TagBase, Public):
     id: int
     is_fallback: bool = Field(description="Put by Claude when no tag fits; always last, cannot be renamed")
 
@@ -356,7 +362,7 @@ class Mention(SQLModel, table=True):
         return images[self.image_index] if self.image_index is not None and self.image_index < len(images) else None
 
 
-class MentionPublic(SQLModel):
+class MentionPublic(Public):
     """One original post behind a card."""
 
     id: int = Field(description="Pass it to split to move this post into a card of its own")
@@ -391,7 +397,7 @@ class Place(ExtractedPlace, table=True):
         return self.post.url
 
 
-class PlacePublic(ExtractedPlace):
+class PlacePublic(ExtractedPlace, Public):
     id: int
     post_url: str
 

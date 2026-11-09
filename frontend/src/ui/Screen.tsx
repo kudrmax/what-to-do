@@ -3,18 +3,30 @@ import { Link } from "react-router-dom";
 
 import "./Screen.css";
 
-export function Screen({ title, action, filters, children, narrow }: { title: string; action?: ReactNode; filters?: ReactNode; children: ReactNode; narrow?: boolean }) {
+export function Screen({ title, action, toolbar, children, narrow }: { title: string; action?: ReactNode; toolbar?: ReactNode; children: ReactNode; narrow?: boolean }) {
   return (
     <div className={`screen${narrow ? " screen--narrow" : ""}`}>
       <header className="screen__header">
         <div className="screen__title-row">
-          <h1>{title}</h1>
+          <h1 className="title">{title}</h1>
           {action}
         </div>
-        {filters}
+        {toolbar}
       </header>
       {children}
     </div>
+  );
+}
+
+export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="screen-section">
+      <div className="screen-section__head">
+        <h2 className="section-title">{title}</h2>
+        {hint && <p className="screen-section__hint">{hint}</p>}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -24,7 +36,7 @@ export function EmptyState({ title, text, link }: { title: string; text?: string
       <p className="empty__title">{title}</p>
       {text && <p className="empty__text">{text}</p>}
       {link && (
-        <Link to={link.to} className="empty__link">
+        <Link to={link.to} className="button button--small">
           {link.label}
         </Link>
       )}

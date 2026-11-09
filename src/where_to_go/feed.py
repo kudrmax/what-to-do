@@ -8,7 +8,7 @@ from enum import StrEnum
 from dateutil.rrule import rrulestr
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import Event, EventKind, EventPublic, Plan
+from where_to_go.models import Event, EventKind, EventPublic, Plan, Public
 from where_to_go.repositories import EventRepository
 
 PlanFilter = StrEnum("PlanFilter", {"NONE": "none", **{plan.name: plan.value for plan in Plan}})
@@ -17,7 +17,7 @@ PlanFilter.__doc__ = "A plan to show, or none for cards the user has not marked 
 RECURRING_MIN_REACH = timedelta(weeks=4)
 
 
-class Occurrence(SQLModel):
+class Occurrence(Public):
     date: dt.date = Field(
         description="The day the card is shown on: a recurring event appears once per day, a multiday one once, "
         "on the first day inside the range"
@@ -65,6 +65,9 @@ class Feed:
                 public = EventPublic.model_validate(event)
                 result.extend(Occurrence(date=day, event=public) for day in self._days(event, criteria.start, end))
         return sorted(result, key=self._order)
+
+    def earliest(self, city_id: int) -> date | None:
+        return min((e.start_date for e in self._events.in_city(city_id)), default=None)
 
     def _reach(self, city_id: int, start: date) -> date:
         dated = [e.end_date or e.start_date for e in self._events.in_city(city_id) if e.kind is not EventKind.RECURRING]

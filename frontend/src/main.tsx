@@ -1,15 +1,18 @@
+import "@fontsource-variable/inter";
+import "./styles/tokens.css";
+import "./styles/base.css";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/inter";
 
-import { ApiClient } from "./api/client";
+import { createApi } from "./api/client";
 import { App } from "./App";
-import "./styles/tokens.css";
+import "./styles/narrow.css";
 
-const api = new ApiClient(import.meta.env.VITE_API_BASE ?? "/api");
+const API_PREFIX = "/api";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App api={api} />
+    <App api={createApi(import.meta.env.VITE_API_BASE ?? API_PREFIX)} />
   </StrictMode>,
 );

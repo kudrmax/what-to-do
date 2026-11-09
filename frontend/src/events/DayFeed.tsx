@@ -4,19 +4,19 @@ import { groupByDay } from "../domain/feed";
 import { EventCardView } from "./EventCardView";
 import "./DayFeed.css";
 
-/** Cards grouped under day headings, in the order the backend gives them. */
-export function DayFeed({ occurrences, today, shownTags }: { occurrences: Occurrence[]; today: string; shownTags?: string[] }) {
+/** Cards under day headings, in the order the backend gives them. */
+export function DayFeed({ occurrences, today, shownTags, newestFirst = false }: { occurrences: Occurrence[]; today: string; shownTags?: string[]; newestFirst?: boolean }) {
   const days = groupByDay(occurrences);
   return (
     <div className="day-feed">
-      {days.map(([day, items]) => {
+      {(newestFirst ? days.reverse() : days).map(([day, items]) => {
         const heading = dayHeading(day, today);
         return (
           <section key={day} className="day-feed__day" aria-label={heading.title}>
-            <div className="day-feed__heading">
-              <h2>{heading.title}</h2>
-              <span>{heading.subtitle}</span>
-            </div>
+            <h2 className="day-heading">
+              <span className="section-title">{heading.title}</span>
+              <span className="day-heading__sub">{heading.subtitle}</span>
+            </h2>
             <div className="day-feed__grid">
               {items.map((item) => (
                 <EventCardView key={`${item.event.id}-${day}`} event={item.event} day={day} shownTags={shownTags} />

@@ -28,6 +28,26 @@ export interface paths {
         patch: operations["patch_settings_settings_patch"];
         trace?: never;
     };
+    "/settings/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Default Settings
+         * @description What every setting is out of the box; «вернуть как было» takes the value from here.
+         */
+        get: operations["default_settings_settings_defaults_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cities": {
         parameters: {
             query?: never;
@@ -37,7 +57,7 @@ export interface paths {
         };
         /**
          * List Cities
-         * @description Every city the user has added; old ones stay after a move.
+         * @description Every city the user has added; old ones stay after a move. The active one is `active_city_id` in settings.
          */
         get: operations["list_cities_cities_get"];
         put?: never;
@@ -111,7 +131,7 @@ export interface paths {
         };
         /**
          * List Tags
-         * @description Tags in display order; the fallback «не распознано» is always last.
+         * @description Tags in display order; the fallback tag is always last.
          */
         get: operations["list_tags_tags_get"];
         put?: never;
@@ -141,7 +161,7 @@ export interface paths {
         head?: never;
         /**
          * Rename Tag
-         * @description Renames a tag everywhere, on existing cards too.
+         * @description Renames a tag everywhere, on existing cards too. 422 for the fallback tag.
          */
         patch: operations["rename_tag_tags__tag_id__patch"];
         trace?: never;
@@ -174,10 +194,30 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Event Detail
-         * @description An open card with the original posts it is built from.
+         * Event Card
+         * @description One card.
          */
-        get: operations["event_detail_events__event_id__get"];
+        get: operations["event_card_events__event_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{event_id}/mentions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Event Mentions
+         * @description The original posts a card is built from, oldest first.
+         */
+        get: operations["event_mentions_events__event_id__mentions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -196,7 +236,7 @@ export interface paths {
         get?: never;
         /**
          * Set Mark
-         * @description Sets interest and plan of a card. Both fields are written as sent.
+         * @description Sets interest and plan of a card. Both fields are written as sent: null clears a value.
          */
         put: operations["set_mark_events__event_id__mark_put"];
         post?: never;
@@ -238,7 +278,7 @@ export interface paths {
         put?: never;
         /**
          * Split
-         * @description Moves one source's post out into a card of its own and returns the new card.
+         * @description Moves one mention out into a card of its own and returns the new card.
          *     Claude never undoes a manual split. 422: the card has a single source.
          */
         post: operations["split_events__event_id__split_post"];
@@ -326,7 +366,7 @@ export interface components {
              * Active City Id
              * @description null until the first city is added
              */
-            active_city_id?: number | null;
+            active_city_id: number | null;
             /**
              * Description Language
              * @description Language Claude writes titles and descriptions in
@@ -339,9 +379,38 @@ export interface components {
              * @default 20
              */
             recent_posts: number;
+            /**
+             * Extraction Prompt
+             * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
+             * @default You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.
+             *
+             *     For every post return the events and places it announces. Most posts announce nothing: return empty lists for them.
+             *
+             *     What to keep
+             *     - Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.
+             *     - A digest post that lists many events becomes one item per event.
+             *     - A place with no date goes to "places", never to "events".
+             *
+             *     The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
+             *     Each field's meaning is in the schema.
+             */
+            extraction_prompt: string;
+            /**
+             * Matching Prompt
+             * @description Instructions Claude gets for merging duplicates
+             * @default You merge duplicate event announcements collected from several Telegram channels.
+             *
+             *     You get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.
+             *
+             *     Same event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.
+             *     Not the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.
+             *
+             *     Never set both same_as_card and same_as_announcement.
+             */
+            matching_prompt: string;
         };
-        /** CityIn */
-        CityIn: {
+        /** CityBase */
+        CityBase: {
             /**
              * Name
              * @example Белград
@@ -349,156 +418,72 @@ export interface components {
             name: string;
             /**
              * Timezone
+             * @description IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it
              * @example Europe/Belgrade
              */
             timezone: string;
         };
-        /** CityOut */
-        CityOut: {
-            /** Id */
-            id: number;
-            /** Name */
+        /** CityPublic */
+        CityPublic: {
+            /**
+             * Name
+             * @example Белград
+             */
             name: string;
             /**
              * Timezone
              * @description IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it
+             * @example Europe/Belgrade
              */
             timezone: string;
-            /**
-             * Active
-             * @description The feed, sources and refresh work with the active city only
-             */
-            active: boolean;
+            /** Id */
+            id: number;
         };
-        /** ConflictOut */
-        ConflictOut: {
-            /**
-             * Field
-             * @description start_date or start_time
-             */
-            field: string;
+        /** Conflict */
+        Conflict: {
+            field: components["schemas"]["ConflictField"];
             /**
              * Values
              * @description Every value the sources give; the card shows the first one
-             * @example [
-             *       "19:00",
-             *       "19:30"
-             *     ]
              */
             values: string[];
         };
-        /** EventDetailOut */
-        EventDetailOut: {
-            /** Id */
-            id: number;
-            /** @description single: one date; multiday: start_date…end_date; recurring: repeats by `recurrence` */
-            kind: components["schemas"]["EventKind"];
-            /**
-             * Title
-             * @description Claude's own title in the description language
-             */
-            title: string;
-            /**
-             * Original Title
-             * @description The title as the organizer or the channel wrote it
-             */
-            original_title: string;
-            /**
-             * Description
-             * @description Claude's summary in the author's manner; the main element of a card
-             */
-            description: string;
-            /**
-             * Start Date
-             * Format: date
-             * @description For recurring events: the first occurrence
-             */
-            start_date: string;
-            /**
-             * End Date
-             * @description multiday only
-             */
-            end_date: string | null;
-            /**
-             * Start Time
-             * @description null: time is not known yet («время уточняется»)
-             */
-            start_time: string | null;
-            /**
-             * Recurrence
-             * @description RFC 5545 RRULE body, recurring only
-             * @example FREQ=WEEKLY;BYDAY=TU
-             */
-            recurrence: string | null;
-            /** Venue */
-            venue: string | null;
-            /** Address */
-            address: string | null;
-            /**
-             * Map Url
-             * @description Google Maps search for the address or venue
-             */
-            map_url: string | null;
-            /**
-             * Price
-             * @description As the post gives it
-             * @example 800 RSD
-             */
-            price: string | null;
-            /** Tags */
-            tags: string[];
-            /**
-             * Image Url
-             * @description Relative to the API root
-             * @example /images/3f2a.jpg
-             */
-            image_url: string | null;
-            /** Is Cancelled */
-            is_cancelled: boolean;
-            /**
-             * Conflicts
-             * @description Sources disagree; show «в источниках расходится»
-             */
-            conflicts: components["schemas"]["ConflictOut"][];
-            /** Source Ids */
-            source_ids: number[];
-            mark: components["schemas"]["MarkOut"];
-            /**
-             * Mentions
-             * @description Original posts, oldest first
-             */
-            mentions: components["schemas"]["MentionOut"][];
-        };
+        /**
+         * ConflictField
+         * @enum {string}
+         */
+        ConflictField: "start_date" | "start_time";
         /**
          * EventKind
          * @enum {string}
          */
         EventKind: "single" | "multiday" | "recurring";
-        /** EventOut */
-        EventOut: {
-            /** Id */
-            id: number;
-            /** @description single: one date; multiday: start_date…end_date; recurring: repeats by `recurrence` */
-            kind: components["schemas"]["EventKind"];
+        /** EventPublic */
+        EventPublic: {
+            /** Interest */
+            interest: number | null;
+            plan: components["schemas"]["Plan"] | null;
             /**
              * Title
-             * @description Claude's own title in the description language
+             * @description Your own short title in the description language that says what the event is, understandable without the description
              */
             title: string;
             /**
              * Original Title
-             * @description The title as the organizer or the channel wrote it
+             * @description The name as the post gives it, in the post's language
              */
             original_title: string;
             /**
              * Description
-             * @description Claude's summary in the author's manner; the main element of a card
+             * @description 2–4 sentences in the description language: what happens and what it is like. Keep the author's manner and tone, do not advertise, do not repeat date, time, place or price
              */
             description: string;
+            /** @description single: one date; multiday: runs over a period (exhibition, festival) from start_date to end_date; recurring: a regular schedule described by rrule */
+            kind: components["schemas"]["EventKind"];
             /**
              * Start Date
              * Format: date
-             * @description For recurring events: the first occurrence
+             * @description Resolve relative dates against the publication date; without a year, the nearest date not long before it. For recurring events: the first occurrence on or after the publication date
              */
             start_date: string;
             /**
@@ -508,48 +493,144 @@ export interface components {
             end_date: string | null;
             /**
              * Start Time
-             * @description null: time is not known yet («время уточняется»)
+             * @description Local time; null when the post does not say. Do not guess
              */
             start_time: string | null;
             /**
-             * Recurrence
-             * @description RFC 5545 RRULE body, recurring only
-             * @example FREQ=WEEKLY;BYDAY=TU
+             * Rrule
+             * @description recurring only: an RFC 5545 RRULE body such as "FREQ=WEEKLY;BYDAY=TU"
              */
-            recurrence: string | null;
-            /** Venue */
+            rrule: string | null;
+            /**
+             * Venue
+             * @description The venue's name as the post gives it
+             */
             venue: string | null;
-            /** Address */
+            /**
+             * Address
+             * @description The address as the post gives it
+             */
             address: string | null;
             /**
-             * Map Url
-             * @description Google Maps search for the address or venue
-             */
-            map_url: string | null;
-            /**
              * Price
-             * @description As the post gives it
-             * @example 800 RSD
+             * @description The price as a number: 0 when free, the lowest one when the post gives several, null when it does not say or the entry is a donation of any size
              */
-            price: string | null;
-            /** Tags */
+            price: number | null;
+            /**
+             * Currency
+             * @description ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0
+             */
+            currency: string | null;
+            /**
+             * Tags
+             * @description One or two tags from the allowed list
+             */
             tags: string[];
             /**
-             * Image Url
-             * @description Relative to the API root
-             * @example /images/3f2a.jpg
+             * Is Cancelled
+             * @default false
              */
-            image_url: string | null;
-            /** Is Cancelled */
             is_cancelled: boolean;
             /**
              * Conflicts
-             * @description Sources disagree; show «в источниках расходится»
+             * @description Sources disagree on these
              */
-            conflicts: components["schemas"]["ConflictOut"][];
+            conflicts: components["schemas"]["Conflict"][];
             /** Source Ids */
             source_ids: number[];
-            mark: components["schemas"]["MarkOut"];
+            /** Id */
+            id: number;
+            /** Is Going */
+            readonly is_going: boolean;
+            /** Image Url */
+            readonly image_url: string | null;
+            /**
+             * Place
+             * @description The venue and the address as one line, or whichever is known.
+             */
+            readonly place: string | null;
+            /** Map Url */
+            readonly map_url: string | null;
+        };
+        /**
+         * ExtractedEvent
+         * @description One event as one post describes it.
+         */
+        ExtractedEvent: {
+            /**
+             * Title
+             * @description Your own short title in the description language that says what the event is, understandable without the description
+             */
+            title: string;
+            /**
+             * Original Title
+             * @description The name as the post gives it, in the post's language
+             */
+            original_title: string;
+            /**
+             * Description
+             * @description 2–4 sentences in the description language: what happens and what it is like. Keep the author's manner and tone, do not advertise, do not repeat date, time, place or price
+             */
+            description: string;
+            /** @description single: one date; multiday: runs over a period (exhibition, festival) from start_date to end_date; recurring: a regular schedule described by rrule */
+            kind: components["schemas"]["EventKind"];
+            /**
+             * Start Date
+             * Format: date
+             * @description Resolve relative dates against the publication date; without a year, the nearest date not long before it. For recurring events: the first occurrence on or after the publication date
+             */
+            start_date: string;
+            /**
+             * End Date
+             * @description multiday only
+             */
+            end_date?: string | null;
+            /**
+             * Start Time
+             * @description Local time; null when the post does not say. Do not guess
+             */
+            start_time?: string | null;
+            /**
+             * Rrule
+             * @description recurring only: an RFC 5545 RRULE body such as "FREQ=WEEKLY;BYDAY=TU"
+             */
+            rrule?: string | null;
+            /**
+             * Venue
+             * @description The venue's name as the post gives it
+             */
+            venue?: string | null;
+            /**
+             * Address
+             * @description The address as the post gives it
+             */
+            address?: string | null;
+            /**
+             * Price
+             * @description The price as a number: 0 when free, the lowest one when the post gives several, null when it does not say or the entry is a donation of any size
+             */
+            price?: number | null;
+            /**
+             * Currency
+             * @description ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0
+             */
+            currency?: string | null;
+            /**
+             * Tags
+             * @description One or two tags from the allowed list
+             */
+            tags?: string[];
+            /**
+             * @description announcement: a normal announcement; reschedule: moves an event announced earlier (give the new date and time); cancellation: cancels one; details: only adds details to one announced earlier
+             * @default announcement
+             */
+            update_kind: components["schemas"]["UpdateKind"];
+            /**
+             * From Organizer
+             * @description true when the channel itself organizes or hosts the event, false for afisha and repost channels
+             * @default false
+             */
+            from_organizer: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -557,88 +638,75 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
-         * MarkIn
-         * @description Both fields are written as sent: null clears a value.
+         * Mark
+         * @description What the user decided about an event: how interesting it is, and whether they are going.
          */
-        MarkIn: {
+        Mark: {
             /** Interest */
             interest?: number | null;
             plan?: components["schemas"]["Plan"] | null;
         };
-        /** MarkOut */
-        MarkOut: {
-            /**
-             * Interest
-             * @description 1 (not interesting at all) … 5 (very interesting)
-             */
-            interest: number | null;
-            /** @description maybe, sure, no, went */
-            plan: components["schemas"]["Plan"] | null;
-        };
         /**
-         * MentionOut
-         * @description One post that announced this event.
+         * MentionPublic
+         * @description One original post behind a card.
          */
-        MentionOut: {
+        MentionPublic: {
             /**
              * Id
-             * @description Pass it to /split to move this source into a card of its own
+             * @description Pass it to split to move this post into a card of its own
              */
             id: number;
+            data: components["schemas"]["ExtractedEvent"];
+            /**
+             * Locked
+             * @description Placed by the user; Claude never moves it
+             */
+            locked: boolean;
             /** Source Id */
             source_id: number;
             /** Source Title */
             source_title: string;
             /** Post Url */
             post_url: string;
+            /** Post Text */
+            post_text: string;
             /**
              * Published At
              * Format: date-time
              */
             published_at: string;
-            /** Original Title */
-            original_title: string;
-            /** Post Text */
-            post_text: string;
-            /**
-             * From Organizer
-             * @description Posted by the organizer or the venue, not by an afisha
-             */
-            from_organizer: boolean;
-            /** @description announcement, reschedule, cancellation or details */
-            update_kind: components["schemas"]["UpdateKind"];
         };
-        /** MergeIn */
-        MergeIn: {
+        /** MergeRequest */
+        MergeRequest: {
             /**
              * Other Event Id
              * @description This card is merged into the one in the path and disappears
              */
             other_event_id: number;
         };
-        /** OccurrenceOut */
-        OccurrenceOut: {
+        /** Occurrence */
+        Occurrence: {
             /**
              * Date
              * Format: date
-             * @description The day this card is shown on: a recurring event appears once per day, a multiday one once, on the first day inside the requested range
+             * @description The day the card is shown on: a recurring event appears once per day, a multiday one once, on the first day inside the range
              */
             date: string;
-            event: components["schemas"]["EventOut"];
+            event: components["schemas"]["EventPublic"];
         };
-        /**
-         * PlaceOut
-         * @description A place without a date (a bar, a climbing gym); kept apart from the feed.
-         */
-        PlaceOut: {
-            /** Id */
-            id: number;
+        /** PlacePublic */
+        PlacePublic: {
             /** Name */
             name: string;
             /** Address */
             address: string | null;
-            /** Description */
+            /**
+             * Description
+             * @description One or two sentences in the description language
+             */
             description: string;
+            /** Id */
+            id: number;
             /** Post Url */
             post_url: string;
         };
@@ -647,12 +715,16 @@ export interface components {
          * @enum {string}
          */
         Plan: "maybe" | "sure" | "no" | "went";
-        /** RefreshOut */
-        RefreshOut: {
-            /** @description idle → collecting → reading → merging → done | failed */
+        /**
+         * PlanFilter
+         * @description A plan to show, or none for cards the user has not marked yet.
+         * @enum {string}
+         */
+        PlanFilter: "none" | "maybe" | "sure" | "no" | "went";
+        /** RefreshProgress */
+        RefreshProgress: {
+            /** @default idle */
             stage: components["schemas"]["Stage"];
-            /** Running */
-            running: boolean;
             /** Started At */
             started_at: string | null;
             /** Finished At */
@@ -660,18 +732,24 @@ export interface components {
             /**
              * New Posts
              * @description Posts downloaded in this refresh
+             * @default 0
              */
             new_posts: number;
             /**
              * Posts To Read
              * @description Posts Claude reads in this refresh
+             * @default 0
              */
             posts_to_read: number;
-            /** Posts Read */
+            /**
+             * Posts Read
+             * @default 0
+             */
             posts_read: number;
             /**
              * Events Touched
              * @description Cards created or updated
+             * @default 0
              */
             events_touched: number;
             /**
@@ -679,6 +757,8 @@ export interface components {
              * @description Human-readable, ready to show
              */
             errors: string[];
+            /** Running */
+            readonly running: boolean;
         };
         /**
          * SettingsChange
@@ -700,9 +780,58 @@ export interface components {
              * @description How many latest posts of every channel are read; raising it reads older posts on the next refresh
              */
             recent_posts?: number | null;
+            /**
+             * Extraction Prompt
+             * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
+             */
+            extraction_prompt?: string | null;
+            /**
+             * Matching Prompt
+             * @description Instructions Claude gets for merging duplicates
+             */
+            matching_prompt?: string | null;
         };
-        /** SourceIn */
-        SourceIn: {
+        /**
+         * SourceKind
+         * @enum {string}
+         */
+        SourceKind: "telegram";
+        /** SourcePublic */
+        SourcePublic: {
+            /** @default telegram */
+            kind: components["schemas"]["SourceKind"];
+            /** Handle */
+            handle: string;
+            /**
+             * Title
+             * @description The name the user gave, or the channel's own title
+             */
+            title: string;
+            /** Last Refreshed At */
+            last_refreshed_at: string | null;
+            /**
+             * Last Error
+             * @description Shown next to the source; null when the last refresh went fine
+             */
+            last_error: string | null;
+            /**
+             * Events Found
+             * @description Cards this source contributes to
+             * @default 0
+             */
+            events_found: number;
+            /** Id */
+            id: number;
+            /** Url */
+            readonly url: string;
+        };
+        /** SourceRename */
+        SourceRename: {
+            /** Title */
+            title: string;
+        };
+        /** SourceRequest */
+        SourceRequest: {
             /**
              * Link
              * @description Any form of a public channel link: t.me/name, @name, name
@@ -715,52 +844,12 @@ export interface components {
              */
             title?: string | null;
         };
-        /**
-         * SourceKind
-         * @enum {string}
-         */
-        SourceKind: "telegram";
-        /** SourceOut */
-        SourceOut: {
-            /** Id */
-            id: number;
-            /** City Id */
-            city_id: number;
-            kind: components["schemas"]["SourceKind"];
+        /** SplitRequest */
+        SplitRequest: {
             /**
-             * Title
-             * @description The name the user gave, or the channel's own title
+             * Mention Id
+             * @description The mention to move into a card of its own
              */
-            title: string;
-            /**
-             * Url
-             * @example https://t.me/vstrechi_v_belgrade
-             */
-            url: string;
-            /**
-             * Last Refreshed At
-             * @description null until the first refresh
-             */
-            last_refreshed_at: string | null;
-            /**
-             * Last Error
-             * @description Shown to the user next to the source; null when the last refresh went fine
-             */
-            last_error: string | null;
-            /**
-             * Events Found
-             * @description Cards this source contributes to
-             */
-            events_found: number;
-        };
-        /** SourcePatch */
-        SourcePatch: {
-            /** Title */
-            title: string;
-        };
-        /** SplitIn */
-        SplitIn: {
-            /** Mention Id */
             mention_id: number;
         };
         /**
@@ -768,23 +857,26 @@ export interface components {
          * @enum {string}
          */
         Stage: "idle" | "collecting" | "reading" | "merging" | "done" | "failed";
-        /** TagIn */
-        TagIn: {
+        /** TagBase */
+        TagBase: {
             /**
              * Name
              * @example Танцы
              */
             name: string;
         };
-        /** TagOut */
-        TagOut: {
+        /** TagPublic */
+        TagPublic: {
+            /**
+             * Name
+             * @example Танцы
+             */
+            name: string;
             /** Id */
             id: number;
-            /** Name */
-            name: string;
             /**
              * Is Fallback
-             * @description The «не распознано» tag: Claude puts it when no tag fits; always last
+             * @description Put by Claude when no tag fits; always last, cannot be renamed
              */
             is_fallback: boolean;
         };
@@ -868,6 +960,26 @@ export interface operations {
             };
         };
     };
+    default_settings_settings_defaults_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppSettings"];
+                };
+            };
+        };
+    };
     list_cities_cities_get: {
         parameters: {
             query?: never;
@@ -883,7 +995,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CityOut"][];
+                    "application/json": components["schemas"]["CityPublic"][];
                 };
             };
         };
@@ -897,7 +1009,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CityIn"];
+                "application/json": components["schemas"]["CityBase"];
             };
         };
         responses: {
@@ -907,7 +1019,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CityOut"];
+                    "application/json": components["schemas"]["CityPublic"];
                 };
             };
             /** @description Validation Error */
@@ -936,7 +1048,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SourceOut"][];
+                    "application/json": components["schemas"]["SourcePublic"][];
                 };
             };
         };
@@ -950,7 +1062,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SourceIn"];
+                "application/json": components["schemas"]["SourceRequest"];
             };
         };
         responses: {
@@ -960,7 +1072,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SourceOut"];
+                    "application/json": components["schemas"]["SourcePublic"];
                 };
             };
             /** @description Validation Error */
@@ -1014,7 +1126,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SourcePatch"];
+                "application/json": components["schemas"]["SourceRename"];
             };
         };
         responses: {
@@ -1024,7 +1136,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SourceOut"];
+                    "application/json": components["schemas"]["SourcePublic"];
                 };
             };
             /** @description Validation Error */
@@ -1053,7 +1165,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TagOut"][];
+                    "application/json": components["schemas"]["TagPublic"][];
                 };
             };
         };
@@ -1067,7 +1179,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TagIn"];
+                "application/json": components["schemas"]["TagBase"];
             };
         };
         responses: {
@@ -1077,7 +1189,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TagOut"];
+                    "application/json": components["schemas"]["TagPublic"];
                 };
             };
             /** @description Validation Error */
@@ -1102,7 +1214,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TagIn"];
+                "application/json": components["schemas"]["TagBase"];
             };
         };
         responses: {
@@ -1112,7 +1224,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TagOut"];
+                    "application/json": components["schemas"]["TagPublic"];
                 };
             };
             /** @description Validation Error */
@@ -1129,22 +1241,20 @@ export interface operations {
     feed_events_get: {
         parameters: {
             query?: {
-                /** @description First day; default: today in the city's time zone */
+                /** @description First day; default: today in the city's time zone, or the earliest event when only end is given */
                 start?: string | null;
-                /** @description Last day, inclusive; default: start + 14 days */
+                /** @description Last day, inclusive; default: as far as the city has dated events */
                 end?: string | null;
                 /** @description Any of these tags; repeat the parameter for several */
                 tags?: string[];
                 /** @description Cards that have a post from any of these sources */
                 sources?: number[];
-                /** @description Only these plans, e.g. maybe and sure for «Собираюсь пойти» */
-                plans?: components["schemas"]["Plan"][];
+                /** @description Only cards with these plans; none = not marked yet. Default: all */
+                plans?: components["schemas"]["PlanFilter"][];
                 /** @description Only events with a known date and time */
                 only_timed?: boolean;
                 /** @description Hide exhibitions, festivals and other multiday events */
                 hide_multiday?: boolean;
-                /** @description Hide cards whose plan is no or went; interest does not matter */
-                hide_marked?: boolean;
             };
             header?: never;
             path?: never;
@@ -1158,7 +1268,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OccurrenceOut"][];
+                    "application/json": components["schemas"]["Occurrence"][];
                 };
             };
             /** @description Validation Error */
@@ -1172,7 +1282,7 @@ export interface operations {
             };
         };
     };
-    event_detail_events__event_id__get: {
+    event_card_events__event_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1189,7 +1299,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventDetailOut"];
+                    "application/json": components["schemas"]["EventPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    event_mentions_events__event_id__mentions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentionPublic"][];
                 };
             };
             /** @description Validation Error */
@@ -1214,7 +1355,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MarkIn"];
+                "application/json": components["schemas"]["Mark"];
             };
         };
         responses: {
@@ -1224,7 +1365,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventOut"];
+                    "application/json": components["schemas"]["EventPublic"];
                 };
             };
             /** @description Validation Error */
@@ -1249,7 +1390,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MergeIn"];
+                "application/json": components["schemas"]["MergeRequest"];
             };
         };
         responses: {
@@ -1259,7 +1400,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventDetailOut"];
+                    "application/json": components["schemas"]["EventPublic"];
                 };
             };
             /** @description Validation Error */
@@ -1284,7 +1425,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SplitIn"];
+                "application/json": components["schemas"]["SplitRequest"];
             };
         };
         responses: {
@@ -1294,7 +1435,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventDetailOut"];
+                    "application/json": components["schemas"]["EventPublic"];
                 };
             };
             /** @description Validation Error */
@@ -1323,7 +1464,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlaceOut"][];
+                    "application/json": components["schemas"]["PlacePublic"][];
                 };
             };
         };
@@ -1372,7 +1513,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RefreshOut"];
+                    "application/json": components["schemas"]["RefreshProgress"];
                 };
             };
         };
@@ -1392,7 +1533,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RefreshOut"];
+                    "application/json": components["schemas"]["RefreshProgress"];
                 };
             };
         };

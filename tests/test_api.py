@@ -126,6 +126,8 @@ def test_feed_filters(client):
     assert ids(plans="none") == [untimed]
     assert ids() == [lecture, concert, untimed]
     assert ids(plans=["maybe", "sure"]) == [concert]
+    past = client.get("/events", params={"end": "2099-01-02", "plans": "no"}).json()
+    assert [o["event"]["id"] for o in past] == [lecture]
     assert client.put(f"/events/{concert}/mark", json={"interest": 9}).status_code == 422
 
 
