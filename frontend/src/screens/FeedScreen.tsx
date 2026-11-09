@@ -8,7 +8,7 @@ import { FilterBar } from "../events/FilterBar";
 import { useEventFilters } from "../events/useEventFilters";
 import { RefreshButton } from "../events/RefreshButton";
 import { Icon } from "../ui/Icon";
-import { EmptyState, Screen } from "../ui/Screen";
+import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
 /** Everything ahead that the user has not marked yet; a marked card moves to «Собираюсь пойти» or leaves. */
@@ -37,6 +37,8 @@ export function FeedScreen() {
         <NoCity />
       ) : sources.data?.length === 0 ? (
         <EmptyState title="Нет источников" text="Добавьте Telegram-каналы с афишами, потом нажмите «Обновить»." link={{ to: SECTIONS.sources.path, label: "Добавить источники" }} />
+      ) : feed.isError ? (
+        <LoadError error={feed.error} />
       ) : feed.data?.length === 0 ? (
         <EmptyState title="Всё разобрано" text="Неразмеченных событий впереди нет, или их скрывают фильтры. Размеченные — в «Собираюсь пойти»." />
       ) : (

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { errorText } from "./errors";
 import "./Screen.css";
 
 export function Screen({ title, action, toolbar, children, narrow }: { title: string; action?: ReactNode; toolbar?: ReactNode; children: ReactNode; narrow?: boolean }) {
@@ -42,4 +43,9 @@ export function EmptyState({ title, text, link }: { title: string; text?: string
       )}
     </div>
   );
+}
+
+/** A list the backend could not give: says so and why, instead of an empty page. */
+export function LoadError({ error }: { error: unknown }) {
+  return <EmptyState title="Не получилось загрузить" text={errorText(error) ?? undefined} />;
 }
