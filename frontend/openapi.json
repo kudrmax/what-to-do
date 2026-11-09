@@ -20,7 +20,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/SettingsOut"
+         "$ref": "#/components/schemas/AppSettings"
         }
        }
       }
@@ -38,7 +38,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/SettingsIn"
+        "$ref": "#/components/schemas/SettingsChange"
        }
       }
      },
@@ -50,7 +50,7 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/SettingsOut"
+         "$ref": "#/components/schemas/AppSettings"
         }
        }
       }
@@ -872,6 +872,40 @@
  },
  "components": {
   "schemas": {
+   "AppSettings": {
+    "properties": {
+     "active_city_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Active City Id",
+      "description": "null until the first city is added"
+     },
+     "description_language": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Description Language",
+      "description": "Language Claude writes titles and descriptions in",
+      "default": "русский"
+     },
+     "recent_posts": {
+      "type": "integer",
+      "maximum": 300.0,
+      "minimum": 1.0,
+      "title": "Recent Posts",
+      "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh",
+      "default": 20
+     }
+    },
+    "type": "object",
+    "title": "AppSettings",
+    "description": "Every setting of the app, described once: storage, the API and its change request all come from here."
+   },
    "CityIn": {
     "properties": {
      "name": {
@@ -1647,55 +1681,7 @@
     ],
     "title": "RefreshOut"
    },
-   "SettingsIn": {
-    "properties": {
-     "active_city_id": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Active City Id"
-     },
-     "description_language": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Description Language",
-      "examples": [
-       "русский"
-      ]
-     },
-     "first_read_posts": {
-      "anyOf": [
-       {
-        "type": "integer",
-        "maximum": 300.0,
-        "minimum": 1.0
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "First Read Posts",
-      "examples": [
-       20
-      ]
-     }
-    },
-    "type": "object",
-    "title": "SettingsIn",
-    "description": "Only the fields that are sent change."
-   },
-   "SettingsOut": {
+   "SettingsChange": {
     "properties": {
      "active_city_id": {
       "anyOf": [
@@ -1710,23 +1696,36 @@
       "description": "null until the first city is added"
      },
      "description_language": {
-      "type": "string",
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Description Language",
       "description": "Language Claude writes titles and descriptions in"
      },
-     "first_read_posts": {
-      "type": "integer",
-      "title": "First Read Posts",
-      "description": "How many latest posts are read from a channel the first time it is refreshed"
+     "recent_posts": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 300.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Recent Posts",
+      "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh"
      }
     },
     "type": "object",
-    "required": [
-     "active_city_id",
-     "description_language",
-     "first_read_posts"
-    ],
-    "title": "SettingsOut"
+    "title": "SettingsChange",
+    "description": "Only the fields that are sent change."
    },
    "SourceIn": {
     "properties": {

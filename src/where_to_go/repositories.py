@@ -4,8 +4,10 @@ import json
 import sqlite3
 from dataclasses import asdict
 from datetime import UTC, date, datetime, time
+from typing import Any
 
 from where_to_go.db import Database
+from where_to_go.settings import AppSettings
 from where_to_go.domain import (
     City,
     CollectedPost,
@@ -70,35 +72,24 @@ class ExtractedEventCodec:
 
 
 class SettingsRepository:
-    ACTIVE_CITY = "active_city_id"
-    DESCRIPTION_LANGUAGE = "description_language"
-    FIRST_READ_POSTS = "first_read_posts"
-    DEFAULT_FIRST_READ_POSTS = 20
+    """Stores AppSettings field by field, so a new setting needs no storage code."""
 
     def __init__(self, db: Database) -> None:
         self._db = db
 
-    def get(self, key: str) -> str | None:
-        row = self._db.query_one("SELECT value FROM settings WHERE key = ?", (key,))
-        return row["value"] if row else None
+    def load(self) -> AppSettings:
+        stored = {row["key"]: json.loads(row["value"]) for row in self._db.query("SELECT key, value FROM settings")}
+        return AppSettings.model_validate(stored)
 
-    def set(self, key: str, value: str) -> None:
-        self._db.execute(
-            "INSERT INTO settings (key, value) VALUES (?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (key, value),
-        )
-
-    def active_city_id(self) -> int | None:
-        value = self.get(self.ACTIVE_CITY)
-        return int(value) if value else None
-
-    def description_language(self) -> str:
-        return self.get(self.DESCRIPTION_LANGUAGE) or "русский"
-
-    def first_read_posts(self) -> int:
-        value = self.get(self.FIRST_READ_POSTS)
-        return int(value) if value else self.DEFAULT_FIRST_READ_POSTS
+    def update(self, **change: Any) -> AppSettings:
+        updated = AppSettings.model_validate({**self.load().model_dump(), **change})
+        with self._db.transaction() as conn:
+            for key in change:
+                conn.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (key, json.dumps(getattr(updated, key), ensure_ascii=False)),
+                )
+        return updated
 
 
 class CityRepository:
@@ -161,7 +152,7 @@ class SourceRepository:
     def record_success(self, source_id: int, last_post_id: int | None) -> None:
         self._db.execute(
             "UPDATE sources SET last_refreshed_at = ?, last_error = NULL, "
-            "last_post_id = COALESCE(?, last_post_id) WHERE id = ?",
+            "last_post_id = NULLIF(MAX(COALESCE(?, 0), COALESCE(last_post_id, 0)), 0) WHERE id = ?",
             (_now(), last_post_id, source_id),
         )
 

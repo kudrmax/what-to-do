@@ -32,7 +32,7 @@ async def main(source_dir: Path, target_dir: Path, model: str, post_ids: list[in
     extraction, matching = CountingLlm(ClaudeJsonLlm(model)), CountingLlm(ClaudeJsonLlm(model))
     c = Container.build(target_dir, extraction_llm=extraction, matching_llm=matching)
     city = c.cities.add("Белград", "Europe/Belgrade")
-    c.settings.set(SettingsRepository.ACTIVE_CITY, str(city.id))
+    c.settings.update(active_city_id=city.id)
     new_source_ids: dict[int, int] = {}
     for post_id in post_ids:
         post = old_posts.get(post_id)

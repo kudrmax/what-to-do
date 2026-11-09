@@ -334,3 +334,13 @@
   align-items: center;
   gap: 10px 16px;
 }
+
+.settings-grid__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-grid input[aria-invalid="true"] {
+  border-color: var(--accent-strong);
+}

@@ -21,20 +21,6 @@ class CityIn(BaseModel):
     timezone: str = Field(examples=["Europe/Belgrade"])
 
 
-class SettingsOut(BaseModel):
-    active_city_id: int | None = Field(description="null until the first city is added")
-    description_language: str = Field(description="Language Claude writes titles and descriptions in")
-    first_read_posts: int = Field(description="How many latest posts are read from a channel the first time it is refreshed")
-
-
-class SettingsIn(BaseModel):
-    """Only the fields that are sent change."""
-
-    active_city_id: int | None = None
-    description_language: str | None = Field(default=None, examples=["русский"])
-    first_read_posts: int | None = Field(default=None, ge=1, le=300, examples=[20])
-
-
 class SourceOut(BaseModel):
     id: int
     city_id: int

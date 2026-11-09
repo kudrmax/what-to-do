@@ -9,7 +9,7 @@ from where_to_go.repositories import EventRepository, MentionRepository, PostRep
 
 db = Database(Path(sys.argv[1]) / "where-to-go.sqlite3")
 events, mentions, posts, sources = EventRepository(db), MentionRepository(db), PostRepository(db), SourceRepository(db)
-city_id = SettingsRepository(db).active_city_id()
+city_id = SettingsRepository(db).load().active_city_id
 for event in events.in_city(city_id):
     when = f"{event.start_date}{'–' + str(event.end_date) if event.end_date else ''} {event.start_time or '??:??'}"
     flags = " ".join(f for f in [event.kind.value, "ОТМЕНА" if event.is_cancelled else "", event.rrule or ""] if f)

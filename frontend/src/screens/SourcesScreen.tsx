@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 
-import { ApiError, type Source, type Tag } from "../api/client";
+import { ApiError, type Settings, type Source, type Tag } from "../api/client";
 import { useAddCity, useAddSource, useAddTag, useChangeSettings, useCities, useDeleteSource, useRenameSource, useRenameTag, useSettings, useSources, useTags } from "../api/hooks";
 import { Icon } from "../components/Icon";
 import { Screen } from "../components/Screen";
@@ -265,34 +265,41 @@ function TagChip({ tag }: { tag: Tag }) {
 
 function ReadingSection() {
   const settings = useSettings();
-  const change = useChangeSettings();
   if (!settings.data) return null;
   return (
     <section className="section">
       <h2 className="section__label">Чтение постов</h2>
       <div className="settings-grid">
-        <label htmlFor="first-read">Новый канал: прочитать последних постов</label>
-        <input
-          id="first-read"
-          type="number"
-          min={1}
-          max={300}
-          defaultValue={settings.data.first_read_posts}
-          onBlur={(e) => {
-            const value = Number(e.target.value);
-            if (value >= 1 && value <= 300 && value !== settings.data?.first_read_posts) change.mutate({ first_read_posts: value });
-          }}
-        />
-        <label htmlFor="language">Язык описаний</label>
-        <input
-          id="language"
-          defaultValue={settings.data.description_language}
-          onBlur={(e) => {
-            const value = e.target.value.trim();
-            if (value && value !== settings.data?.description_language) change.mutate({ description_language: value });
-          }}
-        />
+        <SettingField name="recent_posts" label="Читать последних постов канала" type="number" value={settings.data.recent_posts} />
+        <SettingField name="description_language" label="Язык описаний" type="text" value={settings.data.description_language} />
       </div>
     </section>
+  );
+}
+
+type EditableSetting = Exclude<keyof Settings, "active_city_id">;
+
+/** Saves on leaving the field; limits are the backend's, so its message is shown as is. */
+function SettingField({ name, label, type, value }: { name: EditableSetting; label: string; type: "number" | "text"; value: string | number }) {
+  const change = useChangeSettings();
+  const id = `setting-${name}`;
+  return (
+    <>
+      <label htmlFor={id}>{label}</label>
+      <div className="settings-grid__field">
+        <input
+          id={id}
+          type={type}
+          defaultValue={value}
+          aria-invalid={change.isError}
+          onBlur={(e) => {
+            const raw = e.target.value.trim();
+            const next = type === "number" ? Number(raw) : raw;
+            if (raw !== "" && next !== value) change.mutate({ [name]: next });
+          }}
+        />
+        {change.error && <span className="form__error">{errorText(change.error)}</span>}
+      </div>
+    </>
   );
 }

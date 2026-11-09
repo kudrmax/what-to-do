@@ -39,20 +39,20 @@ async def test_reader_pages_back_until_the_last_known_post():
     respx.get("https://t.me/s/bg", params={"before": "13"}).respond(200, text=channel_page("bg", older))
     respx.get("https://t.me/s/bg").respond(200, text=channel_page("bg", newest, before=13))
     async with httpx.AsyncClient() as client:
-        posts = await TelegramChannelReader(client).new_posts("bg", 11, first_read_limit=1)
+        posts = await TelegramChannelReader(client).new_posts("bg", {11}, recent=1)
     assert [p.external_id for p in posts] == [12, 13, 14]
 
 
 @respx.mock
-async def test_first_read_takes_the_last_n_posts_paging_back_as_needed():
+async def test_unread_channel_gives_its_last_n_posts_paging_back_as_needed():
     at = "2026-11-05T10:00:00+00:00"
     older = respx.get("https://t.me/s/bg", params={"before": "4"}).respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (1, 2, 3)], before=1))
     respx.get("https://t.me/s/bg").respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (4, 5)], before=4))
     async with httpx.AsyncClient() as client:
         reader = TelegramChannelReader(client)
-        assert [p.external_id for p in await reader.new_posts("bg", None, first_read_limit=2)] == [4, 5]
+        assert [p.external_id for p in await reader.new_posts("bg", set(), recent=2)] == [4, 5]
         assert not older.called
-        assert [p.external_id for p in await reader.new_posts("bg", None, first_read_limit=4)] == [2, 3, 4, 5]
+        assert [p.external_id for p in await reader.new_posts("bg", set(), recent=4)] == [2, 3, 4, 5]
         assert older.call_count == 1
 
 
@@ -61,10 +61,22 @@ async def test_closed_channel_is_reported():
     respx.get("https://t.me/s/secret").respond(302, headers={"Location": "https://t.me/secret"})
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match="закрыт"):
-            await TelegramChannelReader(client).new_posts("secret", None, first_read_limit=20)
+            await TelegramChannelReader(client).new_posts("secret", set(), recent=20)
 
 
 def test_service_messages_are_skipped():
     html = channel_page("bg", [(5, "2026-11-01T10:00:00+00:00", "Квиз в пятницу"), (6, "2026-11-01T11:00:00+00:00", "Канал pinned a photo")])
     html = html.replace('class="tgme_widget_message" data-post="bg/6"', 'class="tgme_widget_message service_message" data-post="bg/6"')
     assert [p.external_id for p in TelegramPageParser(html).posts()] == [5]
+
+
+@respx.mock
+async def test_raising_the_depth_reaches_older_unread_posts_of_a_channel_already_read():
+    at = "2026-11-05T10:00:00+00:00"
+    respx.get("https://t.me/s/bg", params={"before": "4"}).respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (1, 2, 3)]))
+    respx.get("https://t.me/s/bg").respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (4, 5, 6)], before=4))
+    async with httpx.AsyncClient() as client:
+        reader = TelegramChannelReader(client)
+        assert [p.external_id for p in await reader.new_posts("bg", {5, 6}, recent=2)] == []
+        assert [p.external_id for p in await reader.new_posts("bg", {5, 6}, recent=5)] == [2, 3, 4]
+        assert [p.external_id for p in await reader.new_posts("bg", {4}, recent=1)] == [5, 6]

@@ -125,25 +125,24 @@ class TelegramChannelReader:
         parser = await self._page(handle, None)
         return parser.title() or handle
 
-    async def new_posts(self, handle: str, after_id: int | None, first_read_limit: int) -> list[CollectedPost]:
-        """Posts newer than `after_id`, oldest first; a channel read for the first time gives its last posts."""
-        collected: dict[int, CollectedPost] = {}
+    async def new_posts(self, handle: str, known: set[int], recent: int) -> list[CollectedPost]:
+        """Posts not read yet, oldest first: everything newer than what was read, and any of the latest
+        `recent` posts that was not read (so raising `recent` reaches back into a channel already read)."""
+        newest_known = max(known, default=None)
+        seen: dict[int, CollectedPost] = {}
         before: int | None = None
         for _ in range(self.MAX_PAGES):
             page = (await self._page(handle, before)).posts()
             if not page:
                 break
-            for post in page:
-                if after_id is None or post.external_id > after_id:
-                    collected[post.external_id] = post
-            oldest = min(page, key=lambda p: p.external_id)
-            if after_id is not None and oldest.external_id <= after_id:
+            seen.update((post.external_id, post) for post in page)
+            oldest = min(post.external_id for post in page)
+            if len(seen) >= recent and (newest_known is None or oldest <= newest_known):
                 break
-            if after_id is None and len(collected) >= first_read_limit:
-                break
-            before = oldest.external_id
-        posts = sorted(collected.values(), key=lambda p: p.external_id)
-        return posts if after_id is not None else posts[-first_read_limit:]
+            before = oldest
+        ordered = sorted(seen)
+        wanted = set(ordered[-recent:]) | {i for i in ordered if newest_known is not None and i > newest_known}
+        return [seen[i] for i in ordered if i in wanted and i not in known]
 
     async def _page(self, handle: str, before: int | None) -> TelegramPageParser:
         params = {"before": before} if before else None

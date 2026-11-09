@@ -106,7 +106,7 @@ class RefreshService:
             self.progress.finished_at = datetime.now(UTC)
 
     async def run(self) -> None:
-        city_id = self._settings.active_city_id()
+        city_id = self._settings.load().active_city_id
         city = self._cities.get(city_id) if city_id else None
         if city is None:
             raise RuntimeError("не выбран активный город")
@@ -135,7 +135,7 @@ class RefreshService:
 
     async def _collect(self, source: Source) -> None:
         try:
-            found = await self._reader.new_posts(source.handle, source.last_post_id, self._settings.first_read_posts())
+            found = await self._reader.new_posts(source.handle, self._posts.known_ids(source.id), self._settings.load().recent_posts)
         except SourceError as error:
             self._sources.record_error(source.id, str(error))
             self.progress.errors.append(f"{source.title}: {error}")
@@ -144,7 +144,7 @@ class RefreshService:
             paths = [p for p in [await self._images.save(u) for u in post.image_urls] if p]
             if self._posts.add_new(source.id, post, paths):
                 self.progress.new_posts += 1
-        self._sources.record_success(source.id, found[-1].external_id if found else None)
+        self._sources.record_success(source.id, max((p.external_id for p in found), default=None))
 
     async def _read(self, batch: list[Post], sources: dict[int, Source], context: ExtractionContext) -> None:
         try:
@@ -167,7 +167,7 @@ class RefreshService:
         fallback = next((t.name for t in tags if t.is_fallback), TagRepository.FALLBACK)
         return ExtractionContext(
             city=city,
-            language=self._settings.description_language(),
+            language=self._settings.load().description_language,
             tags=[t.name for t in tags if not t.is_fallback],
             fallback_tag=fallback,
         )
