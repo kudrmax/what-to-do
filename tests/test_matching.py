@@ -4,9 +4,9 @@ import pytest
 
 from tests.helpers import FakeLlm, mention
 from where_to_go.db import Database
-from where_to_go.domain import EventKind, ExtractedEvent
+from where_to_go.models import EventFacts, EventKind
 from where_to_go.matching import CandidateFinder, DuplicateJudge, MatchDecision
-from where_to_go.repositories import CityRepository, EventRepository
+from where_to_go.repositories import CityRepository, EventRepository, SettingsRepository
 
 
 def judge_answer(*decisions):
@@ -16,23 +16,21 @@ def judge_answer(*decisions):
 @pytest.fixture
 def events():
     db = Database(":memory:")
-    CityRepository(db).add("Белград", "Europe/Belgrade")
+    CityRepository(db, SettingsRepository(db)).add("Белград", "Europe/Belgrade")
     yield EventRepository(db)
     db.close()
 
 
-def card(events, title, day, kind=EventKind.SINGLE, venue=None):
-    event_id = events.create(1, ExtractedEvent(title, title, "", kind, day))
-    stored = events.get(event_id)
-    events.save_resolved(stored.__class__(**{**stored.__dict__, "venue": venue}))
-    return event_id
+def card(events, title, day, kind=EventKind.SINGLE, venue=None, end=None):
+    facts = EventFacts(title=title, original_title=title, description="", kind=kind, start_date=day, end_date=end, venue=venue)
+    return events.create(1, facts).id
 
 
 async def test_judge_answers_are_validated(events):
     existing = events.get(card(events, "Кафаны", date(2026, 11, 13)))
     a, b, c, d = mention(1), mention(2), mention(3), mention(4)
     llm = judge_answer((1, 999, None), (2, existing.id, None), (3, None, 4), (4, None, 2))
-    decisions = await DuplicateJudge(llm).decide([a, b, c, d], [existing])
+    decisions = await DuplicateJudge(llm, lambda: "prompt").decide([a, b, c, d], [existing])
     assert decisions == [
         MatchDecision(1),  # unknown card id
         MatchDecision(2, event_id=existing.id),
@@ -42,7 +40,7 @@ async def test_judge_answers_are_validated(events):
 
 
 async def test_missing_answer_means_a_new_event(events):
-    assert await DuplicateJudge(judge_answer()).decide([mention(1)], []) == [MatchDecision(1)]
+    assert await DuplicateJudge(judge_answer(), lambda: "prompt").decide([mention(1)], []) == [MatchDecision(1)]
 
 
 def test_candidates_same_day_first_then_similar_titles_within_reschedule_window(events):
@@ -56,7 +54,11 @@ def test_candidates_same_day_first_then_similar_titles_within_reschedule_window(
 
 
 def test_running_exhibition_is_a_candidate_on_any_of_its_days(events):
-    show = card(events, "Графика", date(2026, 11, 1), kind=EventKind.MULTIDAY)
-    stored = events.get(show)
-    events.save_resolved(stored.__class__(**{**stored.__dict__, "end_date": date(2026, 11, 30)}))
+    show = card(events, "Графика", date(2026, 11, 1), kind=EventKind.MULTIDAY, end=date(2026, 11, 30))
     assert [e.id for e in CandidateFinder(events).find(1, mention(9, day=date(2026, 11, 20), title="Другое"))] == [show]
+
+
+async def test_the_judge_prompt_comes_from_settings(events):
+    llm = judge_answer()
+    await DuplicateJudge(llm, lambda: "мой промпт").decide([mention(1)], [])
+    assert llm.calls[0][0] == "мой промпт"

@@ -28,7 +28,7 @@ def test_page_parser_reads_posts_with_images():
     page = TelegramPageParser(channel_page("bg", [(5, "2026-11-01T10:00:00+00:00", "Квиз в пятницу")]))
     [post] = page.posts()
     assert (post.external_id, post.url, post.text) == (5, "https://t.me/bg/5", "Квиз в пятницу")
-    assert post.image_urls == ("https://cdn.test/5.jpg",)
+    assert post.image_urls == ["https://cdn.test/5.jpg"]
     assert page.title() == "Канал bg"
 
 

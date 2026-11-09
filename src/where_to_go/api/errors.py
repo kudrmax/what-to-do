@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 _MESSAGES = {
     "greater_than_equal": "Значение должно быть не меньше {ge}",
@@ -20,6 +21,8 @@ _MESSAGES = {
 
 
 def _message(error: dict[str, Any]) -> str:
+    if error["type"] == "value_error":
+        return str(error["ctx"]["error"])
     template = _MESSAGES.get(error["type"])
     if template is None:
         return "Недопустимое значение"
@@ -30,6 +33,6 @@ def _plain(value: Any) -> Any:
     return int(value) if isinstance(value, float) and value.is_integer() else value
 
 
-async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
-    """Errors keep the API's one shape, {"detail": "<Russian text ready to show>"}."""
+async def validation_error(_: Request, exc: RequestValidationError | ValidationError) -> JSONResponse:
+    """A request or a value the models refuse; errors keep the API's one shape, {"detail": "<Russian text>"}."""
     return JSONResponse(status_code=422, content={"detail": _message(exc.errors()[0])})
