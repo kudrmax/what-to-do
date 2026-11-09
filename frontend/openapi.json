@@ -528,11 +528,11 @@
       "required": false,
       "schema": {
        "type": "boolean",
-       "description": "Hide cards that have both interest and a plan, unless the plan is maybe or sure",
+       "description": "Hide cards whose plan is no or went; interest does not matter",
        "default": true,
        "title": "Hide Marked"
       },
-      "description": "Hide cards that have both interest and a plan, unless the plan is maybe or sure"
+      "description": "Hide cards whose plan is no or went; interest does not matter"
      }
     ],
     "responses": {

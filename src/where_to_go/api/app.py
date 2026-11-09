@@ -213,7 +213,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         hide_multiday: Annotated[bool, Query(description="Hide exhibitions, festivals and other multiday events")] = False,
         hide_marked: Annotated[
             bool,
-            Query(description="Hide cards that have both interest and a plan, unless the plan is maybe or sure"),
+            Query(description="Hide cards whose plan is no or went; interest does not matter"),
         ] = True,
     ):
         """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day."""

@@ -1143,7 +1143,7 @@ export interface operations {
                 only_timed?: boolean;
                 /** @description Hide exhibitions, festivals and other multiday events */
                 hide_multiday?: boolean;
-                /** @description Hide cards that have both interest and a plan, unless the plan is maybe or sure */
+                /** @description Hide cards whose plan is no or went; interest does not matter */
                 hide_marked?: boolean;
             };
             header?: never;
