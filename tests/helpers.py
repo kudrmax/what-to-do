@@ -50,7 +50,6 @@ def raw_event(title: str, day: str, at: str | None = "19:00", **extra: Any) -> d
         "tags": ["Лекция"],
         "update_kind": "announcement",
         "from_organizer": False,
-        "image_index": None,
     }
     event.update(extra)
     return event

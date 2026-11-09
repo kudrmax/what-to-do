@@ -85,7 +85,7 @@ def seeded(client, *events):
         external = len(c.posts.known_ids(source.id)) + 1
         c.posts.add_new(source.id, CollectedPost(external, f"https://t.me/{handle}/{external}", datetime(2026, 11, 1, tzinfo=UTC), "текст"), [])
         post = next(p for p in c.posts.unprocessed([source.id]) if p.external_id == external)
-        extracted = PostExtractor._event(raw, Post(post.id, source.id, external, post.url, post.published_at, "текст"), {"Лекция", "Концерт"}, "не распознано")
+        extracted = PostExtractor._event(raw, {"Лекция", "Концерт"}, "не распознано")
         mention_id = c.mentions.add(post.id, 0, extracted)
         c.posts.mark_processed(post.id)
         ids.append(c.cards.create(city.id, c.mentions.get(mention_id)))
