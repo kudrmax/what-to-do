@@ -20,6 +20,7 @@ class ClaudeJsonLlm:
 
     def __init__(self, model: str) -> None:
         self._model = model
+        ClaudeCliEnvironment.prepare()
 
     async def complete_json(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
         options = ClaudeAgentOptions(
@@ -29,7 +30,7 @@ class ClaudeJsonLlm:
             setting_sources=[],
             max_turns=4,
             output_format={"type": "json_schema", "schema": schema},
-            env=self._cli_env(),
+            extra_args={"no-session-persistence": None},
         )
         result: ResultMessage | None = None
         try:
@@ -43,11 +44,24 @@ class ClaudeJsonLlm:
             raise LlmError(f"Claude did not return structured output: {detail}")
         return result.structured_output
 
+
+class ClaudeCliEnvironment:
+    """The Claude CLI inherits this process's environment.
+
+    The Claude desktop app starts processes with CLAUDE_CONFIG_DIR naming the default ~/.claude. With the
+    variable set, the CLI looks for its login under another keychain entry and reports "Not logged in".
+    Pointing at the default location, the variable means nothing, so it is removed; a real custom
+    location is left alone.
+    """
+
+    VARIABLE = "CLAUDE_CONFIG_DIR"
+
+    @classmethod
+    def prepare(cls) -> None:
+        configured = os.environ.get(cls.VARIABLE)
+        if configured is not None and cls._is_default(configured):
+            del os.environ[cls.VARIABLE]
+
     @staticmethod
-    def _cli_env() -> dict[str, str]:
-        # A config dir that merely names the default location makes the CLI look for a different
-        # keychain entry than the one `claude login` wrote, so it reports "Not logged in".
-        configured = os.environ.get("CLAUDE_CONFIG_DIR")
-        if configured and Path(configured).expanduser().resolve() == (Path.home() / ".claude").resolve():
-            return {"CLAUDE_CONFIG_DIR": ""}
-        return {}
+    def _is_default(configured: str) -> bool:
+        return configured.strip() != "" and Path(configured).expanduser().resolve() == (Path.home() / ".claude").resolve()

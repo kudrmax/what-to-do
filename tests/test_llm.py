@@ -1,18 +1,20 @@
 from pathlib import Path
 
-from where_to_go.llm import ClaudeJsonLlm
+import os
+
+from where_to_go.llm import ClaudeCliEnvironment, ClaudeJsonLlm
 
 
-def test_config_dir_naming_the_default_location_is_cleared(monkeypatch):
-    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude"))
-    assert ClaudeJsonLlm._cli_env() == {"CLAUDE_CONFIG_DIR": ""}
+def test_config_dir_naming_the_default_location_is_removed_not_emptied(monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude") + "/")
+    ClaudeJsonLlm("m")
+    assert "CLAUDE_CONFIG_DIR" not in os.environ
 
 
 def test_custom_config_dir_is_respected(monkeypatch, tmp_path):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
-    assert ClaudeJsonLlm._cli_env() == {}
-    monkeypatch.delenv("CLAUDE_CONFIG_DIR")
-    assert ClaudeJsonLlm._cli_env() == {}
+    ClaudeCliEnvironment.prepare()
+    assert os.environ["CLAUDE_CONFIG_DIR"] == str(tmp_path)
 
 
 import pytest
@@ -48,6 +50,7 @@ async def test_structured_output_is_returned_and_tools_are_off(monkeypatch):
     options = seen["options"]
     assert options.tools == [] and options.model == "claude-haiku-5-5" and options.setting_sources == []
     assert options.output_format == {"type": "json_schema", "schema": {"type": "object"}}
+    assert options.env == {} and "no-session-persistence" in options.extra_args
 
 
 @pytest.mark.parametrize(
