@@ -227,3 +227,19 @@ async def test_first_read_of_a_channel_uses_the_setting(app):
     assert progress.new_posts == 2
     kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
     assert kafana.last_post_id == 4
+
+
+@respx.mock
+async def test_digest_items_without_an_image_choice_get_no_image(tmp_path):
+    digest = [raw_event("Квиз", "2026-11-13", image_index=None), raw_event("Лекция", "2026-11-14", image_index=None)]
+    single = [raw_event("Кафаны", "2026-11-15", image_index=0)]
+    container = await build(tmp_path, extraction_by_text({"дайджест": digest, "кафаны": single}), judge_same_titles())
+    serve_channels([(1, RECENT, "лекция про кафаны")], [(7, RECENT, "дайджест недели")])
+
+    container.refresh.start()
+    await container.refresh.wait()
+
+    images = {e.original_title: e.image_path for e in container.events.in_city(1)}
+    assert images["Квиз"] is None and images["Лекция"] is None
+    assert images["Кафаны"] is not None
+    await container.close()
