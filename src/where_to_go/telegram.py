@@ -44,6 +44,8 @@ class TelegramPageParser:
     def posts(self) -> list[CollectedPost]:
         result = []
         for node in self._tree.css(".tgme_widget_message[data-post]"):
+            if "service_message" in (node.attributes.get("class") or ""):
+                continue  # "pinned a photo" and the like: nothing to read
             post = self._post(node)
             if post is not None:
                 result.append(post)
