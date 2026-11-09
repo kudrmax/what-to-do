@@ -11,7 +11,7 @@ import { FilterBar } from "../events/FilterBar";
 import { useEventFilters } from "../events/useEventFilters";
 import { useOpenEvent } from "../events/navigation";
 import { IconButton } from "../ui/IconButton";
-import { Screen } from "../ui/Screen";
+import { LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 import "./CalendarScreen.css";
 
@@ -48,6 +48,7 @@ export function CalendarScreen() {
       }
       toolbar={<FilterBar filters={filters} />}
     >
+      {feed.isError && <LoadError error={feed.error} />}
       <div className="week">
         {groupByDay(feed.data ?? [], days).map(([day, items]) => (
           <div key={day} className={`week__day${day < today ? " week__day--past" : ""}`}>

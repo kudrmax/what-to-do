@@ -7,7 +7,7 @@ import { DayFeed } from "../events/DayFeed";
 import { FilterBar } from "../events/FilterBar";
 import { useEventFilters } from "../events/useEventFilters";
 import { ToggleChip } from "../ui/Chips";
-import { EmptyState, Screen } from "../ui/Screen";
+import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
 /** Cards the user plans to visit, ahead or behind: the same cards and filters as in the feed. */
@@ -39,6 +39,8 @@ export function PlansScreen() {
     <Screen title={SECTIONS.plans.title} toolbar={toolbar}>
       {!city ? (
         <NoCity />
+      ) : feed.isError ? (
+        <LoadError error={feed.error} />
       ) : feed.data?.length === 0 ? (
         <EmptyState title={past ? "Прошедших планов нет" : "Планов пока нет"} text="Отметьте событие кнопкой «возможно пойду» или «точно пойду» — оно переедет сюда." />
       ) : (
