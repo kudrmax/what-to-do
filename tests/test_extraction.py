@@ -54,16 +54,13 @@ async def test_tags_outside_the_list_fall_back():
     assert [e.tags for e in result.events] == [("не распознано",), ("Концерт",)]
 
 
-async def test_image_index_is_checked_against_the_post():
-    result, _ = await extract_one([raw_event("А", "2026-11-13", image_index=5)], images=2)
-    assert result.events[0].image_index is None
-
-
-async def test_only_image_goes_to_the_only_event_but_not_to_digest_items():
-    single, _ = await extract_one([raw_event("А", "2026-11-13")], images=1)
-    digest, _ = await extract_one([raw_event("А", "2026-11-13"), raw_event("Б", "2026-11-14")], images=1)
+async def test_a_post_about_one_event_gives_it_its_first_image_a_digest_gives_none():
+    single, _ = await extract_one([raw_event("А", "2026-11-13")], images=2)
+    digest, _ = await extract_one([raw_event("А", "2026-11-13"), raw_event("Б", "2026-11-14")], images=2)
+    no_images, _ = await extract_one([raw_event("А", "2026-11-13")], images=0)
     assert single.events[0].image_index == 0
     assert [e.image_index for e in digest.events] == [None, None]
+    assert no_images.events[0].image_index is None
 
 
 async def test_places_are_kept_apart_from_events():
@@ -83,6 +80,7 @@ async def test_prompt_gives_local_publication_time_tags_and_language():
     assert '"Лекция", "Концерт"' in system and "русский" in system and "Белград" in system
     item = json.loads(prompt.split("\n", 1)[1])[0]
     assert item["published"] == "2026-11-09 18:30 (Monday)" and item["channel"] == "Афиша"
+    assert "image" not in system and "images" not in item
 
 
 def test_posts_are_read_in_batches():

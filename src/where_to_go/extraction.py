@@ -27,7 +27,7 @@ _EVENT_SCHEMA = {
     "additionalProperties": False,
     "required": [
         "title", "original_title", "description", "kind", "start_date", "end_date", "start_time", "rrule",
-        "venue", "address", "price", "tags", "update_kind", "from_organizer", "image_index",
+        "venue", "address", "price", "tags", "update_kind", "from_organizer",
     ],
     "properties": {
         "title": {"type": "string"},
@@ -44,7 +44,6 @@ _EVENT_SCHEMA = {
         "tags": {"type": "array", "items": {"type": "string"}},
         "update_kind": {"enum": [k.value for k in UpdateKind]},
         "from_organizer": {"type": "boolean"},
-        "image_index": {"type": ["integer", "null"]},
     },
 }
 
@@ -95,7 +94,6 @@ Fields of an event
 - tags: one or two from this list only: {tags}. If none fits, use exactly "{fallback}".
 - update_kind: "announcement" for a normal announcement; "reschedule" when the post moves an already announced event to another date or time (give the new date and time); "cancellation" when it cancels one; "details" when it only adds details to one announced earlier.
 - from_organizer: true when the channel itself organizes or hosts the event (the venue's or the organizer's own channel), false for afisha and repost channels.
-- image_index: 0-based index of the post image that shows this event, null if the post has no images or none fits. An image that shows several events at once (a digest cover, a collage of posters, a schedule) belongs to none of them: null.
 """
 
 
@@ -138,7 +136,6 @@ class PostExtractor:
                 "post_id": post.id,
                 "channel": sources[post.source_id].title,
                 "published": post.published_at.astimezone(zone).strftime("%Y-%m-%d %H:%M (%A)"),
-                "images": len(post.image_paths),
                 "text": post.text,
             }
             for post in posts
@@ -151,8 +148,10 @@ class PostExtractor:
     ) -> PostExtraction:
         if item is None:
             return PostExtraction(post.id)
-        events = tuple(e for e in (cls._event(raw, post, allowed_tags, fallback) for raw in item["events"]) if e)
-        if len(events) == 1 and events[0].image_index is None and len(post.image_paths) == 1:
+        events = tuple(e for e in (cls._event(raw, allowed_tags, fallback) for raw in item["events"]) if e)
+        # Claude does not see the images. A post about one event shows that event (its first image is the
+        # poster); a post about several shows them all at once, so its images belong to none of them.
+        if len(events) == 1 and post.image_paths:
             events = (replace(events[0], image_index=0),)
         places = tuple(
             ExtractedPlace(p["name"], p.get("address"), p.get("description", "")) for p in item["places"]
@@ -160,7 +159,7 @@ class PostExtractor:
         return PostExtraction(post.id, events, places)
 
     @staticmethod
-    def _event(raw: dict[str, Any], post: Post, allowed_tags: set[str], fallback: str) -> ExtractedEvent | None:
+    def _event(raw: dict[str, Any], allowed_tags: set[str], fallback: str) -> ExtractedEvent | None:
         try:
             kind = EventKind(raw["kind"])
             start = date.fromisoformat(raw["start_date"])
@@ -180,9 +179,6 @@ class PostExtractor:
         if kind is not EventKind.RECURRING:
             rrule = None
         tags = tuple(dict.fromkeys(t for t in raw.get("tags", []) if t in allowed_tags)) or (fallback,)
-        image_index = raw.get("image_index")
-        if image_index is not None and not 0 <= image_index < len(post.image_paths):
-            image_index = None
         return ExtractedEvent(
             title=raw["title"].strip(),
             original_title=raw["original_title"].strip(),
@@ -198,5 +194,4 @@ class PostExtractor:
             tags=tags,
             update_kind=UpdateKind(raw["update_kind"]),
             from_organizer=bool(raw["from_organizer"]),
-            image_index=image_index,
         )
