@@ -7379,7 +7379,7 @@
     "tengu_swift_lynx",
     "tengu_ultrareview_awareness"
   ],
-  "cachedGrowthBookFeaturesAt": 1794260125454,
+  "cachedGrowthBookFeaturesAt": 1794261939648,
   "tipLifetimeShownCounts": {
     "fotw-campaign-upsell": 10,
     "custom-agents": 16,
@@ -7651,6 +7651,25 @@
     "planDisplayName": "Ultra"
   },
   "clientDataCacheSlots": {
+    "bi1-72b6d49fb0f3ccaa": {
+      "data": {
+        "cedar_lagoon": {
+          "claude-fable": true,
+          "claude-mythos": true
+        },
+        "tengu_luminous_whistle": true,
+        "heather_vale": {
+          "claude-haiku-5-5": 128000,
+          "claude-haiku-5-5[1m]": 128000
+        },
+        "per_turn_effort": true,
+        "cedar_basin": "2027-08-31"
+      },
+      "at": 1794261869967,
+      "entrypoint": "sdk-py",
+      "model": "claude-haiku-5-5",
+      "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
+    },
     "bi1-51ebccd61d5e6e00": {
       "data": {
         "cedar_lagoon": {
@@ -7848,27 +7867,6 @@
       "entrypoint": "sdk-cli",
       "model": "claude-opus-5-5",
       "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
-    },
-    "bi1-db64125770877c54": {
-      "data": {
-        "cedar_lagoon": {
-          "claude-fable": true,
-          "claude-mythos": true
-        },
-        "silent_turn_reminder": true,
-        "tengu_luminous_whistle": true,
-        "heather_vale": {
-          "claude-sonnet-5-5": 128000,
-          "claude-sonnet-5-5[1m]": 128000
-        },
-        "per_turn_effort": true,
-        "tengu_lapis_anchor": "off",
-        "cedar_basin": "2027-08-31"
-      },
-      "at": 1793205985044,
-      "entrypoint": "sdk-py",
-      "model": "claude-sonnet-5-5",
-      "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
     }
   },
   "additionalModelOptionsCache": [
@@ -7878,7 +7876,7 @@
       "description": "Fable 5.1 · Most capable for your hardest and longest-running tasks"
     }
   ],
-  "additionalModelOptionsAnsweredAt": 1794260071368,
+  "additionalModelOptionsAnsweredAt": 1794261869967,
   "additionalModelCostsCache": {},
   "modelAccessCache": [],
   "orgModelDefaultCache": null,

@@ -19,6 +19,9 @@ class EventCards:
         self._mentions.assign(mention.id, event_id, locked)
         return event_id
 
+    def holds_post(self, event_id: int, post_id: int) -> bool:
+        return any(m.post_id == post_id for m in self._mentions.of_event(event_id))
+
     def assign(self, mention: Mention, event_id: int) -> None:
         self._mentions.assign(mention.id, event_id)
 
@@ -101,11 +104,12 @@ class EventLinker:
         touched: set[int] = set()
         for decision in decisions:
             mention = by_mention[decision.mention_id]
-            if decision.event_id is not None:
-                event_id = decision.event_id
-                self._cards.assign(mention, event_id)
-            elif decision.same_as_mention_id in placed:
-                event_id = placed[decision.same_as_mention_id]
+            target = decision.event_id
+            if target is None and decision.same_as_mention_id in placed:
+                target = placed[decision.same_as_mention_id]
+            # Two items of one post are two events: a post never announces the same event twice.
+            if target is not None and not self._cards.holds_post(target, mention.post_id):
+                event_id = target
                 self._cards.assign(mention, event_id)
             else:
                 event_id = self._cards.create(city_id, mention)

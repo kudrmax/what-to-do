@@ -373,7 +373,6 @@
     "tengu_bright_kettle": false,
     "tengu_brindle_causeway": true,
     "tengu_brindle_otter": false,
-    "tengu_brisk_kiwi": false,
     "tengu_brisk_meadow": true,
     "tengu_brisk_pebble": false,
     "tengu_bubbly_canyon": {
@@ -458,7 +457,7 @@
     "tengu_claudeai_plugins_sync_enabled": true,
     "tengu_claudeai_skills_sync_enabled": true,
     "tengu_claudeai_skills_sync_shared_round": true,
-    "tengu_clever_bonbon": false,
+    "tengu_clever_bonbon": true,
     "tengu_clever_orbit": true,
     "tengu_cloth_snorkel": true,
     "tengu_cobalt_compass": true,
@@ -483,6 +482,10 @@
     "tengu_cobalt_plinth_madder": true,
     "tengu_cobalt_plinth_mallow": false,
     "tengu_cobalt_plinth_moss": true,
+    "tengu_cobalt_plinth_orpine": {
+      "enabled": false,
+      "sameResponseEdit": "v1"
+    },
     "tengu_cobalt_plinth_putguard": true,
     "tengu_cobalt_plinth_reader_persist": true,
     "tengu_cobalt_plinth_rowan": true,
@@ -550,7 +553,6 @@
     "tengu_curious_river": 168,
     "tengu_curious_tower": true,
     "tengu_curious_tower_stateless_models": "fable-5-1, opus-5, opus-4-8",
-    "tengu_curried_trinket": "control",
     "tengu_dapper_brooks": false,
     "tengu_dapper_dawn": false,
     "tengu_dapper_dusk": true,
@@ -709,7 +711,6 @@
     "tengu_gentle_frost": false,
     "tengu_gentle_grove": true,
     "tengu_gentle_hammock": true,
-    "tengu_gentle_wagtail": false,
     "tengu_gha_plugin_code_review": false,
     "tengu_giggly_oasis": false,
     "tengu_gleaming_creek": {},
@@ -774,11 +775,10 @@
     ],
     "tengu_harbor_permissions": true,
     "tengu_harbor_willow": true,
-    "tengu_harmonic_bumblebee": false,
+    "tengu_harmonic_bumblebee": true,
     "tengu_harp_tamboreo": false,
     "tengu_harp_tenoretes": false,
     "tengu_hashed_lark": false,
-    "tengu_hashed_mitten": true,
     "tengu_hashed_pascal": false,
     "tengu_hawthorn_steeple": false,
     "tengu_hawthorn_window": 200000,
@@ -802,7 +802,6 @@
     "tengu_hidden_ripple": true,
     "tengu_hidden_wind": false,
     "tengu_hipaa_history_retention_prune": true,
-    "tengu_hollow_curlew": false,
     "tengu_hover_rest": false,
     "tengu_humble_hammock": true,
     "tengu_humble_zephyr": false,
@@ -1028,7 +1027,6 @@
     "tengu_modular_sparkle": false,
     "tengu_moonlit_panda": true,
     "tengu_moonlit_toucan": false,
-    "tengu_moonlit_wreath": false,
     "tengu_moored_plover": true,
     "tengu_moored_skiff": false,
     "tengu_moss_anchor": false,
@@ -1137,7 +1135,6 @@
     "tengu_pewter_ledger": "OFF",
     "tengu_pewter_orchard": true,
     "tengu_pewter_summit": true,
-    "tengu_piped_popcorn": false,
     "tengu_placid_gosling": true,
     "tengu_plain_lantern": false,
     "tengu_plain_sorrel": true,
@@ -1150,7 +1147,6 @@
     "tengu_plugin_official_mkt_git_fallback": true,
     "tengu_plum_vx3": true,
     "tengu_polished_dewdrop": "off",
-    "tengu_polished_fountain": true,
     "tengu_polished_lagoon": true,
     "tengu_polished_salamander": true,
     "tengu_polished_tulip": true,
@@ -1177,7 +1173,6 @@
     },
     "tengu_prompt_cache_diagnostics": true,
     "tengu_prompt_suggestion": true,
-    "tengu_proud_book": false,
     "tengu_proud_deer": false,
     "tengu_proud_flurry_enabled": true,
     "tengu_proud_honey": false,
@@ -1188,7 +1183,7 @@
     "tengu_quartz_thimble": true,
     "tengu_quartz_vireo": "",
     "tengu_quiet_almanac": false,
-    "tengu_quiet_badger": false,
+    "tengu_quiet_badger": true,
     "tengu_quiet_basalt_echo": false,
     "tengu_quiet_dolphin": false,
     "tengu_quiet_ember": false,
@@ -1276,7 +1271,9 @@
     "tengu_saddle_lantern": true,
     "tengu_saffron_anchor": true,
     "tengu_saffron_credits_only_tiers": [
-      "enterprise"
+      "enterprise",
+      "pro",
+      "max"
     ],
     "tengu_saffron_lattice": {
       "enabled": false
@@ -1311,9 +1308,8 @@
     "tengu_shell_task_rows_live_only_enabled": false,
     "tengu_shimmering_firefly": false,
     "tengu_shimmying_stardust": false,
-    "tengu_shimmying_willow": 30,
+    "tengu_shimmying_willow": 400,
     "tengu_shining_fractals": false,
-    "tengu_shiny_hamming": false,
     "tengu_shiny_stardust": false,
     "tengu_shoji_engine": true,
     "tengu_silent_harbor": false,
@@ -1393,7 +1389,6 @@
     "tengu_sorrel_trellis_newel": false,
     "tengu_sorrel_trellis_tenon": false,
     "tengu_sorted_clarke": true,
-    "tengu_sorted_metcalfe": false,
     "tengu_sorted_otter": false,
     "tengu_sorted_thimble": true,
     "tengu_sorted_willow": true,
@@ -1422,7 +1417,17 @@
       "bannerPillExtraCredit": "At least {pct}% extra on one usage-credit purchase · {days} left",
       "dialogHeaderExtraCredit": "Limited-time offer: at least {pct}% extra credit on one purchase · {days} left"
     },
-    "tengu_startup_announcements": [],
+    "tengu_startup_announcements": [
+      {
+        "id": "fable-5-2-launch",
+        "text": "Fable 5.2 is here for your longest and toughest coding tasks. It draws down usage faster than Opus 5.5. Switch with `/model`.",
+        "textIfUnusedLimitReset": "Fable 5.2 is here for your longest and toughest coding tasks. It draws down usage faster than Opus 5.5. You also get a free Fable limit reset to redeem at clau.de/reset by March 8, 2027. Switch with `/model`.",
+        "maxImpressions": 3,
+        "priority": 0,
+        "accentBar": false,
+        "requiresModel": "claude-fable-5-2"
+      }
+    ],
     "tengu_steady_finch": false,
     "tengu_steady_lantern": false,
     "tengu_steady_marshmallow": false,
@@ -1443,7 +1448,6 @@
     },
     "tengu_steady_shelf": false,
     "tengu_steady_sunbeam": false,
-    "tengu_steady_wilkes": true,
     "tengu_stellar_drift": true,
     "tengu_still_harbor": false,
     "tengu_still_kestrel": true,
@@ -1703,7 +1707,6 @@
     "tengu_virtual_knuth": false,
     "tengu_virtual_pancake": true,
     "tengu_virtual_toast": true,
-    "tengu_vivid_alpaca": false,
     "tengu_vscode_feedback_survey": true,
     "tengu_vscode_integrated_browser": false,
     "tengu_vscode_onboarding": true,
@@ -1712,7 +1715,6 @@
     "tengu_walnut_spire": false,
     "tengu_walnut_tiller": true,
     "tengu_walrus_canteen": false,
-    "tengu_warm_elephant": false,
     "tengu_warm_wirth": true,
     "tengu_watchdog_skip_nonstreaming_fallback": false,
     "tengu_wavy_light": false,
@@ -1744,7 +1746,6 @@
     "tengu_witty_teapot": false,
     "tengu_wobbly_dahl": false,
     "tengu_wobbly_dewdrop": false,
-    "tengu_wobbly_fog": false,
     "tengu_wobbly_petal": {
       "sessionModelFamilies": [
         "sonnet",
@@ -1762,7 +1763,6 @@
     "tengu_wondrous_island": false,
     "tengu_wondrous_oasis": false,
     "tengu_wondrous_teapot": false,
-    "tengu_wondrous_tulip": false,
     "tengu_woolen_sparrow": false,
     "tengu_woolly_forest": true,
     "tengu_woolly_kettle": false,
@@ -1785,6 +1785,7 @@
     "tengu_zesty_valley": false,
     "tengu_zinc_harbor": false,
     "tengu_zippy_gosling": 0,
+    "tengu_zippy_harbor": false,
     "tengu_zippy_teacup": false
   },
   "unpinOpus47LaunchEffort": true,
@@ -7318,7 +7319,7 @@
   "voiceLangHintShownCount": 2,
   "voiceLangHintLastLanguage": "ru",
   "voiceFooterHintSeenCount": 4,
-  "migrationVersion": 14,
+  "migrationVersion": 15,
   "ideHintShownCount": 2,
   "mcpServers": {
     "avito": {
@@ -7378,7 +7379,7 @@
     "tengu_swift_lynx",
     "tengu_ultrareview_awareness"
   ],
-  "cachedGrowthBookFeaturesAt": 1794259668231,
+  "cachedGrowthBookFeaturesAt": 1794260274720,
   "tipLifetimeShownCounts": {
     "fotw-campaign-upsell": 10,
     "custom-agents": 16,
@@ -7626,13 +7627,6 @@
       "numStartups": 796
     }
   },
-  "promoStartupStatusCache": {
-    "accountUuid": "a7b11521-ec63-44bb-b79f-0f96f376cf45",
-    "endpoint": "/v1/code/promo/cloud_credit",
-    "eligible": false,
-    "claimed": false,
-    "checkedAt": 1792499344663
-  },
   "oauthAccount": {
     "accountUuid": "a7b11521-ec63-44bb-b79f-0f96f376cf45",
     "emailAddress": "kudr.max.design@gmail.com",
@@ -7657,6 +7651,46 @@
     "planDisplayName": "Ultra"
   },
   "clientDataCacheSlots": {
+    "bi1-72b6d49fb0f3ccaa": {
+      "data": {
+        "cedar_lagoon": {
+          "claude-fable": true,
+          "claude-mythos": true
+        },
+        "tengu_luminous_whistle": true,
+        "heather_vale": {
+          "claude-haiku-5-5": 128000,
+          "claude-haiku-5-5[1m]": 128000
+        },
+        "per_turn_effort": true,
+        "cedar_basin": "2027-08-31"
+      },
+      "at": 1794261869967,
+      "entrypoint": "sdk-py",
+      "model": "claude-haiku-5-5",
+      "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
+    },
+    "bi1-51ebccd61d5e6e00": {
+      "data": {
+        "cedar_lagoon": {
+          "claude-fable": true,
+          "claude-mythos": true
+        },
+        "silent_turn_reminder": true,
+        "tengu_luminous_whistle": true,
+        "heather_vale": {
+          "claude-sonnet-5-5": 128000,
+          "claude-sonnet-5-5[1m]": 128000
+        },
+        "per_turn_effort": true,
+        "tengu_lapis_anchor": "off",
+        "cedar_basin": "2027-08-31"
+      },
+      "at": 1794260071368,
+      "entrypoint": "sdk-py",
+      "model": "claude-sonnet-5-5",
+      "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
+    },
     "bi1-6eb01bd2632f91e8": {
       "data": {
         "cedar_lagoon": {
@@ -7833,48 +7867,6 @@
       "entrypoint": "sdk-cli",
       "model": "claude-opus-5-5",
       "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
-    },
-    "bi1-db64125770877c54": {
-      "data": {
-        "cedar_lagoon": {
-          "claude-fable": true,
-          "claude-mythos": true
-        },
-        "silent_turn_reminder": true,
-        "tengu_luminous_whistle": true,
-        "heather_vale": {
-          "claude-sonnet-5-5": 128000,
-          "claude-sonnet-5-5[1m]": 128000
-        },
-        "per_turn_effort": true,
-        "tengu_lapis_anchor": "off",
-        "cedar_basin": "2027-08-31"
-      },
-      "at": 1793205985044,
-      "entrypoint": "sdk-py",
-      "model": "claude-sonnet-5-5",
-      "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
-    },
-    "bi1-19b67ae97d35de5c": {
-      "data": {
-        "cedar_lagoon": {
-          "claude-fable": true,
-          "claude-mythos": true
-        },
-        "silent_turn_reminder": true,
-        "tengu_luminous_whistle": true,
-        "heather_vale": {
-          "claude-sonnet-5-5": 128000,
-          "claude-sonnet-5-5[1m]": 128000
-        },
-        "per_turn_effort": true,
-        "tengu_lapis_anchor": "off",
-        "cedar_basin": "2027-08-31"
-      },
-      "at": 1793103589941,
-      "entrypoint": "sdk-py",
-      "model": "claude-sonnet-5-5",
-      "org": "0881d2a0-4aa9-4cdd-9bd9-9ce25cbceb05"
     }
   },
   "additionalModelOptionsCache": [
@@ -7884,7 +7876,7 @@
       "description": "Fable 5.1 · Most capable for your hardest and longest-running tasks"
     }
   ],
-  "additionalModelOptionsAnsweredAt": 1794259664526,
+  "additionalModelOptionsAnsweredAt": 1794261869967,
   "additionalModelCostsCache": {},
   "modelAccessCache": [],
   "orgModelDefaultCache": null,

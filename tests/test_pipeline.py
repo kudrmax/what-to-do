@@ -151,10 +151,10 @@ async def test_posts_claude_failed_to_read_are_retried_next_refresh(tmp_path):
 
 @respx.mock
 async def test_mentions_left_unmerged_by_a_failure_are_merged_next_refresh(tmp_path):
-    extraction = extraction_by_text({"дайджест": [raw_event("Кафаны", "2026-11-13"), raw_event("Кафаны", "2026-11-13", "19:30")]})
+    extraction = extraction_by_text({"дайджест": [raw_event("Кафаны", "2026-11-13", "19:30")], "кафаны": [raw_event("Кафаны", "2026-11-13")]})
     judge = FailingOnce(judge_same_titles())
     container = await build(tmp_path, extraction, judge)
-    serve_channels([], [(7, RECENT, "дайджест недели")])
+    serve_channels([(1, RECENT, "лекция про кафаны")], [(7, RECENT, "дайджест недели")])
 
     container.refresh.start()
     first = await container.refresh.wait()
@@ -200,3 +200,18 @@ async def test_second_start_while_running_does_not_start_another(app):
     assert first is second
     await container.refresh.wait()
     assert len(extraction.calls) == 1
+
+
+@respx.mock
+async def test_two_items_of_one_post_never_end_up_on_one_card(tmp_path):
+    sessions = [raw_event("Speaking club", "2026-11-13", "13:00"), raw_event("Speaking club", "2026-11-13", "15:00")]
+    container = await build(tmp_path, extraction_by_text({"дайджест": sessions, "клуб": [raw_event("Speaking club", "2026-11-13", "13:00")]}), judge_same_titles())
+    serve_channels([], [(7, RECENT, "дайджест недели"), (8, LATER, "клуб в пятницу")])
+
+    container.refresh.start()
+    await container.refresh.wait()
+
+    cards = container.events.in_city(1)
+    assert sorted(len(container.mentions.of_event(e.id)) for e in cards) == [1, 2]
+    assert all(e.conflicts == () for e in cards)
+    await container.close()
