@@ -95,7 +95,7 @@ Fields of an event
 - tags: one or two from this list only: {tags}. If none fits, use exactly "{fallback}".
 - update_kind: "announcement" for a normal announcement; "reschedule" when the post moves an already announced event to another date or time (give the new date and time); "cancellation" when it cancels one; "details" when it only adds details to one announced earlier.
 - from_organizer: true when the channel itself organizes or hosts the event (the venue's or the organizer's own channel), false for afisha and repost channels.
-- image_index: 0-based index of the post image that shows this event, null if the post has no images or none fits.
+- image_index: 0-based index of the post image that shows this event, null if the post has no images or none fits. An image that shows several events at once (a digest cover, a collage of posters, a schedule) belongs to none of them: null.
 """
 
 
