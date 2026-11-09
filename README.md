@@ -6,7 +6,7 @@
 
 ```bash
 uv sync
-uv run where-to-go            # API на http://127.0.0.1:18765, данные в ~/Library/Application Support/where-to-go
+uv run where-to-go            # API на http://127.0.0.1:18765, описание ручек на /docs, данные в ~/Library/Application Support/where-to-go
 uv run pytest
 ```
 
