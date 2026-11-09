@@ -5,3 +5,9 @@ __pycache__/
 data/
 *.sqlite3
 .coverage
+# Claude CLI state, written here once by mistake
+/backups/
+/cache/
+/plugins/
+/projects/
+/settings.json
