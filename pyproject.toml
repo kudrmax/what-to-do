@@ -1,0 +1,37 @@
+[project]
+name = "where-to-go"
+version = "0.1.0"
+description = "Local backend of «Чем заняться»: Telegram event announcements turned into event cards by Claude"
+readme = "README.md"
+authors = [
+    { name = "Maksim Kudryashov", email = "mdmkudryashov@avito.ru" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "claude-agent-sdk>=0.2.180",
+    "fastapi>=0.162.2",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.3",
+    "python-dateutil>=4.0.0",
+    "selectolax>=1.0.2",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "respx>=0.23.1",
+]
+
+[project.scripts]
+where-to-go = "where_to_go.__main__:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
