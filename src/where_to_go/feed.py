@@ -37,7 +37,7 @@ class FeedFilter:
             return False
         if self.plans and event.mark.plan not in self.plans:
             return False
-        if self.hide_marked and event.mark.is_complete and not event.mark.plan.is_going:
+        if self.hide_marked and event.mark.is_dismissed:
             return False
         return True
 

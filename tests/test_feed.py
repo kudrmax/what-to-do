@@ -36,12 +36,14 @@ def test_running_exhibition_shows_once_on_the_first_visible_day():
     assert [o.date for o in Feed(Events(show)).occurrences(1, WEEK)] == [date(2026, 11, 9)]
 
 
-def test_fully_marked_not_going_is_hidden_by_default_but_going_stays():
+def test_a_card_leaves_the_feed_once_its_plan_says_not_going_interest_does_not_matter():
     no = event(id=1, mark=Mark(3, Plan.NO))
     sure = event(id=2, mark=Mark(5, Plan.SURE))
-    unrated = event(id=3, mark=Mark(None, Plan.NO))
-    shown = {o.event.id for o in Feed(Events(no, sure, unrated)).occurrences(1, WEEK)}
-    assert shown == {2, 3}
+    no_without_interest = event(id=3, mark=Mark(None, Plan.NO))
+    went = event(id=4, mark=Mark(None, Plan.WENT))
+    interest_only = event(id=5, mark=Mark(2, None))
+    shown = {o.event.id for o in Feed(Events(no, sure, no_without_interest, went, interest_only)).occurrences(1, WEEK)}
+    assert shown == {2, 5}
 
 
 def test_only_timed_drops_unknown_time_and_multiday():

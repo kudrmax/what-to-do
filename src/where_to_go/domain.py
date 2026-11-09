@@ -142,6 +142,11 @@ class Mark:
     def is_complete(self) -> bool:
         return self.interest is not None and self.plan is not None
 
+    @property
+    def is_dismissed(self) -> bool:
+        """The user is not going (or already went): the card leaves the feed, interest or not."""
+        return self.plan is not None and not self.plan.is_going
+
 
 @dataclass(frozen=True)
 class Conflict:
