@@ -1,0 +1,125 @@
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.week-nav button {
+  height: 36px;
+  min-width: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+}
+
+.week-nav button:hover {
+  background: var(--line-control);
+}
+
+.week-nav__today {
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.week {
+  overflow-x: auto;
+  margin: 0 -8px;
+}
+
+.week__grid {
+  min-width: 840px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+
+.week__day {
+  min-height: calc(100vh - 160px);
+  border-right: 1px solid var(--line-soft);
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week__day:last-child {
+  border-right: none;
+}
+
+.week__day-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.week__weekday {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.week__number {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.week__number--today {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.week__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  border-radius: 8px;
+  padding: 7px 8px;
+  text-decoration: none;
+}
+
+.week__item:hover {
+  background: var(--bg-muted);
+}
+
+.week__time {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.week__title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.week__item--planned,
+.week__item--planned:hover {
+  background: var(--accent-soft);
+}
+
+.week__item--planned .week__time {
+  color: var(--accent-strong);
+}
+
+.week__item--planned .week__title {
+  color: var(--accent-ink);
+}
