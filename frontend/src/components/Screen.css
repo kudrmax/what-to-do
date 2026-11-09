@@ -64,3 +64,9 @@
   font-weight: 600;
   text-decoration: none;
 }
+
+@media (max-width: 1000px) {
+  .screen {
+    padding: 24px 24px 32px;
+  }
+}
