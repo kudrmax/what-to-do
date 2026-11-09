@@ -38,11 +38,13 @@ class CityIn(BaseModel):
 class SettingsOut(BaseModel):
     active_city_id: int | None
     description_language: str
+    first_read_posts: int
 
 
 class SettingsIn(BaseModel):
     active_city_id: int | None = None
     description_language: str | None = None
+    first_read_posts: int | None = Field(default=None, ge=1, le=300)
 
 
 class SourceOut(BaseModel):
@@ -274,7 +276,11 @@ def create_app(container_factory) -> FastAPI:
 
     @app.get("/settings", response_model=SettingsOut)
     def get_settings(c: ContainerDep):
-        return SettingsOut(active_city_id=c.settings.active_city_id(), description_language=c.settings.description_language())
+        return SettingsOut(
+            active_city_id=c.settings.active_city_id(),
+            description_language=c.settings.description_language(),
+            first_read_posts=c.settings.first_read_posts(),
+        )
 
     @app.patch("/settings", response_model=SettingsOut)
     def patch_settings(body: SettingsIn, c: ContainerDep):
@@ -284,6 +290,8 @@ def create_app(container_factory) -> FastAPI:
             c.settings.set(SettingsRepository.ACTIVE_CITY, str(body.active_city_id))
         if body.description_language:
             c.settings.set(SettingsRepository.DESCRIPTION_LANGUAGE, body.description_language)
+        if body.first_read_posts is not None:
+            c.settings.set(SettingsRepository.FIRST_READ_POSTS, str(body.first_read_posts))
         return get_settings(c)
 
     @app.get("/cities", response_model=list[CityOut])

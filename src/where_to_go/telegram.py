@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import httpx
 from selectolax.lexbor import LexborHTMLParser as HTMLParser, LexborNode as Node
@@ -123,8 +123,8 @@ class TelegramChannelReader:
         parser = await self._page(handle, None)
         return parser.title() or handle
 
-    async def new_posts(self, handle: str, after_id: int | None, since: datetime) -> list[CollectedPost]:
-        """Posts newer than `after_id` (or published after `since` on the first read), oldest first."""
+    async def new_posts(self, handle: str, after_id: int | None, first_read_limit: int) -> list[CollectedPost]:
+        """Posts newer than `after_id`, oldest first; a channel read for the first time gives its last posts."""
         collected: dict[int, CollectedPost] = {}
         before: int | None = None
         for _ in range(self.MAX_PAGES):
@@ -132,13 +132,16 @@ class TelegramChannelReader:
             if not page:
                 break
             for post in page:
-                if (after_id is None or post.external_id > after_id) and post.published_at >= since:
+                if after_id is None or post.external_id > after_id:
                     collected[post.external_id] = post
             oldest = min(page, key=lambda p: p.external_id)
-            if (after_id is not None and oldest.external_id <= after_id) or oldest.published_at < since:
+            if after_id is not None and oldest.external_id <= after_id:
+                break
+            if after_id is None and len(collected) >= first_read_limit:
                 break
             before = oldest.external_id
-        return sorted(collected.values(), key=lambda p: p.external_id)
+        posts = sorted(collected.values(), key=lambda p: p.external_id)
+        return posts if after_id is not None else posts[-first_read_limit:]
 
     async def _page(self, handle: str, before: int | None) -> TelegramPageParser:
         params = {"before": before} if before else None
@@ -153,5 +156,3 @@ class TelegramChannelReader:
             raise SourceError("Канал закрыт или у него выключен веб-просмотр")
         return parser
 
-
-DEFAULT_HISTORY = timedelta(days=30)

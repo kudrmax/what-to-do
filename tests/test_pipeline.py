@@ -215,3 +215,15 @@ async def test_two_items_of_one_post_never_end_up_on_one_card(tmp_path):
     assert sorted(len(container.mentions.of_event(e.id)) for e in cards) == [1, 2]
     assert all(e.conflicts == () for e in cards)
     await container.close()
+
+
+@respx.mock
+async def test_first_read_of_a_channel_uses_the_setting(app):
+    container, extraction, _ = app
+    container.settings.set(SettingsRepository.FIRST_READ_POSTS, "2")
+    serve_channels([(i, RECENT, f"пост {i}") for i in (1, 2, 3, 4)], [])
+    container.refresh.start()
+    progress = await container.refresh.wait()
+    assert progress.new_posts == 2
+    kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
+    assert kafana.last_post_id == 4

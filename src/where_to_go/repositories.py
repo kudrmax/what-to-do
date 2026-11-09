@@ -72,6 +72,8 @@ class ExtractedEventCodec:
 class SettingsRepository:
     ACTIVE_CITY = "active_city_id"
     DESCRIPTION_LANGUAGE = "description_language"
+    FIRST_READ_POSTS = "first_read_posts"
+    DEFAULT_FIRST_READ_POSTS = 20
 
     def __init__(self, db: Database) -> None:
         self._db = db
@@ -93,6 +95,10 @@ class SettingsRepository:
 
     def description_language(self) -> str:
         return self.get(self.DESCRIPTION_LANGUAGE) or "русский"
+
+    def first_read_posts(self) -> int:
+        value = self.get(self.FIRST_READ_POSTS)
+        return int(value) if value else self.DEFAULT_FIRST_READ_POSTS
 
 
 class CityRepository:

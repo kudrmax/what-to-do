@@ -1,5 +1,4 @@
 import time
-from datetime import timedelta
 
 import pytest
 import respx
@@ -43,7 +42,6 @@ def test_add_source_refresh_and_mark(client):
     assert source.json()["title"] == "Канал quizbg"
     assert client.post("/sources", json={"link": "@quizbg"}).status_code == 409
 
-    client.app.state.container.refresh.HISTORY = timedelta(days=365 * 100)
     assert client.post("/refresh").status_code == 202
     status = client.get("/refresh").json()
     for _ in range(100):
@@ -145,6 +143,9 @@ def test_tags_settings_and_unknown_ids(client):
     assert client.patch(f"/tags/{added['id']}", json={"name": "Танцы и сальса"}).json()["name"] == "Танцы и сальса"
     assert client.patch("/tags/999", json={"name": "x"}).status_code == 404
     assert client.patch("/settings", json={"description_language": "английский"}).json()["description_language"] == "английский"
+    assert client.get("/settings").json()["first_read_posts"] == 20
+    assert client.patch("/settings", json={"first_read_posts": 5}).json()["first_read_posts"] == 5
+    assert client.patch("/settings", json={"first_read_posts": 0}).status_code == 422
     assert client.patch("/settings", json={"active_city_id": 999}).status_code == 404
     assert client.get("/events/999").status_code == 404
     assert client.get("/images/../where-to-go.sqlite3").status_code == 404

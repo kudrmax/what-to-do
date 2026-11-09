@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 import httpx
 import pytest
 import respx
@@ -41,18 +39,21 @@ async def test_reader_pages_back_until_the_last_known_post():
     respx.get("https://t.me/s/bg", params={"before": "13"}).respond(200, text=channel_page("bg", older))
     respx.get("https://t.me/s/bg").respond(200, text=channel_page("bg", newest, before=13))
     async with httpx.AsyncClient() as client:
-        posts = await TelegramChannelReader(client).new_posts("bg", 11, datetime(2026, 10, 1, tzinfo=UTC))
+        posts = await TelegramChannelReader(client).new_posts("bg", 11, first_read_limit=1)
     assert [p.external_id for p in posts] == [12, 13, 14]
 
 
 @respx.mock
-async def test_first_read_stops_at_the_history_limit():
-    respx.get("https://t.me/s/bg").respond(
-        200, text=channel_page("bg", [(1, "2026-09-01T10:00:00+00:00", "старый"), (2, "2026-11-05T10:00:00+00:00", "новый")], before=1)
-    )
+async def test_first_read_takes_the_last_n_posts_paging_back_as_needed():
+    at = "2026-11-05T10:00:00+00:00"
+    older = respx.get("https://t.me/s/bg", params={"before": "4"}).respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (1, 2, 3)], before=1))
+    respx.get("https://t.me/s/bg").respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (4, 5)], before=4))
     async with httpx.AsyncClient() as client:
-        posts = await TelegramChannelReader(client).new_posts("bg", None, datetime(2026, 10, 10, tzinfo=UTC))
-    assert [p.external_id for p in posts] == [2]
+        reader = TelegramChannelReader(client)
+        assert [p.external_id for p in await reader.new_posts("bg", None, first_read_limit=2)] == [4, 5]
+        assert not older.called
+        assert [p.external_id for p in await reader.new_posts("bg", None, first_read_limit=4)] == [2, 3, 4, 5]
+        assert older.call_count == 1
 
 
 @respx.mock
@@ -60,4 +61,4 @@ async def test_closed_channel_is_reported():
     respx.get("https://t.me/s/secret").respond(302, headers={"Location": "https://t.me/secret"})
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match="закрыт"):
-            await TelegramChannelReader(client).new_posts("secret", None, datetime(2026, 10, 1, tzinfo=UTC))
+            await TelegramChannelReader(client).new_posts("secret", None, first_read_limit=20)

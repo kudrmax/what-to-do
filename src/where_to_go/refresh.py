@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from where_to_go.domain import City, Post, Source
@@ -51,7 +51,6 @@ class RefreshProgress:
 
 
 class RefreshService:
-    HISTORY = timedelta(days=30)
     COLLECT_CONCURRENCY = 4
     READ_CONCURRENCY = 3
 
@@ -135,9 +134,8 @@ class RefreshService:
         self._sources.recount_events()
 
     async def _collect(self, source: Source) -> None:
-        since = datetime.now(UTC) - self.HISTORY
         try:
-            found = await self._reader.new_posts(source.handle, source.last_post_id, since)
+            found = await self._reader.new_posts(source.handle, source.last_post_id, self._settings.first_read_posts())
         except SourceError as error:
             self._sources.record_error(source.id, str(error))
             self.progress.errors.append(f"{source.title}: {error}")
