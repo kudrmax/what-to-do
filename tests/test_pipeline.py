@@ -28,7 +28,7 @@ async def app(tmp_path):
     http = httpx.AsyncClient()
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, http=http)
     city = container.cities.add("Белград", "Europe/Belgrade")
-    container.settings.set(SettingsRepository.ACTIVE_CITY, str(city.id))
+    container.settings.update(active_city_id=city.id)
     container.sources.add(city.id, SourceKind.TELEGRAM, "kafana", "Кафана")
     container.sources.add(city.id, SourceKind.TELEGRAM, "afisha", "Афиша")
     yield container, extraction, judge
@@ -126,7 +126,7 @@ class FailingOnce:
 async def build(tmp_path, extraction, judge):
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, http=httpx.AsyncClient())
     city = container.cities.add("Белград", "Europe/Belgrade")
-    container.settings.set(SettingsRepository.ACTIVE_CITY, str(city.id))
+    container.settings.update(active_city_id=city.id)
     container.sources.add(city.id, SourceKind.TELEGRAM, "kafana", "Кафана")
     container.sources.add(city.id, SourceKind.TELEGRAM, "afisha", "Афиша")
     return container
@@ -218,15 +218,21 @@ async def test_two_items_of_one_post_never_end_up_on_one_card(tmp_path):
 
 
 @respx.mock
-async def test_first_read_of_a_channel_uses_the_setting(app):
+async def test_raising_recent_posts_reads_older_posts_of_a_channel_already_read(app):
     container, extraction, _ = app
-    container.settings.set(SettingsRepository.FIRST_READ_POSTS, "2")
+    container.settings.update(recent_posts=2)
     serve_channels([(i, RECENT, f"пост {i}") for i in (1, 2, 3, 4)], [])
     container.refresh.start()
     progress = await container.refresh.wait()
     assert progress.new_posts == 2
     kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
     assert kafana.last_post_id == 4
+
+    container.settings.update(recent_posts=4)
+    container.refresh.start()
+    progress = await container.refresh.wait()
+    assert progress.new_posts == 2
+    assert container.posts.known_ids(kafana.id) == {1, 2, 3, 4}
 
 
 @respx.mock

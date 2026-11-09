@@ -25,7 +25,7 @@ def client(tmp_path, interface):
 
 
 def test_api_lives_under_api(client):
-    assert client.get("/api/settings").json()["first_read_posts"] == 20
+    assert client.get("/api/settings").json()["recent_posts"] == 20
     assert client.get("/api/docs").status_code == 200
 
 

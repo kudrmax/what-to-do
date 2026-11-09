@@ -143,9 +143,11 @@ def test_tags_settings_and_unknown_ids(client):
     assert client.patch(f"/tags/{added['id']}", json={"name": "Танцы и сальса"}).json()["name"] == "Танцы и сальса"
     assert client.patch("/tags/999", json={"name": "x"}).status_code == 404
     assert client.patch("/settings", json={"description_language": "английский"}).json()["description_language"] == "английский"
-    assert client.get("/settings").json()["first_read_posts"] == 20
-    assert client.patch("/settings", json={"first_read_posts": 5}).json()["first_read_posts"] == 5
-    assert client.patch("/settings", json={"first_read_posts": 0}).status_code == 422
+    assert client.get("/settings").json()["recent_posts"] == 20
+    assert client.patch("/settings", json={"recent_posts": 5}).json()["recent_posts"] == 5
+    too_small = client.patch("/settings", json={"recent_posts": 0})
+    assert too_small.status_code == 422 and too_small.json() == {"detail": "Значение должно быть не меньше 1"}
+    assert client.patch("/settings", json={"recent_posts": 301}).json() == {"detail": "Значение должно быть не больше 300"}
     assert client.patch("/settings", json={"active_city_id": 999}).status_code == 404
     assert client.get("/events/999").status_code == 404
     assert client.get("/images/../where-to-go.sqlite3").status_code == 404

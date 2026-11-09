@@ -25,7 +25,7 @@ class Presenter:
         self._c = container
 
     def city(self, city: City) -> CityOut:
-        return CityOut(id=city.id, name=city.name, timezone=city.timezone, active=city.id == self._c.settings.active_city_id())
+        return CityOut(id=city.id, name=city.name, timezone=city.timezone, active=city.id == self._c.settings.load().active_city_id)
 
     @staticmethod
     def source(source: Source) -> SourceOut:

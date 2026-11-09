@@ -8,9 +8,11 @@ from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from where_to_go.api.errors import validation_error
 from where_to_go.api.presenter import Presenter
 from where_to_go.api.schemas import (
     CityIn,
@@ -22,8 +24,6 @@ from where_to_go.api.schemas import (
     OccurrenceOut,
     PlaceOut,
     RefreshOut,
-    SettingsIn,
-    SettingsOut,
     SourceIn,
     SourceOut,
     SourcePatch,
@@ -34,7 +34,7 @@ from where_to_go.api.schemas import (
 from where_to_go.container import Container
 from where_to_go.domain import City, Event, Mark, Plan, Source, SourceKind
 from where_to_go.feed import DEFAULT_HORIZON, FeedFilter
-from where_to_go.repositories import SettingsRepository
+from where_to_go.settings import AppSettings, SettingsChange
 from where_to_go.telegram import SourceError, TelegramHandle
 
 DESCRIPTION = """
@@ -69,7 +69,7 @@ ContainerDep = Annotated[Container, Depends(_container)]
 
 
 def _active_city(c: ContainerDep) -> City:
-    city_id = c.settings.active_city_id()
+    city_id = c.settings.load().active_city_id
     city = c.cities.get(city_id) if city_id else None
     if city is None:
         raise HTTPException(409, "Сначала добавьте город")
@@ -106,30 +106,22 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     app = FastAPI(title="Чем заняться", version="0.1.0", description=DESCRIPTION, openapi_tags=TAGS, lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_exception_handler(RequestValidationError, validation_error)
 
     # ---------- settings and cities ----------
 
-    @app.get("/settings", response_model=SettingsOut, tags=["settings"])
+    @app.get("/settings", response_model=AppSettings, tags=["settings"])
     def get_settings(c: ContainerDep):
         """All settings of the app."""
-        return SettingsOut(
-            active_city_id=c.settings.active_city_id(),
-            description_language=c.settings.description_language(),
-            first_read_posts=c.settings.first_read_posts(),
-        )
+        return c.settings.load()
 
-    @app.patch("/settings", response_model=SettingsOut, tags=["settings"])
-    def patch_settings(body: SettingsIn, c: ContainerDep):
+    @app.patch("/settings", response_model=AppSettings, tags=["settings"])
+    def patch_settings(body: SettingsChange, c: ContainerDep):
         """Changes the settings that are sent. Switching the active city switches the feed and the sources."""
-        if body.active_city_id is not None:
-            if c.cities.get(body.active_city_id) is None:
-                raise HTTPException(404, "Нет такого города")
-            c.settings.set(SettingsRepository.ACTIVE_CITY, str(body.active_city_id))
-        if body.description_language:
-            c.settings.set(SettingsRepository.DESCRIPTION_LANGUAGE, body.description_language)
-        if body.first_read_posts is not None:
-            c.settings.set(SettingsRepository.FIRST_READ_POSTS, str(body.first_read_posts))
-        return get_settings(c)
+        change = body.model_dump(exclude_unset=True, exclude_none=True)
+        if "active_city_id" in change and c.cities.get(change["active_city_id"]) is None:
+            raise HTTPException(404, "Нет такого города")
+        return c.settings.update(**change)
 
     @app.get("/cities", response_model=list[CityOut], tags=["settings"])
     def list_cities(c: ContainerDep):
@@ -145,8 +137,8 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         except (ZoneInfoNotFoundError, ValueError):
             raise HTTPException(422, "Неизвестный часовой пояс") from None
         city = c.cities.add(body.name.strip(), body.timezone)
-        if c.settings.active_city_id() is None:
-            c.settings.set(SettingsRepository.ACTIVE_CITY, str(city.id))
+        if c.settings.load().active_city_id is None:
+            c.settings.update(active_city_id=city.id)
         return Presenter(c).city(city)
 
     # ---------- sources ----------

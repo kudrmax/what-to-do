@@ -3,8 +3,8 @@ import type { components } from "./schema";
 type Schemas = components["schemas"];
 
 export type City = Schemas["CityOut"];
-export type Settings = Schemas["SettingsOut"];
-export type SettingsChange = Schemas["SettingsIn"];
+export type Settings = Schemas["AppSettings"];
+export type SettingsChange = Schemas["SettingsChange"];
 export type Source = Schemas["SourceOut"];
 export type Tag = Schemas["TagOut"];
 export type EventCard = Schemas["EventOut"];

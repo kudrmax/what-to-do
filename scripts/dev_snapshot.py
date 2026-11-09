@@ -19,7 +19,7 @@ shutil.copytree(source, target)
 db = Database(target / "where-to-go.sqlite3")
 events, mentions = EventRepository(db), MentionRepository(db)
 cards = EventCards(events, mentions, EventResolver(TagRepository.FALLBACK))
-city_id = SettingsRepository(db).active_city_id()
+city_id = SettingsRepository(db).load().active_city_id
 for mention in mentions.unassigned():
     cards.refresh(cards.create(city_id, mention))
 for event in events.in_city(city_id):

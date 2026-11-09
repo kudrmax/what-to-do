@@ -20,7 +20,7 @@ async def main(data: Path) -> None:
     c = Container.build(data)
     if not c.cities.all():
         city = c.cities.add("Белград", "Europe/Belgrade")
-        c.settings.set(SettingsRepository.ACTIVE_CITY, str(city.id))
+        c.settings.update(active_city_id=city.id)
     city = c.cities.all()[0]
     known = {s.handle for s in c.sources.in_city(city.id)}
     for link in CHANNELS:

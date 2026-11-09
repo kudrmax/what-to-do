@@ -317,6 +317,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AppSettings
+         * @description Every setting of the app, described once: storage, the API and its change request all come from here.
+         */
+        AppSettings: {
+            /**
+             * Active City Id
+             * @description null until the first city is added
+             */
+            active_city_id?: number | null;
+            /**
+             * Description Language
+             * @description Language Claude writes titles and descriptions in
+             * @default русский
+             */
+            description_language: string;
+            /**
+             * Recent Posts
+             * @description How many latest posts of every channel are read; raising it reads older posts on the next refresh
+             * @default 20
+             */
+            recent_posts: number;
+        };
         /** CityIn */
         CityIn: {
             /**
@@ -658,40 +681,25 @@ export interface components {
             errors: string[];
         };
         /**
-         * SettingsIn
+         * SettingsChange
          * @description Only the fields that are sent change.
          */
-        SettingsIn: {
-            /** Active City Id */
-            active_city_id?: number | null;
-            /**
-             * Description Language
-             * @example русский
-             */
-            description_language?: string | null;
-            /**
-             * First Read Posts
-             * @example 20
-             */
-            first_read_posts?: number | null;
-        };
-        /** SettingsOut */
-        SettingsOut: {
+        SettingsChange: {
             /**
              * Active City Id
              * @description null until the first city is added
              */
-            active_city_id: number | null;
+            active_city_id?: number | null;
             /**
              * Description Language
              * @description Language Claude writes titles and descriptions in
              */
-            description_language: string;
+            description_language?: string | null;
             /**
-             * First Read Posts
-             * @description How many latest posts are read from a channel the first time it is refreshed
+             * Recent Posts
+             * @description How many latest posts of every channel are read; raising it reads older posts on the next refresh
              */
-            first_read_posts: number;
+            recent_posts?: number | null;
         };
         /** SourceIn */
         SourceIn: {
@@ -822,7 +830,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SettingsOut"];
+                    "application/json": components["schemas"]["AppSettings"];
                 };
             };
         };
@@ -836,7 +844,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SettingsIn"];
+                "application/json": components["schemas"]["SettingsChange"];
             };
         };
         responses: {
@@ -846,7 +854,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SettingsOut"];
+                    "application/json": components["schemas"]["AppSettings"];
                 };
             };
             /** @description Validation Error */
