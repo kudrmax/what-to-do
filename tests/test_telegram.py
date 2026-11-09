@@ -62,3 +62,9 @@ async def test_closed_channel_is_reported():
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match="закрыт"):
             await TelegramChannelReader(client).new_posts("secret", None, first_read_limit=20)
+
+
+def test_service_messages_are_skipped():
+    html = channel_page("bg", [(5, "2026-11-01T10:00:00+00:00", "Квиз в пятницу"), (6, "2026-11-01T11:00:00+00:00", "Канал pinned a photo")])
+    html = html.replace('class="tgme_widget_message" data-post="bg/6"', 'class="tgme_widget_message service_message" data-post="bg/6"')
+    assert [p.external_id for p in TelegramPageParser(html).posts()] == [5]
