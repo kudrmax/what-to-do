@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import os
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -30,9 +30,11 @@ class JsonLlm(Protocol):
 
 
 class ClaudeJsonLlm:
-    """Structured-output calls through Claude Code (claude-agent-sdk): no API key, the user's own login."""
+    """Structured-output calls through Claude Code (claude-agent-sdk): no API key, the user's own login.
 
-    def __init__(self, model: str) -> None:
+    The model is asked for on every call, so a model changed in settings applies to the next call."""
+
+    def __init__(self, model: Callable[[], str]) -> None:
         self._model = model
         ClaudeCliEnvironment.prepare()
 
@@ -40,7 +42,7 @@ class ClaudeJsonLlm:
         self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
     ) -> dict[str, Any]:
         options = ClaudeAgentOptions(
-            model=self._model,
+            model=self._model(),
             system_prompt=system,
             tools=[],
             setting_sources=[],

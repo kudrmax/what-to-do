@@ -13,11 +13,13 @@ from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
 from where_to_go.llm import LlmError
+from where_to_go.photos import PhotoTranscriber
 from where_to_go.repositories import (
     CityRepository,
     EventRepository,
     MentionRepository,
     PlaceRepository,
+    PhotoTextRepository,
     PostRepository,
     SettingsRepository,
     SourceRepository,
@@ -31,6 +33,7 @@ log = logging.getLogger(__name__)
 class Stage(StrEnum):
     IDLE = "idle"
     COLLECTING = "collecting"
+    PHOTOS = "photos"
     READING = "reading"
     MERGING = "merging"
     DONE = "done"
@@ -38,7 +41,7 @@ class Stage(StrEnum):
 
     @property
     def is_running(self) -> bool:
-        return self in (Stage.COLLECTING, Stage.READING, Stage.MERGING)
+        return self in (Stage.COLLECTING, Stage.PHOTOS, Stage.READING, Stage.MERGING)
 
 
 class RefreshProgress(Public):
@@ -46,6 +49,8 @@ class RefreshProgress(Public):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     new_posts: int = Field(default=0, description="Posts downloaded in this refresh")
+    photos_to_read: int = Field(default=0, description="Photos Claude transcribes in this refresh")
+    photos_read: int = 0
     posts_to_read: int = Field(default=0, description="Posts Claude reads in this refresh")
     posts_read: int = 0
     events_touched: int = Field(default=0, description="Cards created or updated")
@@ -69,9 +74,13 @@ class PostReader:
         post_mentions: PostMentions,
         places: PlaceRepository,
         extractor: PostExtractor,
+        photos: PhotoTranscriber,
+        photo_texts: PhotoTextRepository,
         atomically: Atomically,
     ) -> None:
         self._atomically = atomically
+        self._photos = photos
+        self._photo_texts = photo_texts
         self._settings = settings
         self._tags = tags
         self._posts = posts
@@ -91,12 +100,14 @@ class PostReader:
             language=settings.description_language,
             tags=[t.name for t in tags if not t.is_fallback],
             fallback_tag=self._tags.fallback(),
+            photo_rules=self._photos.rules(),
         )
 
     async def read(self, batch: list[Post], sources: dict[int, Source], context: ExtractionContext) -> None:
         """Reads a batch; on a Claude failure the posts stay unread and are retried next time."""
         try:
-            results = await self._extractor.extract(batch, sources, context)
+            texts = self._photo_texts.of(name for post in batch for name in PhotoTranscriber.shown(post))
+            results = await self._extractor.extract(batch, sources, context, texts)
         except LlmError as error:
             for post in batch:
                 self._posts.mark_failed(post.id, str(error))
@@ -112,6 +123,7 @@ class PostReader:
 
 class RefreshService:
     COLLECT_CONCURRENCY = 4
+    PHOTO_CONCURRENCY = 3
     READ_CONCURRENCY = 3
 
     def __init__(
@@ -125,9 +137,11 @@ class RefreshService:
         events: EventRepository,
         reader: TelegramChannelReader,
         images: ImageStore,
+        photos: PhotoTranscriber,
         post_reader: PostReader,
         linker: EventLinker,
     ) -> None:
+        self._photos = photos
         self._settings = settings
         self._cities = cities
         self._sources = sources
@@ -172,9 +186,17 @@ class RefreshService:
         self.progress.stage = Stage.COLLECTING
         await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s) for s in sources.values()])
 
-        self.progress.stage = Stage.READING
         context = self._post_reader.context(city)
         posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts)
+
+        self.progress.stage = Stage.PHOTOS
+        photos = self._photos.untranscribed(posts)
+        self.progress.photos_to_read = len(photos)
+        await self._bounded(self.PHOTO_CONCURRENCY, [self._transcribe(batch) for batch in self._photos.batches(photos)])
+        unreadable = set(self._photos.untranscribed(posts))
+        posts = [p for p in posts if unreadable.isdisjoint(PhotoTranscriber.shown(p))]
+
+        self.progress.stage = Stage.READING
         self.progress.posts_to_read = len(posts)
         await self._bounded(self.READ_CONCURRENCY, [self._read(batch, sources, context) for batch in self._post_reader.batches(posts)])
 
@@ -197,6 +219,15 @@ class RefreshService:
             if self._posts.add_new(source.id, post, paths):
                 self.progress.new_posts += 1
         self._sources.record_success(source.id)
+
+    async def _transcribe(self, batch: list[str]) -> None:
+        """A post waits for its photos: read without them it would lose what its poster says."""
+        try:
+            await self._photos.transcribe(batch)
+        except LlmError as error:
+            self.progress.errors.append(f"Claude не прочитал {len(batch)} фото, их посты разберутся в следующий раз: {error}")
+            return
+        self.progress.photos_read += len(batch)
 
     async def _read(self, batch: list[Post], sources: dict[int, Source], context: ExtractionContext) -> None:
         try:

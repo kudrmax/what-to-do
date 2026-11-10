@@ -7,7 +7,7 @@ from where_to_go.llm import ClaudeCliEnvironment, ClaudeJsonLlm
 
 def test_config_dir_naming_the_default_location_is_removed_not_emptied(monkeypatch):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude") + "/")
-    ClaudeJsonLlm("m")
+    ClaudeJsonLlm(lambda: "m")
     assert "CLAUDE_CONFIG_DIR" not in os.environ
 
 
@@ -47,7 +47,7 @@ def fake_query(*messages, error: Exception | None = None):
 async def test_structured_output_is_returned_and_tools_are_off(monkeypatch):
     query, seen = fake_query(result(structured_output={"posts": []}))
     monkeypatch.setattr(llm_module, "query", query)
-    assert await ClaudeJsonLlm("claude-haiku-5-5").complete_json("sys", "prompt", {"type": "object"}) == {"posts": []}
+    assert await ClaudeJsonLlm(lambda: "claude-haiku-5-5").complete_json("sys", "prompt", {"type": "object"}) == {"posts": []}
     options = seen["options"]
     assert options.tools == [] and options.model == "claude-haiku-5-5" and options.setting_sources == []
     assert options.output_format == {"type": "json_schema", "schema": {"type": "object"}}
@@ -62,7 +62,7 @@ async def test_failures_become_llm_errors(monkeypatch, messages, error):
     query, _ = fake_query(*messages, error=error)
     monkeypatch.setattr(llm_module, "query", query)
     with pytest.raises(LlmError):
-        await ClaudeJsonLlm("m").complete_json("s", "p", {})
+        await ClaudeJsonLlm(lambda: "m").complete_json("s", "p", {})
 
 
 async def test_images_go_after_their_captions_in_one_user_message(monkeypatch):
@@ -70,7 +70,7 @@ async def test_images_go_after_their_captions_in_one_user_message(monkeypatch):
 
     query, seen = fake_query(result(structured_output={}))
     monkeypatch.setattr(llm_module, "query", query)
-    await ClaudeJsonLlm("m").complete_json("s", "posts", {}, [LlmImage("Post 1, photo 0:", "image/png", b"\x89PNG")])
+    await ClaudeJsonLlm(lambda: "m").complete_json("s", "posts", {}, [LlmImage("Post 1, photo 0:", "image/png", b"\x89PNG")])
     [message] = seen["prompt"]
     assert message["type"] == "user"
     assert message["message"]["content"] == [
@@ -83,5 +83,15 @@ async def test_images_go_after_their_captions_in_one_user_message(monkeypatch):
 async def test_without_images_the_prompt_is_plain_text(monkeypatch):
     query, seen = fake_query(result(structured_output={}))
     monkeypatch.setattr(llm_module, "query", query)
-    await ClaudeJsonLlm("m").complete_json("s", "posts", {})
+    await ClaudeJsonLlm(lambda: "m").complete_json("s", "posts", {})
     assert seen["prompt"] == "posts"
+
+
+async def test_the_model_is_asked_for_on_every_call(monkeypatch):
+    query, seen = fake_query(result(structured_output={}))
+    monkeypatch.setattr(llm_module, "query", query)
+    model = ["claude-haiku-5-5"]
+    llm = ClaudeJsonLlm(lambda: model[0])
+    model[0] = "claude-sonnet-5-5"
+    await llm.complete_json("s", "p", {})
+    assert seen["options"].model == "claude-sonnet-5-5"

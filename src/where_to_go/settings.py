@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator
 from pydantic.fields import FieldInfo
 
 from where_to_go import prompts
+
+
+class ClaudeModel(StrEnum):
+    HAIKU = "claude-haiku-5-5"
+    SONNET = "claude-sonnet-5-5"
+    OPUS = "claude-opus-5-5"
 
 
 class AppSettings(BaseModel):
@@ -28,6 +35,10 @@ class AppSettings(BaseModel):
         + ", ".join("{" + name + "}" for name in prompts.EXTRACTION_PLACEHOLDERS),
     )
     matching_prompt: str = Field(default=prompts.MATCHING, min_length=1, description="Instructions Claude gets for merging duplicates")
+    photo_prompt: str = Field(default=prompts.PHOTOS, min_length=1, description="Instructions Claude gets for transcribing post photos")
+    photo_model: ClaudeModel = Field(default=ClaudeModel.SONNET, description="Transcribes post photos; Haiku misreads tables and collages")
+    extraction_model: ClaudeModel = Field(default=ClaudeModel.SONNET, description="Reads posts into events and places")
+    matching_model: ClaudeModel = Field(default=ClaudeModel.HAIKU, description="Merges duplicate announcements")
 
     @field_validator("extraction_prompt")
     @classmethod

@@ -1,15 +1,12 @@
 import json
-import tempfile
 from datetime import UTC, date, datetime, time
-from pathlib import Path
 
 import pytest
 
 from tests.helpers import FakeLlm, raw_event
-from where_to_go.models import City, EventKind, Post, Source, UpdateKind
+from where_to_go.models import City, EventKind, PhotoText, Post, Source, UpdateKind
 from where_to_go.settings import AppSettings
 from where_to_go.extraction import ExtractionContext, PostExtractor
-from where_to_go.images import ImageStore
 
 CONTEXT = ExtractionContext(City(id=1, name="Белград", timezone="Europe/Belgrade"), AppSettings().extraction_prompt, "русский", ["Лекция", "Концерт"], "не распознано")
 SOURCES = {1: Source(id=1, city_id=1, handle="bg", title="Афиша")}
@@ -20,16 +17,12 @@ def post(post_id: int = 10, images: int = 0) -> Post:
                 published_at=datetime(2026, 11, 9, 17, 30, tzinfo=UTC), text="текст", image_paths=[f"{i}.jpg" for i in range(images)])
 
 
-def photo_store(*names: str) -> ImageStore:
-    """A store holding the given stored image names, each a few distinct bytes."""
-    folder = Path(tempfile.mkdtemp())
-    for name in names:
-        (folder / name).write_bytes(name.encode())
-    return ImageStore(folder, client=None)
+def transcribed(*names: str) -> dict[str, PhotoText]:
+    return {name: PhotoText(image=name, text=f"текст {name}", shows=f"афиша {name}", read_with="r") for name in names}
 
 
-def extractor(llm, store: ImageStore | None = None) -> PostExtractor:
-    return PostExtractor(llm, store or photo_store())
+def extractor(llm) -> PostExtractor:
+    return PostExtractor(llm)
 
 
 def events(result):
@@ -38,8 +31,8 @@ def events(result):
 
 async def extract_one(events: list[dict], images: int = 0, places: list[dict] | None = None):
     llm = FakeLlm(lambda *_: {"posts": [{"post_id": 10, "events": events, "places": places or []}]})
-    store = photo_store(*(f"{i}.jpg" for i in range(images)))
-    [result] = await extractor(llm, store).extract([post(images=images)], SOURCES, CONTEXT)
+    texts = transcribed(*(f"{i}.jpg" for i in range(images)))
+    [result] = await extractor(llm).extract([post(images=images)], SOURCES, CONTEXT, texts)
     return result, llm
 
 
@@ -81,20 +74,17 @@ async def test_tags_outside_the_list_fall_back():
     assert [e.tags for e in events(result)] == [["не распознано"], ["Концерт"]]
 
 
-async def test_claude_sees_the_photos_of_each_post_captioned_with_post_and_index():
+async def test_claude_reads_the_text_of_each_post_photo_by_index_and_never_the_picture():
     llm = FakeLlm(lambda *_: {"posts": []})
-    store = photo_store("a.jpg", "b.png", "c.jpg")
-    first = post(10, images=0).model_copy(update={"image_paths": ["a.jpg", "b.png"]})
-    second = post(11, images=0).model_copy(update={"image_paths": ["gone.jpg", "c.jpg"]})
-    await extractor(llm, store).extract([first, second], SOURCES, CONTEXT)
-    sent = [(i.caption, i.media_type, i.data) for i in llm.images[0]]
-    assert sent == [
-        ("Post 10, photo 0:", "image/jpeg", b"a.jpg"),
-        ("Post 10, photo 1:", "image/png", b"b.png"),
-        ("Post 11, photo 1:", "image/jpeg", b"c.jpg"),
-    ]
+    first = post(10).model_copy(update={"image_paths": ["a.jpg", "b.png"]})
+    second = post(11).model_copy(update={"image_paths": ["gone.jpg", "c.jpg"]})
+    await extractor(llm).extract([first, second], SOURCES, CONTEXT, transcribed("a.jpg", "b.png", "c.jpg"))
+    assert llm.images == [[]]
     items = json.loads(llm.calls[0][1].split("\n", 1)[1])
-    assert [item["photos"] for item in items] == [2, 1]
+    assert [item["photos"] for item in items] == [
+        [{"index": 0, "shows": "афиша a.jpg", "text": "текст a.jpg"}, {"index": 1, "shows": "афиша b.png", "text": "текст b.png"}],
+        [{"index": 1, "shows": "афиша c.jpg", "text": "текст c.jpg"}],
+    ]
 
 
 async def test_each_event_gets_the_photo_claude_points_at_if_claude_saw_it():
@@ -105,9 +95,9 @@ async def test_each_event_gets_the_photo_claude_points_at_if_claude_saw_it():
     assert [image for _, image in result.events] == [1, None, None]
 
 
-async def test_at_most_ten_photos_of_a_post_are_sent():
+async def test_at_most_ten_photos_of_a_post_are_read():
     _, llm = await extract_one([], images=12)
-    assert len(llm.images[0]) == 10
+    assert len(json.loads(llm.calls[0][1].split("\n", 1)[1])[0]["photos"]) == 10
 
 
 async def test_places_are_kept_apart_from_events():
@@ -117,7 +107,7 @@ async def test_places_are_kept_apart_from_events():
 
 async def test_post_missing_from_the_answer_yields_nothing():
     llm = FakeLlm(lambda *_: {"posts": []})
-    [result] = await extractor(llm).extract([post()], SOURCES, CONTEXT)
+    [result] = await extractor(llm).extract([post()], SOURCES, CONTEXT, {})
     assert result.events == [] and result.places == []
 
 
@@ -127,7 +117,7 @@ async def test_prompt_gives_local_publication_time_tags_and_language():
     assert '"Лекция", "Концерт"' in system and "русский" in system and "Белград" in system
     item = json.loads(prompt.split("\n", 1)[1])[0]
     assert item["published"] == "2026-11-09 18:30 (Monday)" and item["channel"] == "Афиша"
-    assert item["photos"] == 0
+    assert item["photos"] == []
 
 
 def test_posts_are_read_in_batches():
@@ -138,7 +128,7 @@ def test_posts_are_read_in_batches():
 async def test_the_prompt_comes_from_settings():
     custom = ExtractionContext(CONTEXT.city, "Город {city}, язык {language}", "русский", ["Лекция"], "не распознано")
     llm = FakeLlm(lambda *_: {"posts": []})
-    await extractor(llm).extract([post()], SOURCES, custom)
+    await extractor(llm).extract([post()], SOURCES, custom, {})
     assert llm.calls[0][0] == "Город Белград, язык русский"
 
 
@@ -146,3 +136,8 @@ async def test_the_schema_claude_gets_carries_the_field_descriptions():
     _, llm = await extract_one([])
     event = llm.schemas[0]["$defs"]["EventReading"]["properties"]
     assert "0 when free" in event["price"]["description"] and "poster" in event["photo"]["description"]
+
+
+def test_new_photo_rules_make_new_reading_rules():
+    other = ExtractionContext(CONTEXT.city, CONTEXT.prompt, CONTEXT.language, CONTEXT.tags, CONTEXT.fallback_tag, photo_rules="other")
+    assert other.rules != CONTEXT.rules

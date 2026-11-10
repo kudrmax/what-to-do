@@ -1014,7 +1014,7 @@
       "minLength": 1,
       "title": "Extraction Prompt",
       "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
-      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nPhotos\n- The photos of the posts come after them, each captioned with its post and index. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
+      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
      },
      "matching_prompt": {
       "type": "string",
@@ -1022,6 +1022,28 @@
       "title": "Matching Prompt",
       "description": "Instructions Claude gets for merging duplicates",
       "default": "You merge duplicate event announcements collected from several Telegram channels.\n\nYou get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.\n\nSame event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.\nNot the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.\n\nAn announcement without a start_date is a follow-up its channel posted about one of its own events; the existing cards offered for it are that channel's. Pick the card it is about by title, description and venue; if none clearly fits, leave both fields null.\n\nNever set both same_as_card and same_as_announcement."
+     },
+     "photo_prompt": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Photo Prompt",
+      "description": "Instructions Claude gets for transcribing post photos",
+      "default": "You transcribe the photos of Telegram posts that announce events: posters, event cards, schedules, digests.\n\nEvery photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema."
+     },
+     "photo_model": {
+      "$ref": "#/components/schemas/ClaudeModel",
+      "description": "Transcribes post photos; Haiku misreads tables and collages",
+      "default": "claude-sonnet-5-5"
+     },
+     "extraction_model": {
+      "$ref": "#/components/schemas/ClaudeModel",
+      "description": "Reads posts into events and places",
+      "default": "claude-sonnet-5-5"
+     },
+     "matching_model": {
+      "$ref": "#/components/schemas/ClaudeModel",
+      "description": "Merges duplicate announcements",
+      "default": "claude-haiku-5-5"
      }
     },
     "type": "object",
@@ -1030,7 +1052,11 @@
      "description_language",
      "recent_posts",
      "extraction_prompt",
-     "matching_prompt"
+     "matching_prompt",
+     "photo_prompt",
+     "photo_model",
+     "extraction_model",
+     "matching_model"
     ],
     "title": "AppSettings",
     "description": "Every setting of the app, described once: storage, the API and its change request all come from here."
@@ -1091,6 +1117,15 @@
      "id"
     ],
     "title": "CityPublic"
+   },
+   "ClaudeModel": {
+    "type": "string",
+    "enum": [
+     "claude-haiku-5-5",
+     "claude-sonnet-5-5",
+     "claude-opus-5-5"
+    ],
+    "title": "ClaudeModel"
    },
    "Conflict": {
     "properties": {
@@ -1748,6 +1783,17 @@
       "description": "Posts downloaded in this refresh",
       "default": 0
      },
+     "photos_to_read": {
+      "type": "integer",
+      "title": "Photos To Read",
+      "description": "Photos Claude transcribes in this refresh",
+      "default": 0
+     },
+     "photos_read": {
+      "type": "integer",
+      "title": "Photos Read",
+      "default": 0
+     },
      "posts_to_read": {
       "type": "integer",
       "title": "Posts To Read",
@@ -1785,6 +1831,8 @@
      "started_at",
      "finished_at",
      "new_posts",
+     "photos_to_read",
+     "photos_read",
      "posts_to_read",
      "posts_read",
      "events_touched",
@@ -1859,6 +1907,52 @@
       ],
       "title": "Matching Prompt",
       "description": "Instructions Claude gets for merging duplicates"
+     },
+     "photo_prompt": {
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Photo Prompt",
+      "description": "Instructions Claude gets for transcribing post photos"
+     },
+     "photo_model": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ClaudeModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Transcribes post photos; Haiku misreads tables and collages"
+     },
+     "extraction_model": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ClaudeModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Reads posts into events and places"
+     },
+     "matching_model": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ClaudeModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Merges duplicate announcements"
      }
     },
     "type": "object",
@@ -2003,6 +2097,7 @@
     "enum": [
      "idle",
      "collecting",
+     "photos",
      "reading",
      "merging",
      "done",

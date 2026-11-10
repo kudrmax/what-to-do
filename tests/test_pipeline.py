@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-from tests.helpers import FakeLlm, channel_page, extraction_by_text, judge_same_titles, raw_event
+from tests.helpers import photos_saying, FakeLlm, channel_page, extraction_by_text, judge_same_titles, raw_event
 from where_to_go.container import Container
 from where_to_go.models import Mark, Plan, Source
 from where_to_go.llm import LlmError
@@ -27,7 +27,7 @@ async def app(tmp_path):
     )
     judge = judge_same_titles()
     http = httpx.AsyncClient()
-    container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, http=http)
+    container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, photo_llm=photos_saying(), http=http)
     city = container.cities.add("Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
     container.sources.add(Source(city_id=city.id, handle="afisha", title="Афиша"))
@@ -124,7 +124,7 @@ class FailingOnce:
 
 
 async def build(tmp_path, extraction, judge):
-    container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, http=httpx.AsyncClient())
+    container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, photo_llm=photos_saying(), http=httpx.AsyncClient())
     city = container.cities.add("Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
     container.sources.add(Source(city_id=city.id, handle="afisha", title="Афиша"))
@@ -170,7 +170,7 @@ async def test_mentions_left_unmerged_by_a_failure_are_merged_next_refresh(tmp_p
 
 @respx.mock
 async def test_refresh_without_city_fails_visibly(tmp_path):
-    container = Container.build(tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), http=httpx.AsyncClient())
+    container = Container.build(tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
     container.refresh.start()
     progress = await container.refresh.wait()
     assert progress.stage is Stage.FAILED and "город" in progress.errors[0]
@@ -402,7 +402,7 @@ async def stop_midway(container) -> None:
 
 
 async def finish_after_restart(tmp_path) -> Container:
-    container = Container.build(tmp_path, extraction_llm=extraction_by_text(TWO_POSTS), matching_llm=judge_same_titles(), http=httpx.AsyncClient())
+    container = Container.build(tmp_path, extraction_llm=extraction_by_text(TWO_POSTS), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
     container.refresh.start()
     assert (await container.refresh.wait()).stage is Stage.DONE
     return container
@@ -451,7 +451,7 @@ async def test_a_stop_while_storing_a_post_keeps_none_of_it_and_the_post_is_read
 
 
 def test_a_transaction_saves_everything_or_nothing(tmp_path):
-    container = Container.build(tmp_path, extraction_llm=FakeLlm([]), matching_llm=FakeLlm([]), http=httpx.AsyncClient())
+    container = Container.build(tmp_path, extraction_llm=FakeLlm([]), matching_llm=FakeLlm([]), photo_llm=photos_saying(), http=httpx.AsyncClient())
     with pytest.raises(ProcessDied), container.db.transaction():
         container.cities.add("Белград", "Europe/Belgrade")
         raise ProcessDied

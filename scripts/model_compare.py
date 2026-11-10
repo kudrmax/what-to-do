@@ -19,15 +19,15 @@ class CountingLlm:
     def __init__(self, inner) -> None:
         self._inner, self.calls = inner, 0
 
-    async def complete_json(self, system, prompt, schema):
+    async def complete_json(self, system, prompt, schema, images=()):
         self.calls += 1
-        return await self._inner.complete_json(system, prompt, schema)
+        return await self._inner.complete_json(system, prompt, schema, images)
 
 
 async def main(source_dir: Path, target_dir: Path, model: str, post_ids: list[int]) -> None:
     origin = Container.build(source_dir)
-    extraction, matching = CountingLlm(ClaudeJsonLlm(model)), CountingLlm(ClaudeJsonLlm(model))
-    c = Container.build(target_dir, extraction_llm=extraction, matching_llm=matching)
+    photos, extraction, matching = (CountingLlm(ClaudeJsonLlm(lambda: model)) for _ in range(3))
+    c = Container.build(target_dir, extraction_llm=extraction, matching_llm=matching, photo_llm=photos)
     city = c.cities.active() or c.cities.add(*TEST_CITY)
     copies: dict[int, Source] = {}
     for post_id in post_ids:
@@ -38,11 +38,14 @@ async def main(source_dir: Path, target_dir: Path, model: str, post_ids: list[in
         collected = CollectedPost.model_validate(post, from_attributes=True)
         c.posts.add_new(copies[post.source_id].id, collected, post.image_paths)
     sources = {s.id: s for s in copies.values()}
+    unread = c.posts.unprocessed(sources)
+    for batch in c.photos.batches(c.photos.untranscribed(unread)):
+        await c.photos.transcribe(batch)
     context = c.post_reader.context(city)
-    for batch in c.post_reader.batches(c.posts.unprocessed(sources)):
+    for batch in c.post_reader.batches(unread):
         await c.post_reader.read(batch, sources, context)
     touched = await c.linker.link(city.id, c.mentions.unassigned(sources))
-    print(f"extraction_calls={extraction.calls} matching_calls={matching.calls} cards={len(touched)}")
+    print(f"photo_calls={photos.calls} extraction_calls={extraction.calls} matching_calls={matching.calls} cards={len(touched)}")
     await c.close()
     await origin.close()
 

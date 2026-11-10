@@ -17,6 +17,7 @@ from where_to_go.models import (
     ExtractedPlace,
     Mark,
     Mention,
+    PhotoText,
     Place,
     Post,
     Setting,
@@ -189,6 +190,21 @@ class PostRepository:
             post = s.get(Post, post_id)
             post.sqlmodel_update(fields)
             s.add(post)
+            s.commit()
+
+
+class PhotoTextRepository:
+    def __init__(self, db: Database) -> None:
+        self._db = db
+
+    def of(self, images: Iterable[str]) -> dict[str, PhotoText]:
+        with self._db.session() as s:
+            return {t.image: t for t in s.exec(select(PhotoText).where(col(PhotoText.image).in_(list(images))))}
+
+    def save(self, texts: Iterable[PhotoText]) -> None:
+        with self._db.session() as s:
+            for text in texts:
+                s.merge(text)
             s.commit()
 
 

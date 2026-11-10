@@ -8,9 +8,9 @@ from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 
-from where_to_go.images import ImageStore
-from where_to_go.llm import JsonLlm, LlmImage
-from where_to_go.models import City, EventReading, ExtractedEvent, ExtractedPlace, Post, Reading, Source
+from where_to_go.llm import JsonLlm
+from where_to_go.models import City, EventReading, ExtractedEvent, ExtractedPlace, PhotoText, Post, Reading, Source
+from where_to_go.photos import PhotoTranscriber
 
 
 @dataclass(frozen=True)
@@ -20,12 +20,13 @@ class ExtractionContext:
     language: str
     tags: list[str]
     fallback_tag: str
+    photo_rules: str = ""
 
     @property
     def rules(self) -> str:
-        """What decides how a post is read; a post read with other rules is read again.
+        """What decides how a post is read, its photos' text included; a post read with other rules is read again.
         Tags are left out: editing the list should not re-read every channel."""
-        rules = json.dumps([self.prompt, self.language, Reading.model_json_schema()], ensure_ascii=False, sort_keys=True)
+        rules = json.dumps([self.prompt, self.language, Reading.model_json_schema(), self.photo_rules], ensure_ascii=False, sort_keys=True)
         return hashlib.sha256(rules.encode()).hexdigest()[:16]
 
 
@@ -40,48 +41,40 @@ class ExtractedPost:
 
 @dataclass(frozen=True)
 class PostPhotos:
-    """The photos of one post Claude gets to see, by their index among the post's images."""
+    """The transcribed photos of one post, by their index among the post's images."""
 
     post: Post
-    images: dict[int, LlmImage]
-
-    MAX = 10
-    """A Telegram album holds at most ten."""
+    texts: dict[int, PhotoText]
 
     @classmethod
-    def of(cls, post: Post, store: ImageStore) -> PostPhotos:
-        images = {}
-        for index, name in enumerate(post.image_paths[: cls.MAX]):
-            loaded = store.load(name)
-            if loaded:
-                images[index] = LlmImage(f"Post {post.id}, photo {index}:", *loaded)
-        return cls(post, images)
+    def of(cls, post: Post, texts: dict[str, PhotoText]) -> PostPhotos:
+        shown = enumerate(PhotoTranscriber.shown(post))
+        return cls(post, {index: texts[name] for index, name in shown if name in texts})
+
+    def described(self) -> list[dict[str, Any]]:
+        return [{"index": index, "shows": text.shows, "text": text.text} for index, text in self.texts.items()]
 
 
 class PostExtractor:
     BATCH_SIZE = 8
 
-    def __init__(self, llm: JsonLlm, images: ImageStore) -> None:
+    def __init__(self, llm: JsonLlm) -> None:
         self._llm = llm
-        self._images = images
 
     def batches(self, posts: list[Post]) -> list[list[Post]]:
         return [posts[i : i + self.BATCH_SIZE] for i in range(0, len(posts), self.BATCH_SIZE)]
 
-    async def extract(self, posts: list[Post], sources: dict[int, Source], context: ExtractionContext) -> list[ExtractedPost]:
+    async def extract(
+        self, posts: list[Post], sources: dict[int, Source], context: ExtractionContext, photo_texts: dict[str, PhotoText]
+    ) -> list[ExtractedPost]:
         system = context.prompt.format(
             city=context.city.name,
             language=context.language,
             tags=", ".join(f'"{t}"' for t in context.tags),
             fallback=context.fallback_tag,
         )
-        photos = [PostPhotos.of(post, self._images) for post in posts]
-        answer = await self._llm.complete_json(
-            system,
-            self._prompt(photos, sources, context.city),
-            Reading.model_json_schema(),
-            [image for p in photos for image in p.images.values()],
-        )
+        photos = [PostPhotos.of(post, photo_texts) for post in posts]
+        answer = await self._llm.complete_json(system, self._prompt(photos, sources, context.city), Reading.model_json_schema())
         by_id = {item.get("post_id"): item for item in answer.get("posts", []) if isinstance(item, dict)}
         allowed = set(context.tags) | {context.fallback_tag}
         return [self._convert(p, by_id.get(p.post.id, {}), allowed, context.fallback_tag) for p in photos]
@@ -95,7 +88,7 @@ class PostExtractor:
                 "channel": sources[p.post.source_id].title,
                 "published": p.post.published_at.astimezone(zone).strftime("%Y-%m-%d %H:%M (%A)"),
                 "text": p.post.text,
-                "photos": len(p.images),
+                "photos": p.described(),
             }
             for p in photos
         ]
@@ -106,7 +99,7 @@ class PostExtractor:
         readings = [r for r in (cls._event(raw, allowed, fallback) for raw in item.get("events", [])) if r is not None]
         places = [p for p in (cls._place(raw) for raw in item.get("places", [])) if p is not None]
         events = [
-            (ExtractedEvent.model_validate(r.model_dump(exclude={"photo"})), r.photo if r.photo in photos.images else None)
+            (ExtractedEvent.model_validate(r.model_dump(exclude={"photo"})), r.photo if r.photo in photos.texts else None)
             for r in readings
         ]
         return ExtractedPost(photos.post.id, events, places)
