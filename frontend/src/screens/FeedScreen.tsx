@@ -2,7 +2,7 @@ import { useFeed, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
 import { dayAndMonth } from "../domain/dates";
-import { SHOWN_PLANS } from "../domain/plans";
+import { plansToShow, SHOWN_PLANS } from "../domain/plans";
 import { DayFeed } from "../events/DayFeed";
 import { FilterBar } from "../events/FilterBar";
 import { NothingFound } from "../events/NothingFound";
@@ -12,14 +12,14 @@ import { Icon } from "../ui/Icon";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
-/** Everything ahead that the user has not marked yet; a marked card moves to «Собираюсь пойти» or leaves. */
+/** Everything ahead that the user has not marked yet; a marked card moves to «Собираюсь пойти» or leaves. A search finds marked cards too. */
 export function FeedScreen() {
   const { city, today } = useActiveCity();
   const filters = useEventFilters();
   const from = filters.params.get("from");
   const start = from ?? today ?? undefined;
   const sources = useSources(city !== null);
-  const feed = useFeed({ ...filters.query, start, plans: SHOWN_PLANS.feed }, start !== undefined);
+  const feed = useFeed({ ...filters.query, start, plans: plansToShow(SHOWN_PLANS.feed, filters.query.search) }, start !== undefined);
 
   const toolbar = city && (
     <FilterBar filters={filters}>

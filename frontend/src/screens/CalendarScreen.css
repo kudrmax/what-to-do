@@ -112,3 +112,9 @@
 .week__item--going .week__title {
   color: var(--accent-ink);
 }
+
+.week__item--declined .week__time,
+.week__item--declined .week__title {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}

@@ -5,7 +5,7 @@ import { useActiveCity } from "../api/useActiveCity";
 import { feedFromHref, SECTIONS } from "../app/routes";
 import { addDays, dayAndMonth, dayNumber, monthTitle, weekStart, weekdayShort } from "../domain/dates";
 import { groupByDay } from "../domain/feed";
-import { SHOWN_PLANS } from "../domain/plans";
+import { plansToShow, SHOWN_PLANS } from "../domain/plans";
 import { EventTime } from "../events/EventTime";
 import { FilterBar } from "../events/FilterBar";
 import { useEventFilters } from "../events/useEventFilters";
@@ -23,7 +23,7 @@ export function CalendarScreen() {
   const prefetch = usePrefetchMentions();
   const monday = filters.params.get("week") ?? (today ? weekStart(today) : null);
   const days = monday ? Array.from({ length: 7 }, (_, i) => addDays(monday, i)) : [];
-  const feed = useFeed({ ...filters.query, start: days[0], end: days[6], plans: SHOWN_PLANS.calendar }, monday !== null);
+  const feed = useFeed({ ...filters.query, start: days[0], end: days[6], plans: plansToShow(SHOWN_PLANS.calendar, filters.query.search) }, monday !== null);
   const goTo = (week: string) => filters.change((next) => (today && week === weekStart(today) ? next.delete("week") : next.set("week", week)));
 
   if (!city || !today || !monday) {
@@ -58,7 +58,7 @@ export function CalendarScreen() {
               <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
             </Link>
             {items.map(({ event }) => (
-              <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
+              <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}${event.plan === "no" ? " week__item--declined" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
                 <EventTime event={event} className="week__time" iconSize={14} />
                 <span className="week__title">{event.title}</span>
               </button>
