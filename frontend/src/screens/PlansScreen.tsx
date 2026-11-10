@@ -2,7 +2,7 @@ import { useFeed } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
 import { addDays } from "../domain/dates";
-import { SHOWN_PLANS } from "../domain/plans";
+import { plansToShow, SHOWN_PLANS } from "../domain/plans";
 import { DayFeed } from "../events/DayFeed";
 import { FilterBar } from "../events/FilterBar";
 import { NothingFound } from "../events/NothingFound";
@@ -18,7 +18,7 @@ export function PlansScreen() {
   const past = filters.params.get("past") === "true";
   const onlySure = filters.params.get("sure") === "true";
   const setParam = (name: string, on: boolean) => filters.change((next) => (on ? next.set(name, "true") : next.delete(name)));
-  const plans = onlySure ? SHOWN_PLANS.sure : past ? SHOWN_PLANS.past : SHOWN_PLANS.going;
+  const plans = plansToShow(onlySure ? SHOWN_PLANS.sure : past ? SHOWN_PLANS.past : SHOWN_PLANS.going, filters.query.search);
   const range = today ? (past ? { end: addDays(today, -1) } : { start: today }) : {};
   const feed = useFeed({ ...filters.query, ...range, plans }, today !== null);
 

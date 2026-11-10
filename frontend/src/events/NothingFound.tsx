@@ -2,11 +2,12 @@ import type { FeedQuery } from "../api/client";
 import { useFeed } from "../api/queries";
 import type { Section } from "../app/routes";
 import { plural } from "../domain/dates";
+import { plansToShow } from "../domain/plans";
 import { EmptyState } from "../ui/Screen";
 
 /** Nothing matched the search here; when the same words find cards in the other list, it leads there. */
 export function NothingFound({ search, elsewhere }: { search: string; elsewhere: { section: Section; query: FeedQuery } }) {
-  const other = useFeed({ ...elsewhere.query, search });
+  const other = useFeed({ ...elsewhere.query, plans: plansToShow(elsewhere.query.plans ?? [], search), search });
   const count = new Set((other.data ?? []).map((item) => item.event.id)).size;
   const words = `«${search.trim()}»`;
   if (count === 0) {

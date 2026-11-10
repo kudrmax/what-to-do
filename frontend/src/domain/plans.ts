@@ -19,3 +19,6 @@ export const SHOWN_PLANS = {
   past: ["maybe", "sure", "went"],
   calendar: ["none", "maybe", "sure"],
 } satisfies Record<string, PlanFilter[]>;
+
+/** A search looks through every card whatever its mark, so a card marked by mistake can still be found. */
+export const plansToShow = (plans: PlanFilter[], search: string | undefined): PlanFilter[] => (search?.trim() ? [] : plans);
