@@ -95,7 +95,7 @@ class Container:
         events = EventRepository(db)
         images = ImageStore(data_dir / "images", http)
         reader = TelegramChannelReader(http)
-        cards = EventCards(events, mentions, EventResolver(tags.fallback))
+        cards = EventCards(events, mentions, EventResolver(tags.fallback), db.transaction)
         linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm or ClaudeJsonLlm(MATCHING_MODEL), lambda: settings.load().matching_prompt), cards)
         post_reader = PostReader(
             settings=settings,
@@ -104,6 +104,7 @@ class Container:
             post_mentions=PostMentions(mentions, cards),
             places=places,
             extractor=PostExtractor(extraction_llm or ClaudeJsonLlm(EXTRACTION_MODEL), images),
+            atomically=db.transaction,
         )
         refresh = RefreshService(
             settings=settings,

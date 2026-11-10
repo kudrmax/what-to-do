@@ -5,6 +5,7 @@ import { dayAndMonth } from "../domain/dates";
 import { SHOWN_PLANS } from "../domain/plans";
 import { DayFeed } from "../events/DayFeed";
 import { FilterBar } from "../events/FilterBar";
+import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { RefreshButton } from "../events/RefreshButton";
 import { Icon } from "../ui/Icon";
@@ -39,6 +40,8 @@ export function FeedScreen() {
         <EmptyState title="Нет источников" text="Добавьте Telegram-каналы с афишами, потом нажмите «Обновить»." link={{ to: SECTIONS.sources.path, label: "Добавить источники" }} />
       ) : feed.isError ? (
         <LoadError error={feed.error} />
+      ) : feed.data?.length === 0 && filters.query.search ? (
+        <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.plans, query: { start: today ?? undefined, plans: SHOWN_PLANS.going } }} />
       ) : feed.data?.length === 0 ? (
         <EmptyState title="Всё разобрано" text="Неразмеченных событий впереди нет, или их скрывают фильтры. Размеченные — в «Собираюсь пойти»." />
       ) : (

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 
@@ -10,6 +10,7 @@ from sqlmodel import Field, SQLModel
 
 from where_to_go.models import Event, EventKind, EventPublic, Plan, Public
 from where_to_go.repositories import EventRepository
+from where_to_go.search import SearchQuery
 
 PlanFilter = StrEnum("PlanFilter", {"NONE": "none", **{plan.name: plan.value for plan in Plan}})
 PlanFilter.__doc__ = "A plan to show, or none for cards the user has not marked yet."
@@ -34,8 +35,11 @@ class FeedFilter:
     only_timed: bool = False
     hide_multiday: bool = False
     plans: frozenset[PlanFilter] = field(default_factory=frozenset)
+    search: SearchQuery = field(default_factory=lambda: SearchQuery(""))
 
     def accepts(self, event: Event) -> bool:
+        if self.search and not self.search.matches(searchable(event)):
+            return False
         if self.tags and not self.tags & set(event.tags):
             return False
         if self.source_ids and not self.source_ids & set(event.source_ids):
@@ -45,6 +49,10 @@ class FeedFilter:
         if self.hide_multiday and event.kind is EventKind.MULTIDAY:
             return False
         return not self.plans or PlanFilter(event.plan or PlanFilter.NONE) in self.plans
+
+
+def searchable(event: Event) -> list[str | None]:
+    return [event.title, event.original_title, event.description, event.venue, event.address, *event.tags]
 
 
 class Feed:
@@ -58,6 +66,15 @@ class Feed:
         self._events = events
 
     def occurrences(self, city_id: int, criteria: FeedFilter) -> list[Occurrence]:
+        found = self._lay_out(city_id, criteria)
+        if found or not criteria.search:
+            return found
+        return self._lay_out(city_id, replace(criteria, search=criteria.search.in_other_layout()))
+
+    def earliest(self, city_id: int) -> date | None:
+        return min((e.start_date for e in self._events.in_city(city_id)), default=None)
+
+    def _lay_out(self, city_id: int, criteria: FeedFilter) -> list[Occurrence]:
         end = criteria.end or self._reach(city_id, criteria.start)
         result = []
         for event in self._events.near(city_id, criteria.start, end):
@@ -65,9 +82,6 @@ class Feed:
                 public = EventPublic.model_validate(event)
                 result.extend(Occurrence(date=day, event=public) for day in self._days(event, criteria.start, end))
         return sorted(result, key=self._order)
-
-    def earliest(self, city_id: int) -> date | None:
-        return min((e.start_date for e in self._events.in_city(city_id)), default=None)
 
     def _reach(self, city_id: int, start: date) -> date:
         dated = [e.end_date or e.start_date for e in self._events.in_city(city_id) if e.kind is not EventKind.RECURRING]

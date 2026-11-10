@@ -1522,6 +1522,8 @@ export interface operations {
                 only_timed?: boolean;
                 /** @description Hide exhibitions, festivals and other multiday events */
                 hide_multiday?: boolean;
+                /** @description Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case and е/ё do not matter, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout */
+                search?: string;
             };
             header?: never;
             path?: never;
