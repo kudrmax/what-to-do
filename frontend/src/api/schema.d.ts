@@ -268,6 +268,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/{event_id}/dev-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Dev Note
+         * @description Saves the developer's note about a card. Notes are only collected: the app never shows them.
+         */
+        post: operations["add_dev_note_events__event_id__dev_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events/{event_id}/merge": {
         parameters: {
             query?: never;
@@ -709,6 +729,31 @@ export interface components {
          * @enum {string}
          */
         ConflictField: "start_date" | "start_time";
+        /** DevNoteBase */
+        DevNoteBase: {
+            /**
+             * Text
+             * @description Free text: what to improve about this card or the app
+             */
+            text: string;
+        };
+        /** DevNotePublic */
+        DevNotePublic: {
+            /**
+             * Text
+             * @description Free text: what to improve about this card or the app
+             */
+            text: string;
+            /** Id */
+            id: number;
+            /** Event Id */
+            event_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * EventKind
          * @enum {string}
@@ -1769,6 +1814,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_dev_note_events__event_id__dev_notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevNoteBase"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevNotePublic"];
                 };
             };
             /** @description Validation Error */

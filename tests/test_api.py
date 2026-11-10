@@ -229,3 +229,14 @@ def test_calendar_file_of_untimed_multiday_and_recurring_events(client):
     entry, _ = calendar_entry(client, club)
     assert entry["rrule"]["FREQ"] == ["WEEKLY"] and entry["rrule"]["BYDAY"] == ["TU"]
     assert client.get("/events/999/calendar.ics").status_code == 404
+
+
+def test_dev_note_is_saved_for_a_card(client):
+    [event_id] = seeded(client, ("a", raw_event("Квиз", "2099-01-02")))
+
+    note = client.post(f"/events/{event_id}/dev-notes", json={"text": "  нужен тег Квиз  "})
+    assert note.status_code == 201, note.text
+    assert note.json()["text"] == "нужен тег Квиз"
+    assert note.json()["event_id"] == event_id
+    assert client.post(f"/events/{event_id}/dev-notes", json={"text": "   "}).status_code == 422
+    assert client.post("/events/999999/dev-notes", json={"text": "x"}).status_code == 404

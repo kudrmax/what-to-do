@@ -19,6 +19,7 @@ from where_to_go.refresh import PostReader, RefreshService
 from where_to_go.releases import PROJECT_DIR, Releases, ReleaseSource
 from where_to_go.repositories import (
     CityRepository,
+    DevNoteRepository,
     EventRepository,
     MentionRepository,
     PhotoTextRepository,
@@ -64,6 +65,7 @@ class Container:
     places: PlaceRepository
     tags: TagRepository
     events: EventRepository
+    dev_notes: DevNoteRepository
     images: ImageStore
     photos: PhotoTranscriber
     originals: OriginalPosts
@@ -141,6 +143,7 @@ class Container:
             places=places,
             tags=tags,
             events=events,
+            dev_notes=DevNoteRepository(db),
             images=images,
             photos=photos,
             originals=OriginalPosts(photo_texts),

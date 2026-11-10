@@ -26,6 +26,8 @@ from where_to_go.models import (
     City,
     CityBase,
     CityPublic,
+    DevNoteBase,
+    DevNotePublic,
     Event,
     EventPublic,
     Mark,
@@ -299,6 +301,14 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def set_mark(body: Mark, c: ContainerDep, event: EventDep):
         """Sets interest and plan of a card. Both fields are written as sent: null clears a value."""
         return c.events.set_mark(event.id, body)
+
+    @app.post("/events/{event_id}/dev-notes", response_model=DevNotePublic, status_code=201, tags=[ApiTag.EVENTS])
+    def add_dev_note(body: DevNoteBase, c: ContainerDep, event: EventDep):
+        """Saves the developer's note about a card. Notes are only collected: the app never shows them."""
+        text = body.text.strip()
+        if not text:
+            raise HTTPException(422, "The note is empty")
+        return c.dev_notes.add(event.id, text)
 
     @app.post("/events/{event_id}/merge", response_model=EventPublic, tags=[ApiTag.EVENTS])
     def merge(body: MergeRequest, c: ContainerDep, event: EventDep):

@@ -11,6 +11,7 @@ from where_to_go.db import Database
 from where_to_go.models import (
     City,
     CollectedPost,
+    DevNote,
     Event,
     EventFacts,
     ExtractedEvent,
@@ -388,3 +389,16 @@ class EventRepository:
         event.sqlmodel_update(mark.model_dump(include=set(Mark.model_fields)))
         event.marked_at = _now()
         return self.save(event)
+
+
+class DevNoteRepository:
+    def __init__(self, db: Database) -> None:
+        self._db = db
+
+    def add(self, event_id: int, text: str) -> DevNote:
+        note = DevNote(event_id=event_id, text=text, created_at=_now())
+        with self._db.session() as session:
+            session.add(note)
+            session.commit()
+            session.refresh(note)
+        return note
