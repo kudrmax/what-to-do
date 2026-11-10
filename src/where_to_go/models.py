@@ -601,7 +601,8 @@ class EventReading(ExtractedEvent):
     """An event Claude found, with the photo of the post that shows it."""
 
     photo: int | None = Field(
-        description="Index of the post's photo that shows this event: its poster or its card. null when no photo shows it alone"
+        description="Index of the post's photo that shows this event: its poster, its card or a poster it shares with other events. "
+        "null when no photo shows it"
     )
 
 

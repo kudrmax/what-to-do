@@ -103,7 +103,6 @@ class PostReader:
             language=settings.description_language,
             tags=[t.name for t in tags if not t.is_fallback],
             fallback_tag=self._tags.fallback(),
-            photo_rules=self._photos.rules(),
         )
 
     async def read(self, batch: list[Post], sources: dict[int, Source], context: ExtractionContext) -> None:
@@ -144,8 +143,10 @@ class RefreshService:
         images: ImageStore,
         photos: PhotoTranscriber,
         post_reader: PostReader,
+        post_mentions: PostMentions,
         linker: EventLinker,
     ) -> None:
+        self._post_mentions = post_mentions
         self._photos = photos
         self._settings = settings
         self._cities = cities
@@ -204,6 +205,8 @@ class RefreshService:
         self.progress.stage = Stage.READING
         self.progress.posts_to_read = len(posts)
         await self._bounded(self.READ_CONCURRENCY, [self._read(batch, sources, context) for batch in self._post_reader.batches(posts)])
+
+        self._post_mentions.share_posters()
 
         self.progress.stage = Stage.MERGING
         try:
