@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { useSources, useTags } from "../api/queries";
 import { MultiSelectChip, ToggleChip } from "../ui/Chips";
+import { SearchField } from "./SearchField";
 import type { EventFilters } from "./useEventFilters";
 
 export function FilterBar({ filters, children }: { filters: EventFilters; children?: ReactNode }) {
@@ -10,6 +11,7 @@ export function FilterBar({ filters, children }: { filters: EventFilters; childr
   const { query } = filters;
   return (
     <div className="filter-bar">
+      <SearchField value={query.search ?? ""} onChange={filters.setSearch} />
       {children}
       <MultiSelectChip label="Теги" options={(tags.data ?? []).map((t) => ({ value: t.name, label: t.name }))} selected={query.tags ?? []} onChange={(v) => filters.setList("tags", v)} />
       <MultiSelectChip label="Источники" options={(sources.data ?? []).map((s) => ({ value: s.id, label: s.title }))} selected={query.sources ?? []} onChange={(v) => filters.setList("sources", v)} />

@@ -36,6 +36,7 @@ from where_to_go.models import (
     TagPublic,
 )
 from where_to_go.refresh import RefreshProgress
+from where_to_go.search import SearchQuery
 from where_to_go.settings import AppSettings, SettingsChange
 from where_to_go.sources import DuplicateSourceError
 from where_to_go.telegram import SourceError
@@ -241,6 +242,14 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         plans: Annotated[list[PlanFilter], Query(description="Only cards with these plans; none = not marked yet. Default: all")] = [],
         only_timed: Annotated[bool, Query(description="Only events with a known date and time")] = False,
         hide_multiday: Annotated[bool, Query(description="Hide exhibitions, festivals and other multiday events")] = False,
+        search: Annotated[
+            str,
+            Query(
+                description="Words to find in the title, description, venue, address and tags. Each word may be any part "
+                "of a word, case and е/ё do not matter, one typo is forgiven; when nothing is found, the words are "
+                "tried as typed in the other keyboard layout"
+            ),
+        ] = "",
     ):
         """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day."""
         first = start or (c.feed.earliest(city.id) if end else None) or datetime.now(ZoneInfo(city.timezone)).date()
@@ -252,6 +261,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             only_timed=only_timed,
             hide_multiday=hide_multiday,
             plans=frozenset(plans),
+            search=SearchQuery(search),
         )
         return c.feed.occurrences(city.id, criteria)
 
