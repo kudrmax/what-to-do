@@ -1,11 +1,11 @@
 ---
 name: release
-description: Cuts a release of «What To Do» - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes and creates the GitHub Release. Use when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release". Never on your own initiative: a merge to master is not a release.
+description: Cuts a release of «What To Do» - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes and creates the GitHub Release. Use right after every merge to master (a merge always ships as a release, see CLAUDE.md), and when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release".
 ---
 
 # Release
 
-Run only on Max's command. Publish without asking for approval of the text: Max can edit the release on GitHub and fix it in the next commit.
+Run after every merge to master, in the same task, and on Max's command. Publish without asking for approval of the text: Max can edit the release on GitHub and fix it in the next commit.
 
 Run everything in the main checkout (`~/projects/what-to-do`), on master, as the git rules in the global CLAUDE.md require. Do not switch branches there.
 
