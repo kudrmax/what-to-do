@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from where_to_go.models import Mark, Mention
-from where_to_go.matching import CandidateFinder, DuplicateJudge
+from where_to_go.models import ExtractedEvent, Mark, Mention
+from where_to_go.matching import CandidateFinder, DuplicateJudge, TitleSimilarity
 from where_to_go.repositories import EventRepository, MentionRepository
 from where_to_go.resolution import EventResolver
 
@@ -130,3 +130,57 @@ class EventLinker:
             self._cards.discard(mention)
             return None
         return self._cards.create(city_id, mention)
+
+
+class PostMentions:
+    """Stores what Claude read in a post. A post read again keeps each event it still announces on the same card,
+    so the card's marks stay; events it no longer announces leave their cards, new ones wait for linking."""
+
+    MIN_SIMILARITY = 0.3
+
+    def __init__(self, mentions: MentionRepository, cards: EventCards) -> None:
+        self._mentions = mentions
+        self._cards = cards
+
+    def store(self, post_id: int, events: list[tuple[ExtractedEvent, int | None]]) -> None:
+        old = self._mentions.of_post(post_id)
+        pairs = self._pair(old, [event for event, _ in events])
+        changed: set[int] = set()
+        next_index = max((m.item_index for m in old), default=-1) + 1
+        for index, (event, image) in enumerate(events):
+            previous = pairs.get(index)
+            if previous is None:
+                self._mentions.add(post_id, next_index, event, image)
+                next_index += 1
+                continue
+            self._mentions.replace(previous.id, event, image)
+            changed.add(previous.event_id)
+        kept = {m.id for m in pairs.values()}
+        for mention in old:
+            if mention.id not in kept:
+                self._mentions.delete(mention.id)
+                changed.add(mention.event_id)
+        for event_id in changed - {None}:
+            self._cards.refresh(event_id)
+
+    @classmethod
+    def _pair(cls, old: list[Mention], new: list[ExtractedEvent]) -> dict[int, Mention]:
+        """Each new item takes the old mention most like it: the same date first, then the closest title."""
+        scored = []
+        for i, event in enumerate(new):
+            for mention in old:
+                similarity = cls._similarity(event, mention.data)
+                same_day = event.start_date == mention.data.start_date
+                if same_day or similarity >= cls.MIN_SIMILARITY:
+                    scored.append((same_day, similarity, i, mention))
+        pairs: dict[int, Mention] = {}
+        taken: set[int] = set()
+        for _, _, i, mention in sorted(scored, key=lambda item: (item[0], item[1]), reverse=True):
+            if i not in pairs and mention.id not in taken:
+                pairs[i] = mention
+                taken.add(mention.id)
+        return pairs
+
+    @staticmethod
+    def _similarity(a: ExtractedEvent, b: ExtractedEvent) -> float:
+        return TitleSimilarity.overlap(TitleSimilarity.words(a.title, a.original_title), TitleSimilarity.words(b.title, b.original_title))

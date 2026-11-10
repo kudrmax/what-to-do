@@ -22,11 +22,13 @@ class TitleSimilarity:
     def words(*texts: str | None) -> set[str]:
         return {w.lower() for text in texts if text for w in _WORD.findall(text)}
 
+    @staticmethod
+    def overlap(a: set[str], b: set[str]) -> float:
+        return len(a & b) / len(a | b) if a and b else 0.0
+
     @classmethod
     def score(cls, mention: Mention, event: Event) -> float:
-        a = cls.words(mention.data.title, mention.data.original_title, mention.data.venue)
-        b = cls.words(event.title, event.original_title, event.venue)
-        return len(a & b) / len(a | b) if a and b else 0.0
+        return cls.overlap(cls.words(mention.data.title, mention.data.original_title, mention.data.venue), cls.words(event.title, event.original_title, event.venue))
 
 
 class CandidateFinder:

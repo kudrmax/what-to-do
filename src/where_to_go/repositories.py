@@ -157,6 +157,20 @@ class PostRepository:
             query = select(Post).where(col(Post.processed_at).is_(None), col(Post.source_id).in_(list(source_ids)))
             return list(s.exec(query.order_by(Post.published_at)))
 
+    def to_read(self, source_ids: Iterable[int], rules: str, recent: int) -> list[Post]:
+        """Posts never read, and the latest `recent` of every source read with other rules.
+
+        A post whose events the user merged or split by hand is not read again: their decision stays.
+        """
+        ids = list(source_ids)
+        with self._db.session() as s:
+            curated = set(s.exec(select(Mention.post_id).where(Mention.locked == True)))  # noqa: E712
+            chosen = {p.id: p for p in self.unprocessed(ids)}
+            for source_id in ids:
+                latest = s.exec(select(Post).where(Post.source_id == source_id).order_by(col(Post.published_at).desc()).limit(recent))
+                chosen |= {p.id: p for p in latest if p.read_with != rules and p.id not in curated}
+        return sorted(chosen.values(), key=lambda p: p.published_at)
+
     def get(self, post_id: int) -> Post:
         with self._db.session() as s:
             post = s.get(Post, post_id)
@@ -164,8 +178,8 @@ class PostRepository:
             raise KeyError(post_id)
         return post
 
-    def mark_processed(self, post_id: int) -> None:
-        self._change(post_id, processed_at=_now(), process_error=None)
+    def mark_processed(self, post_id: int, rules: str) -> None:
+        self._change(post_id, processed_at=_now(), process_error=None, read_with=rules)
 
     def mark_failed(self, post_id: int, error: str) -> None:
         self._change(post_id, process_error=error)
@@ -254,6 +268,17 @@ class MentionRepository:
             )
             return list(s.exec(query).unique())
 
+    def of_post(self, post_id: int) -> list[Mention]:
+        with self._db.session() as s:
+            return list(s.exec(select(Mention).where(Mention.post_id == post_id).order_by(Mention.item_index)).unique())
+
+    def replace(self, mention_id: int, data: ExtractedEvent, image_index: int | None) -> None:
+        with self._db.session() as s:
+            mention = s.get(Mention, mention_id)
+            mention.data, mention.image_index = data, image_index
+            s.add(mention)
+            s.commit()
+
     def delete(self, mention_id: int) -> None:
         with self._db.session() as s:
             s.delete(s.get(Mention, mention_id))
@@ -280,6 +305,12 @@ class PlaceRepository:
     def add(self, city_id: int, post_id: int, place: ExtractedPlace) -> None:
         with self._db.session() as s:
             s.add(Place(city_id=city_id, post_id=post_id, **place.model_dump()))
+            s.commit()
+
+    def forget_post(self, post_id: int) -> None:
+        with self._db.session() as s:
+            for place in s.exec(select(Place).where(Place.post_id == post_id)).unique():
+                s.delete(place)
             s.commit()
 
     def in_city(self, city_id: int) -> list[Place]:

@@ -45,3 +45,17 @@ def test_files_outside_the_interface_are_not_served(client, tmp_path):
 def test_missing_build_is_reported(tmp_path):
     with pytest.raises(FileNotFoundError, match="build the interface"):
         AppWithInterface.build(create_app(lambda: None), tmp_path)
+
+
+def test_a_column_added_to_a_model_is_added_to_an_old_database(tmp_path):
+    import sqlite3
+
+    from where_to_go.db import Database
+
+    path = tmp_path / "old.sqlite3"
+    Database(path).close()
+    with sqlite3.connect(path) as old:
+        old.execute("ALTER TABLE posts DROP COLUMN read_with")
+    Database(path).close()
+    with sqlite3.connect(path) as upgraded:
+        assert "read_with" in {row[1] for row in upgraded.execute("PRAGMA table_info(posts)")}
