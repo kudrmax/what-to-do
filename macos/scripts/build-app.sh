@@ -19,10 +19,10 @@ install_dir="$HOME/Applications"
 build_dir="$macos_dir/.build/app"
 
 if [[ $env_name == prod ]]; then
-    app_name="Чем заняться"
+    app_name="What To Do"
     bundle_id="local.what-to-do"
 else
-    app_name="Чем заняться ${(C)env_name}"
+    app_name="What To Do ${(C)env_name}"
     bundle_id="local.what-to-do.${${env_name:l}//[^a-z0-9-]/-}"
 fi
 version=$(git -C "$project_dir" rev-parse --short HEAD)

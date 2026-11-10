@@ -190,7 +190,7 @@ class Copy:
             return probe.connect_ex((STATUS_HOST, self.status_port)) == 0
 
     def install_app(self, project_dir: Path) -> None:
-        contents = self.apps_dir / "Чем заняться.app" / "Contents"
+        contents = self.apps_dir / "What To Do.app" / "Contents"
         contents.mkdir(parents=True)
         with (contents / "Info.plist").open("wb") as plist:
             plistlib.dump({"WTGProjectDir": str(project_dir)}, plist)

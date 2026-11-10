@@ -1,6 +1,6 @@
 # The macOS app
 
-«Чем заняться» runs in any browser at `http://localhost:<PORT>`. The optional macOS app wraps the same page in a native window:
+«What To Do» runs in any browser at `http://localhost:<PORT>`. The optional macOS app wraps the same page in a native window:
 
 - It starts the server on launch, so you don't need the terminal.
 - The window has no separate title bar: the page runs under it. Drag the window by an empty spot of the strip along the top, and double-click there to zoom it.
@@ -16,7 +16,7 @@ make app
 
 This builds the app and puts it into `~/Applications`. Start it from Launchpad or Spotlight. `make app` refuses to run in a git worktree: the app would start the server on that copy's port.
 
-The app's name follows `INSTANCE_ENV_NAME` in `.env`: **Чем заняться** for `prod`, **Чем заняться Dev** for `dev`.
+The app's name follows `INSTANCE_ENV_NAME` in `.env`: **What To Do** for `prod`, **What To Do Dev** for `dev`.
 
 The app remembers the project folder and port. Run `make app` again after you move the project folder or change `PORT` in `.env`.
 

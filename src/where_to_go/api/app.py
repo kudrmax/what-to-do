@@ -43,7 +43,7 @@ from where_to_go.sources import DuplicateSourceError
 from where_to_go.telegram import SourceError
 
 DESCRIPTION = """
-Local backend of «Чем заняться». It reads public Telegram channels, Claude turns posts into event cards
+Local backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards
 and merges the same event announced by several channels into one card.
 
 **First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),
