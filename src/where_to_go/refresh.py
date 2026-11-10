@@ -11,7 +11,7 @@ from sqlmodel import Field, SQLModel
 from where_to_go.models import City, Post, Public, Source
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
-from where_to_go.linking import EventLinker, PostMentions
+from where_to_go.linking import Atomically, EventLinker, PostMentions
 from where_to_go.llm import LlmError
 from where_to_go.repositories import (
     CityRepository,
@@ -69,7 +69,9 @@ class PostReader:
         post_mentions: PostMentions,
         places: PlaceRepository,
         extractor: PostExtractor,
+        atomically: Atomically,
     ) -> None:
+        self._atomically = atomically
         self._settings = settings
         self._tags = tags
         self._posts = posts
@@ -100,11 +102,12 @@ class PostReader:
                 self._posts.mark_failed(post.id, str(error))
             raise
         for result in results:
-            self._post_mentions.store(result.post_id, result.events)
-            self._places.forget_post(result.post_id)
-            for place in result.places:
-                self._places.add(context.city.id, result.post_id, place)
-            self._posts.mark_processed(result.post_id, context.rules)
+            with self._atomically():
+                self._post_mentions.store(result.post_id, result.events)
+                self._places.forget_post(result.post_id)
+                for place in result.places:
+                    self._places.add(context.city.id, result.post_id, place)
+                self._posts.mark_processed(result.post_id, context.rules)
 
 
 class RefreshService:
