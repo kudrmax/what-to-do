@@ -46,7 +46,7 @@ main() {
     mkdir -p .pids .logs
     start_log
     refuse_while_another_update_runs
-    printf '%s' "$$" > "$PID_FILE"
+    write_whole "$PID_FILE" "$$"
     write_state running
     : > "$ERROR_FILE"
 
@@ -116,7 +116,13 @@ refuse_while_another_update_runs() {
 }
 
 write_state() {
-    printf '%s' "$1" > "$STATE_FILE"
+    write_whole "$STATE_FILE" "$1"
+}
+
+# The app reads these files at any moment: `>` would show it an empty file for an instant.
+write_whole() {
+    printf '%s' "$2" > "$1.tmp"
+    mv -f "$1.tmp" "$1"
 }
 
 fail() {
