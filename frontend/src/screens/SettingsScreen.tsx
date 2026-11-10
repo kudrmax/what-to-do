@@ -211,7 +211,7 @@ function TagChip({ tag }: { tag: Tag }) {
 
 function PromptsSection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Промпты для Claude" hint="Новый текст действует со следующего обновления. Уже разобранные посты не перечитываются.">
+    <Section title="Промпты для Claude" hint="Новый текст действует со следующего обновления: последние посты каждого канала разберутся заново. Посты, события которых вы склеивали или разделяли вручную, не перечитываются.">
       <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Разбор постов" hint="Как превращать посты в события. Подстановки: {city} — город, {language} — язык описаний, {tags} — список тегов, {fallback} — тег «не распознано»." />
       <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Расшифровка фото" hint="Как переписывать текст с афиш и картинок постов. Посты потом читаются вместе с этим текстом." />
       <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Склейка повторов" hint="Как решать, что два анонса — одно и то же событие." />
