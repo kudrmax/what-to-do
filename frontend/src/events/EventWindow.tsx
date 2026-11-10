@@ -14,6 +14,7 @@ import { Popover } from "../ui/Popover";
 import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
+import { OpenPostButton } from "./OpenPostButton";
 import { useOpenEvent } from "./navigation";
 import "./EventWindow.css";
 
@@ -38,6 +39,7 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
   const recurrence = describeRecurrence(event.rrule);
   const price = formatPrice(event.price, event.currency);
   const api = useApi();
+  const mentions = useMentions(event.id);
   return (
     <article className="details">
       <EventPhoto path={event.image_url} className="details__photo" />
@@ -75,6 +77,8 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
             </div>
           )}
         </div>
+
+        <OpenPostButton mentions={mentions.data ?? []} />
 
         {event.conflicts.map((conflict) => (
           <p key={conflict.field} className="note" role="note">
