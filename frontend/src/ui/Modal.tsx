@@ -5,7 +5,7 @@ import { IconButton } from "./IconButton";
 import "./Modal.css";
 
 /** A window over the screen: closes with the cross, Esc or a click outside, and keeps the page under it still. */
-export function Modal({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ label, onClose, children, className = "" }: { label: string; onClose: () => void; children: ReactNode; className?: string }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     const overflow = document.body.style.overflow;
@@ -19,7 +19,7 @@ export function Modal({ label, onClose, children }: { label: string; onClose: ()
 
   return createPortal(
     <div className="modal" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="modal__window" role="dialog" aria-modal="true" aria-label={label}>
+      <div className={`modal__window ${className}`} role="dialog" aria-modal="true" aria-label={label}>
         <IconButton icon="close" label="Закрыть" className="modal__close" onClick={onClose} />
         {children}
       </div>
