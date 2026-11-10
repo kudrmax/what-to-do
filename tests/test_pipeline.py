@@ -247,3 +247,59 @@ async def test_digest_items_without_an_image_choice_get_no_image(tmp_path):
     assert images["Квиз"] is None and images["Лекция"] is None
     assert images["Кафаны"] is not None
     await container.close()
+
+
+SOON = (datetime.now(UTC) + timedelta(days=3)).date().isoformat()
+LATER_DAY = (datetime.now(UTC) + timedelta(days=10)).date().isoformat()
+EARLIER = (datetime.now(UTC) - timedelta(days=3)).isoformat()
+
+
+@respx.mock
+async def test_dateless_follow_ups_join_the_card_their_channel_announced(tmp_path):
+    long_text = "Пьём тайваньские улуны из 500-летних деревьев в формате сухого заваривания, с вниманием к деталям и ощущениям."
+    extraction = extraction_by_text(
+        {
+            "ивенты месяца": [raw_event("Церемония", SOON, "18:00", from_organizer=True), raw_event("Лекция", LATER_DAY, "18:00", from_organizer=True)],
+            "зачем идти": [raw_event("Церемония", None, None, update_kind="details", description=long_text, from_organizer=True)],
+            "не будет": [raw_event("Церемония", None, None, update_kind="cancellation", description="Отменена", from_organizer=True)],
+            "про что-то": [raw_event("Мастер-класс", None, None, update_kind="details")],
+            "афиша": [raw_event("Мастер-класс", LATER_DAY, "20:00")],
+        }
+    )
+    container = await build(tmp_path, extraction, judge_same_titles())
+    serve_channels(
+        [(1, EARLIER, "ивенты месяца"), (2, RECENT, "зачем идти на церемонию"), (3, LATER, "церемонии не будет"), (4, LATER, "про что-то давнее")],
+        [(7, RECENT, "афиша недели")],
+    )
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    assert progress.stage is Stage.DONE, progress.errors
+    cards = {(e.original_title, e.start_date.isoformat()): e for e in container.events.in_city(1)}
+    assert set(cards) == {("Церемония", SOON), ("Лекция", LATER_DAY), ("Мастер-класс", LATER_DAY)}
+    ceremony = cards[("Церемония", SOON)]
+    assert ceremony.description == long_text and ceremony.is_cancelled
+    assert ceremony.start_time.strftime("%H:%M") == "18:00" and ceremony.conflicts == []
+    assert len(container.mentions.of_event(ceremony.id)) == 3
+    # Only the afisha announced the workshop: the organizer's dateless note cannot be about it and is dropped.
+    assert len(container.mentions.of_event(cards[("Мастер-класс", LATER_DAY)].id)) == 1
+    assert container.mentions.unassigned(s.id for s in container.sources.in_city(1)) == []
+    await container.close()
+
+
+@respx.mock
+async def test_a_dateless_follow_up_cannot_be_split_off(tmp_path):
+    extraction = extraction_by_text(
+        {"ивенты": [raw_event("Церемония", SOON, "18:00")], "зачем идти": [raw_event("Церемония", None, None, update_kind="details")]}
+    )
+    container = await build(tmp_path, extraction, judge_same_titles())
+    serve_channels([(1, EARLIER, "ивенты"), (2, RECENT, "зачем идти")], [])
+    container.refresh.start()
+    await container.refresh.wait()
+
+    [card] = container.events.in_city(1)
+    follow_up = next(m for m in container.mentions.of_event(card.id) if m.data.is_dateless_follow_up)
+    with pytest.raises(ValueError, match="нет даты"):
+        container.cards.split(card.id, follow_up.id)
+    await container.close()

@@ -141,7 +141,7 @@ function SourceRow({ mention, onSplit }: { mention: Mention; onSplit?: () => voi
           <a className="icon-button" href={mention.post_url} target="_blank" rel="noreferrer" aria-label="Открыть пост в Telegram" data-tip="Открыть пост в Telegram">
             <Icon name="external" size={17} />
           </a>
-          {onSplit && <IconButton icon="split" label="Вынести в отдельное событие" onClick={onSplit} />}
+          {onSplit && <SplitButton mention={mention} onSplit={onSplit} />}
         </div>
       </div>
       {reading && <p className="source-row__text">{mention.post_text}</p>}
@@ -150,6 +150,15 @@ function SourceRow({ mention, onSplit }: { mention: Mention; onSplit?: () => voi
 }
 
 /** «Это то же событие, что и…»: choose a card of the same day, then confirm. */
+/** A post that only follows up on the event has no date of its own, so it cannot become an event. */
+function SplitButton({ mention, onSplit }: { mention: Mention; onSplit: () => void }) {
+  return mention.data.start_date === null ? (
+    <IconButton icon="split" label="В посте нет даты, отдельным событием он быть не может" aria-disabled />
+  ) : (
+    <IconButton icon="split" label="Вынести в отдельное событие" onClick={onSplit} />
+  );
+}
+
 function MergeMenu({ event, day }: { event: EventCard; day: string }) {
   const sameDay = useFeed({ start: day, end: day });
   const merge = useMerge();

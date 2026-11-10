@@ -172,6 +172,10 @@ def _valid_rule(rule: Any, start: Any) -> bool:
 class ExtractedEvent(EventFacts):
     """One event as one post describes it."""
 
+    start_date: Day | None = Field(
+        description=EventFacts.model_fields["start_date"].description
+        + ". null only for a details or cancellation follow-up whose post gives no date at all"
+    )
     update_kind: UpdateKind = Field(
         default=UpdateKind.ANNOUNCEMENT,
         description="announcement: a normal announcement; reschedule: moves an event announced earlier (give the new date and time); "
@@ -180,6 +184,17 @@ class ExtractedEvent(EventFacts):
     from_organizer: bool = Field(
         default=False, description="true when the channel itself organizes or hosts the event, false for afisha and repost channels"
     )
+
+    @model_validator(mode="after")
+    def _only_follow_ups_go_without_a_date(self) -> ExtractedEvent:
+        if self.start_date is None and self.update_kind not in (UpdateKind.DETAILS, UpdateKind.CANCELLATION):
+            raise ValueError("only a details or cancellation follow-up may come without a date")
+        return self
+
+    @property
+    def is_dateless_follow_up(self) -> bool:
+        """It is about an event announced earlier and can only join that event's card."""
+        return self.start_date is None
 
 
 class Mark(SQLModel):

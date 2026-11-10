@@ -79,7 +79,7 @@ def judge_same_titles() -> FakeLlm:
 def mention(
     mention_id: int,
     *,
-    day: date = date(2026, 11, 13),
+    day: date | None = date(2026, 11, 13),
     at: time | None = time(19, 0),
     published: datetime = datetime(2026, 11, 1, tzinfo=UTC),
     organizer: bool = False,

@@ -10,6 +10,7 @@ What to keep
 - Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.
 - A digest post that lists many events becomes one item per event.
 - A place with no date goes to "places", never to "events".
+- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind "details"), moves it ("reschedule") or cancels it ("cancellation"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.
 
 The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
 Each field's meaning is in the schema."""
@@ -20,5 +21,7 @@ You get existing event cards and new announcements. For every new announcement d
 
 Same event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.
 Not the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.
+
+An announcement without a start_date is a follow-up its channel posted about one of its own events; the existing cards offered for it are that channel's. Pick the card it is about by title, description and venue; if none clearly fits, leave both fields null.
 
 Never set both same_as_card and same_as_announcement."""

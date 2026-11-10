@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from where_to_go.models import Mark, Mention
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.repositories import EventRepository, MentionRepository
@@ -19,8 +21,17 @@ class EventCards:
         self._mentions.assign(mention.id, event_id, locked)
         return event_id
 
-    def holds_post(self, event_id: int, post_id: int) -> bool:
-        return any(m.post_id == post_id for m in self._mentions.of_event(event_id))
+    def discard(self, mention: Mention) -> None:
+        """A follow-up of an event the app does not know: it has no date to make a card of."""
+        self._mentions.delete(mention.id)
+
+    def accepts(self, event_id: int, mention: Mention) -> bool:
+        """A post never announces one event twice, so two items of one post are two events.
+        A dateless follow-up is about its own channel's event, so it joins only a card that channel is on."""
+        held = self._mentions.of_event(event_id)
+        if any(m.post_id == mention.post_id for m in held):
+            return False
+        return not mention.data.is_dateless_follow_up or any(m.source_id == mention.source_id for m in held)
 
     def assign(self, mention: Mention, event_id: int) -> None:
         self._mentions.assign(mention.id, event_id)
@@ -48,6 +59,8 @@ class EventCards:
             raise KeyError(mention_id)
         if len(mentions) < 2:
             raise ValueError("a card with one source cannot be split")
+        if mention.data.is_dateless_follow_up:
+            raise ValueError("В этом посте нет даты, отдельным событием он быть не может")
         city_id = self._events.get(event_id).city_id
         new_id = self.create(city_id, mention, locked=True)
         for rest in mentions:
@@ -77,7 +90,8 @@ class EventLinker:
 
     async def link(self, city_id: int, mentions: list[Mention]) -> set[int]:
         touched: set[int] = set()
-        ordered = sorted(mentions, key=lambda m: (m.data.start_date, m.published_at))
+        # Dateless follow-ups go last, when the cards they are about already exist.
+        ordered = sorted(mentions, key=lambda m: (m.data.start_date or date.max, m.published_at))
         try:
             for start in range(0, len(ordered), self.CHUNK):
                 touched |= await self._link_chunk(city_id, ordered[start : start + self.CHUNK])
@@ -89,7 +103,8 @@ class EventLinker:
     async def _link_chunk(self, city_id: int, chunk: list[Mention]) -> set[int]:
         candidates = {e.id: e for m in chunk for e in self._finder.find(city_id, m)}
         if not candidates and len(chunk) == 1:
-            return {self._cards.create(city_id, chunk[0])}
+            opened = self._open(city_id, chunk[0])
+            return set() if opened is None else {opened}
         decisions = await self._judge.decide(chunk, list(candidates.values()))
         by_mention = {m.id: m for m in chunk}
         placed: dict[int, int] = {}
@@ -99,12 +114,19 @@ class EventLinker:
             target = decision.event_id
             if target is None and decision.same_as_mention_id in placed:
                 target = placed[decision.same_as_mention_id]
-            # Two items of one post are two events: a post never announces the same event twice.
-            if target is not None and not self._cards.holds_post(target, mention.post_id):
+            if target is not None and self._cards.accepts(target, mention):
+                self._cards.assign(mention, target)
                 event_id = target
-                self._cards.assign(mention, event_id)
             else:
-                event_id = self._cards.create(city_id, mention)
-            placed[mention.id] = event_id
-            touched.add(event_id)
+                event_id = self._open(city_id, mention)
+            if event_id is not None:
+                placed[mention.id] = event_id
+                touched.add(event_id)
         return touched
+
+    def _open(self, city_id: int, mention: Mention) -> int | None:
+        """A new card, unless the mention is a dateless follow-up: those only join cards that exist."""
+        if mention.data.is_dateless_follow_up:
+            self._cards.discard(mention)
+            return None
+        return self._cards.create(city_id, mention)
