@@ -13,7 +13,7 @@ export function DevNoteButton({ event, size }: { event: EventCard; size: "small"
   return (
     <>
       <button type="button" className={`dev-note__button dev-note__button--${size}`} aria-label="Заметка разработчику" data-tip="Заметка разработчику" aria-expanded={open} onClick={() => setOpen(true)}>
-        <Icon name="comment" size={size === "small" ? 15 : 18} strokeWidth={2} />
+        <Icon name="comment" size={size === "small" ? 14 : 18} strokeWidth={2} />
       </button>
       {open && (
         <Modal label="Заметка разработчику" className="dev-note__window" onClose={close}>
