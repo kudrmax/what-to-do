@@ -72,6 +72,11 @@ class SourceKind(StrEnum):
     TELEGRAM = "telegram"
 
 
+class ChannelLink(StrEnum):
+    LINK = "link"
+    FORWARD = "forward"
+
+
 class ConflictField(StrEnum):
     START_DATE = "start_date"
     START_TIME = "start_time"
@@ -471,6 +476,69 @@ class PlacePublic(ExtractedPlace, Public):
     post_url: str
 
 
+# ---------- potential sources ----------
+
+
+class ChannelReference(SQLModel):
+    """Another Telegram channel a post points to; a channel the user might want to add."""
+
+    handle: str = Field(description='The channel\'s username without "@", e.g. "belgrade_afisha"; from a t.me link or an @mention')
+    via: ChannelLink = Field(description="forward: the post is forwarded from that channel; link: the post links to it or mentions it")
+
+
+class PotentialSource(SQLModel, table=True):
+    """A channel posts pointed to; it stays until the user marks it processed, then it never comes back."""
+
+    __tablename__ = "potential_sources"
+    __table_args__ = (UniqueConstraint("city_id", "handle"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    city_id: int = Field(foreign_key="cities.id", index=True)
+    handle: str
+    processed: bool = False
+    found_at: datetime
+
+
+class PotentialSourcePost(SQLModel, table=True):
+    """A post that pointed to a potential source."""
+
+    __tablename__ = "potential_source_posts"
+    __table_args__ = (UniqueConstraint("potential_source_id", "post_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    potential_source_id: int = Field(foreign_key="potential_sources.id", ondelete="CASCADE", index=True)
+    post_id: int = Field(foreign_key="posts.id", ondelete="CASCADE", index=True)
+    via: ChannelLink
+
+    post: Post = Relationship(sa_relationship_kwargs={"lazy": "joined"})
+
+
+class PotentialSourceOrigin(Public):
+    """A post that pointed to the channel."""
+
+    via: ChannelLink
+    source_title: str
+    post_url: str
+    published_at: datetime
+
+
+class PotentialSourceMark(SQLModel):
+    processed: bool = Field(description="The user looked at the channel: added it by hand or decided not to")
+
+
+class PotentialSourcePublic(Public):
+    id: int
+    handle: str
+    processed: bool
+    found_at: datetime
+    origins: list[PotentialSourceOrigin] = Field(description="The posts that pointed to it, newest first")
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        return TelegramUrls.channel(self.handle)
+
+
 class Setting(SQLModel, table=True):
     __tablename__ = "settings"
 
@@ -525,6 +593,12 @@ class PostReading(SQLModel):
     post_id: int
     events: list[EventReading] = Field(description="One item per event; a digest post gives one item per event it lists")
     places: list[ExtractedPlace] = []
+    channels: list[ChannelReference] = Field(
+        default=[],
+        description="Every other Telegram channel or group the post is forwarded from, links to or mentions by @username, even "
+        "when it does not look like an afisha: the user decides. Leave out the post's own channel, bots, personal accounts "
+        "and private invite links",
+    )
 
 
 class Reading(SQLModel):

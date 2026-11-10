@@ -10,6 +10,8 @@ export type Settings = Schemas["AppSettings"];
 export type SettingsChange = Schemas["SettingsChange"];
 export type Source = Schemas["SourcePublic"];
 export type NewSource = Schemas["SourceRequest"];
+export type PotentialSource = Schemas["PotentialSourcePublic"];
+export type PotentialSourceOrigin = Schemas["PotentialSourceOrigin"];
 export type Tag = Schemas["TagPublic"];
 export type EventCard = Schemas["EventPublic"];
 export type Mention = Schemas["MentionPublic"];
@@ -70,6 +72,9 @@ export function createApi(baseUrl: string) {
     addSource: (body: NewSource) => answer(client.POST("/sources", { body })),
     renameSource: (id: number, title: string) => answer(client.PATCH("/sources/{source_id}", { ...source(id), body: { title } })),
     deleteSource: (id: number) => answer(client.DELETE("/sources/{source_id}", source(id))),
+    potentialSources: () => answer(client.GET("/potential-sources")),
+    markPotentialSource: (id: number, processed: boolean) =>
+      answer(client.PUT("/potential-sources/{potential_id}/processed", { params: { path: { potential_id: id } }, body: { processed } })),
 
     tags: () => answer(client.GET("/tags")),
     addTag: (name: string) => answer(client.POST("/tags", { body: { name } })),

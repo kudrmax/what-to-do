@@ -59,6 +59,9 @@ class TelegramPageParser:
             return None
         text_node = node.css_first(".tgme_widget_message_text")
         text = HtmlText.extract(text_node) if text_node else ""
+        forwarded = self._forwarded_from(node)
+        if forwarded:
+            text = f"{forwarded}\n\n{text}".strip()
         preview = node.css_first(".tgme_widget_message_link_preview")
         if preview is not None:
             text = (text + "\n\n" + HtmlText.extract(preview)).strip()
@@ -76,6 +79,19 @@ class TelegramPageParser:
             text=text,
             image_urls=images,
         )
+
+    @staticmethod
+    def _forwarded_from(node: Node) -> str | None:
+        """Where a forwarded post comes from, as Telegram shows it above the post."""
+        header = node.css_first(".tgme_widget_message_forwarded_from")
+        if header is None:
+            return None
+        name = header.css_first(".tgme_widget_message_forwarded_from_name")
+        if name is None:
+            return None
+        href = name.attributes.get("href") or ""
+        origin = f" ({href})" if href.startswith("http") else ""
+        return f"Переслано из {name.text(strip=True)}{origin}"
 
 
 class HtmlText:

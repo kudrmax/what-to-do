@@ -1,0 +1,152 @@
+.potential {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.potential__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.potential__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 4px;
+}
+
+.potential__row + .potential__row {
+  border-top: 1px solid var(--line);
+}
+
+.potential__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.potential__handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.potential__handle:hover {
+  color: var(--accent-strong);
+}
+
+.potential__handle svg {
+  color: var(--text-faint);
+}
+
+.potential__origins {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.potential__origin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.potential__via {
+  display: inline-flex;
+  color: var(--text-faint);
+}
+
+.potential__post {
+  color: var(--text-2);
+}
+
+.potential__when {
+  color: var(--text-faint);
+}
+
+.potential__more {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.potential__check {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  font-size: 14px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.potential__check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.potential__processed {
+  margin-top: 4px;
+}
+
+.potential__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.potential__summary::-webkit-details-marker {
+  display: none;
+}
+
+.potential__summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.potential__processed[open] .potential__summary::before {
+  transform: rotate(45deg);
+}
+
+.potential__count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  font-size: var(--caption-size);
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

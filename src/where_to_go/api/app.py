@@ -33,6 +33,8 @@ from where_to_go.models import (
     Mark,
     MentionPublic,
     PlacePublic,
+    PotentialSourceMark,
+    PotentialSourcePublic,
     Source,
     SourcePublic,
     TagBase,
@@ -210,6 +212,20 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def delete_source(c: ContainerDep, source: SourceDep):
         """Deletes a source with its posts. Cards only it announced disappear; shared cards lose its post."""
         c.catalog.delete(source.id)
+
+    @app.get("/potential-sources", response_model=list[PotentialSourcePublic], tags=[ApiTag.SOURCES])
+    def list_potential_sources(c: ContainerDep, city: CityDep):
+        """Channels the active city's posts forward from or link to, not added as sources; most pointed to first.
+        Processed ones are included: the client hides them. They are found when posts are read; adding one is up to the user."""
+        return c.potential_sources.in_city(city.id)
+
+    @app.put("/potential-sources/{potential_id}/processed", status_code=204, tags=[ApiTag.SOURCES])
+    def mark_potential_source(potential_id: int, body: PotentialSourceMark, c: ContainerDep):
+        """Marks a potential source processed or not. A processed one takes no more posts, so it never comes back."""
+        try:
+            c.potential_sources.mark(potential_id, body.processed)
+        except KeyError:
+            raise HTTPException(404, "Нет такого потенциального источника") from None
 
     # ---------- tags ----------
 

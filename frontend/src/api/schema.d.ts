@@ -122,6 +122,47 @@ export interface paths {
         patch: operations["rename_source_sources__source_id__patch"];
         trace?: never;
     };
+    "/potential-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Potential Sources
+         * @description Channels the active city's posts forward from or link to, not added as sources; most pointed to first.
+         *     Processed ones are included: the client hides them. They are found when posts are read; adding one is up to the user.
+         */
+        get: operations["list_potential_sources_potential_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/potential-sources/{potential_id}/processed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark Potential Source
+         * @description Marks a potential source processed or not. A processed one takes no more posts, so it never comes back.
+         */
+        put: operations["mark_potential_source_potential_sources__potential_id__processed_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tags": {
         parameters: {
             query?: never;
@@ -598,6 +639,9 @@ export interface components {
              *     - Each post lists its photos by index: "shows" says what the photo is, "text" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
              *     - For every event give "photo": the index of its post's photo that shows that event.
              *
+             *     Channels
+             *     - For every post list in "channels" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.
+             *
              *     The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
              *     Each field's meaning is in the schema.
              */
@@ -680,6 +724,11 @@ export interface components {
             /** Html */
             html: string;
         };
+        /**
+         * ChannelLink
+         * @enum {string}
+         */
+        ChannelLink: "link" | "forward";
         /** CityBase */
         CityBase: {
             /**
@@ -1054,6 +1103,51 @@ export interface components {
              * @description What Claude read on the photo; null until it is read
              */
             text: string | null;
+        };
+        /** PotentialSourceMark */
+        PotentialSourceMark: {
+            /**
+             * Processed
+             * @description The user looked at the channel: added it by hand or decided not to
+             */
+            processed: boolean;
+        };
+        /**
+         * PotentialSourceOrigin
+         * @description A post that pointed to the channel.
+         */
+        PotentialSourceOrigin: {
+            via: components["schemas"]["ChannelLink"];
+            /** Source Title */
+            source_title: string;
+            /** Post Url */
+            post_url: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+        };
+        /** PotentialSourcePublic */
+        PotentialSourcePublic: {
+            /** Id */
+            id: number;
+            /** Handle */
+            handle: string;
+            /** Processed */
+            processed: boolean;
+            /**
+             * Found At
+             * Format: date-time
+             */
+            found_at: string;
+            /**
+             * Origins
+             * @description The posts that pointed to it, newest first
+             */
+            origins: components["schemas"]["PotentialSourceOrigin"][];
+            /** Url */
+            readonly url: string;
         };
         /** RefreshProgress */
         RefreshProgress: {
@@ -1553,6 +1647,59 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SourcePublic"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_potential_sources_potential_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PotentialSourcePublic"][];
+                };
+            };
+        };
+    };
+    mark_potential_source_potential_sources__potential_id__processed_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                potential_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PotentialSourceMark"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

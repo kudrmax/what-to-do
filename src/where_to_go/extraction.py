@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 
 from where_to_go.llm import JsonLlm
-from where_to_go.models import City, EventReading, ExtractedEvent, ExtractedPlace, PhotoText, Post, Reading, Source
+from where_to_go.models import ChannelReference, City, EventReading, ExtractedEvent, ExtractedPlace, PhotoText, Post, Reading, Source
 from where_to_go.photos import PhotoTranscriber
 
 
@@ -37,6 +37,7 @@ class ExtractedPost:
     post_id: int
     events: list[tuple[ExtractedEvent, int | None]] = field(default_factory=list)
     places: list[ExtractedPlace] = field(default_factory=list)
+    channels: list[ChannelReference] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -102,7 +103,8 @@ class PostExtractor:
             (ExtractedEvent.model_validate(r.model_dump(exclude={"photo"})), r.photo if r.photo in photos.texts else None)
             for r in readings
         ]
-        return ExtractedPost(photos.post.id, events, places)
+        channels = [c for c in (cls._channel(raw) for raw in item.get("channels", [])) if c is not None]
+        return ExtractedPost(photos.post.id, events, places, channels)
 
     @staticmethod
     def _event(raw: Any, allowed: set[str], fallback: str) -> EventReading | None:
@@ -118,5 +120,12 @@ class PostExtractor:
     def _place(raw: Any) -> ExtractedPlace | None:
         try:
             return ExtractedPlace.model_validate(raw)
+        except ValidationError:
+            return None
+
+    @staticmethod
+    def _channel(raw: Any) -> ChannelReference | None:
+        try:
+            return ChannelReference.model_validate(raw)
         except ValidationError:
             return None

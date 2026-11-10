@@ -14,6 +14,7 @@ from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
 from where_to_go.llm import LlmError
 from where_to_go.photos import PhotoTranscriber
+from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
     CityRepository,
     EventRepository,
@@ -73,6 +74,7 @@ class PostReader:
         posts: PostRepository,
         post_mentions: PostMentions,
         places: PlaceRepository,
+        potential_sources: PotentialSources,
         extractor: PostExtractor,
         photos: PhotoTranscriber,
         photo_texts: PhotoTextRepository,
@@ -86,6 +88,7 @@ class PostReader:
         self._posts = posts
         self._post_mentions = post_mentions
         self._places = places
+        self._potential_sources = potential_sources
         self._extractor = extractor
 
     def batches(self, posts: list[Post]) -> list[list[Post]]:
@@ -112,12 +115,14 @@ class PostReader:
             for post in batch:
                 self._posts.mark_failed(post.id, str(error))
             raise
+        by_id = {post.id: post for post in batch}
         for result in results:
             with self._atomically():
                 self._post_mentions.store(result.post_id, result.events)
                 self._places.forget_post(result.post_id)
                 for place in result.places:
                     self._places.add(context.city.id, result.post_id, place)
+                self._potential_sources.note(context.city.id, by_id[result.post_id], result.channels)
                 self._posts.mark_processed(result.post_id, context.rules)
 
 

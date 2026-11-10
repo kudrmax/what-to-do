@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.1.0"
+  "version": "1.3.1"
  },
  "paths": {
   "/settings": {
@@ -292,6 +292,78 @@
       }
      }
     ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/potential-sources": {
+   "get": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "List Potential Sources",
+    "description": "Channels the active city's posts forward from or link to, not added as sources; most pointed to first.\nProcessed ones are included: the client hides them. They are found when posts are read; adding one is up to the user.",
+    "operationId": "list_potential_sources_potential_sources_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PotentialSourcePublic"
+         },
+         "type": "array",
+         "title": "Response List Potential Sources Potential Sources Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/potential-sources/{potential_id}/processed": {
+   "put": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Mark Potential Source",
+    "description": "Marks a potential source processed or not. A processed one takes no more posts, so it never comes back.",
+    "operationId": "mark_potential_source_potential_sources__potential_id__processed_put",
+    "parameters": [
+     {
+      "name": "potential_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Potential Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PotentialSourceMark"
+       }
+      }
+     }
+    },
     "responses": {
      "204": {
       "description": "Successful Response"
@@ -1292,7 +1364,7 @@
       "minLength": 1,
       "title": "Extraction Prompt",
       "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
-      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
+      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
      },
      "matching_prompt": {
       "type": "string",
@@ -1416,6 +1488,14 @@
      "html"
     ],
     "title": "ChangelogSectionView"
+   },
+   "ChannelLink": {
+    "type": "string",
+    "enum": [
+     "link",
+     "forward"
+    ],
+    "title": "ChannelLink"
    },
    "CityBase": {
     "properties": {
@@ -2243,6 +2323,93 @@
      "text"
     ],
     "title": "PostPhoto"
+   },
+   "PotentialSourceMark": {
+    "properties": {
+     "processed": {
+      "type": "boolean",
+      "title": "Processed",
+      "description": "The user looked at the channel: added it by hand or decided not to"
+     }
+    },
+    "type": "object",
+    "required": [
+     "processed"
+    ],
+    "title": "PotentialSourceMark"
+   },
+   "PotentialSourceOrigin": {
+    "properties": {
+     "via": {
+      "$ref": "#/components/schemas/ChannelLink"
+     },
+     "source_title": {
+      "type": "string",
+      "title": "Source Title"
+     },
+     "post_url": {
+      "type": "string",
+      "title": "Post Url"
+     },
+     "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Published At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "via",
+     "source_title",
+     "post_url",
+     "published_at"
+    ],
+    "title": "PotentialSourceOrigin",
+    "description": "A post that pointed to the channel."
+   },
+   "PotentialSourcePublic": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "handle": {
+      "type": "string",
+      "title": "Handle"
+     },
+     "processed": {
+      "type": "boolean",
+      "title": "Processed"
+     },
+     "found_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Found At"
+     },
+     "origins": {
+      "items": {
+       "$ref": "#/components/schemas/PotentialSourceOrigin"
+      },
+      "type": "array",
+      "title": "Origins",
+      "description": "The posts that pointed to it, newest first"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url",
+      "readOnly": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "handle",
+     "processed",
+     "found_at",
+     "origins",
+     "url"
+    ],
+    "title": "PotentialSourcePublic"
    },
    "RefreshProgress": {
     "properties": {
