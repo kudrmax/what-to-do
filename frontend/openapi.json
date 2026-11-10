@@ -767,6 +767,59 @@
     }
    }
   },
+  "/events/{event_id}/dev-notes": {
+   "post": {
+    "tags": [
+     "events"
+    ],
+    "summary": "Add Dev Note",
+    "description": "Saves the developer's note about a card. Notes are only collected: the app never shows them.",
+    "operationId": "add_dev_note_events__event_id__dev_notes_post",
+    "parameters": [
+     {
+      "name": "event_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Event Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DevNoteBase"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DevNotePublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/events/{event_id}/merge": {
    "post": {
     "tags": [
@@ -1458,6 +1511,59 @@
      "start_time"
     ],
     "title": "ConflictField"
+   },
+   "DevNoteBase": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Text",
+      "description": "Free text: what to improve about this card or the app"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text"
+    ],
+    "title": "DevNoteBase"
+   },
+   "DevNotePublic": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Text",
+      "description": "Free text: what to improve about this card or the app"
+     },
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "event_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Event Id"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "text",
+     "id",
+     "event_id",
+     "created_at"
+    ],
+    "title": "DevNotePublic"
    },
    "EventKind": {
     "type": "string",

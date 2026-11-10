@@ -79,6 +79,7 @@ export function createApi(baseUrl: string) {
     event: (id: number) => answer(client.GET("/events/{event_id}", event(id))),
     mentions: (id: number) => answer(client.GET("/events/{event_id}/mentions", event(id))),
     mark: (id: number, body: Mark) => answer(client.PUT("/events/{event_id}/mark", { ...event(id), body })),
+    addDevNote: (id: number, text: string) => answer(client.POST("/events/{event_id}/dev-notes", { ...event(id), body: { text } })),
     merge: (id: number, otherId: number) => answer(client.POST("/events/{event_id}/merge", { ...event(id), body: { other_event_id: otherId } })),
     split: (id: number, mentionId: number) => answer(client.POST("/events/{event_id}/split", { ...event(id), body: { mention_id: mentionId } })),
 

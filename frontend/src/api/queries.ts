@@ -81,6 +81,7 @@ export function usePrefetchMentions() {
 }
 
 export const useSetMark = () => useApiMutation((api, { id, mark }: { id: number; mark: Mark }) => api.mark(id, mark), STALE.cards);
+export const useAddDevNote = () => useApiMutation((api, { id, text }: { id: number; text: string }) => api.addDevNote(id, text), []);
 export const useMerge = () => useApiMutation((api, { id, otherId }: { id: number; otherId: number }) => api.merge(id, otherId), STALE.cards);
 export const useSplit = () => useApiMutation((api, { id, mentionId }: { id: number; mentionId: number }) => api.split(id, mentionId), STALE.cards);
 export const useChangeSettings = () => useApiMutation((api, change: SettingsChange) => api.changeSettings(change), STALE.city);

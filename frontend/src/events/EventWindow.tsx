@@ -12,6 +12,7 @@ import { IconButton } from "../ui/IconButton";
 import { Modal } from "../ui/Modal";
 import { Popover } from "../ui/Popover";
 import { EventTime } from "./EventTime";
+import { DevNoteButton } from "./DevNoteButton";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
 import { OpenPostButton } from "./OpenPostButton";
 import { PhotoViewer, type ViewedPhoto } from "./PhotoViewer";
@@ -45,7 +46,10 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
     <article className="details">
       <Head event={event} day={day} mentions={mentions} />
       <div className="details__marks">
-        <InterestPicker event={event} size="large" />
+        <div className="marks-row">
+          <InterestPicker event={event} size="large" />
+          <DevNoteButton event={event} size="large" />
+        </div>
         <PlanPicker event={event} size="large" />
       </div>
       <Description event={event} day={day} mentions={mentions} onView={(photos, start) => setViewing({ photos, start })} />

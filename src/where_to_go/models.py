@@ -478,6 +478,26 @@ class Setting(SQLModel, table=True):
     value: Any = Field(sa_column=Column(JSON, nullable=False))
 
 
+class DevNoteBase(SQLModel):
+    text: str = Field(min_length=1, description="Free text: what to improve about this card or the app")
+
+
+class DevNote(DevNoteBase, table=True):
+    """A developer's note left from a card; it is only collected, never shown in the app."""
+
+    __tablename__ = "dev_notes"
+
+    id: int | None = Field(default=None, primary_key=True)
+    event_id: int | None = Field(default=None, index=True)
+    created_at: datetime
+
+
+class DevNotePublic(DevNoteBase, Public):
+    id: int
+    event_id: int | None
+    created_at: datetime
+
+
 # ---------- values that are not stored ----------
 
 

@@ -1,0 +1,59 @@
+.marks-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.modal__window.dev-note__window {
+  max-width: 440px;
+  margin-top: 80px;
+}
+
+.dev-note__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.dev-note__button:hover,
+.dev-note__button[aria-expanded="true"] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.dev-note__button--small {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.dev-note__button--large {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.dev-note__form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 20px;
+}
+
+.dev-note__title {
+  align-self: stretch;
+  margin: 0;
+  padding-right: 40px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.dev-note__text {
+  width: 100%;
+}

@@ -5,6 +5,7 @@ import { usePrefetchMentions } from "../api/queries";
 import { formatPrice } from "../domain/price";
 import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
+import { DevNoteButton } from "./DevNoteButton";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
 import { useOpenEvent } from "./navigation";
 import "./EventCardView.css";
@@ -47,7 +48,10 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
         <h3 className="card__title">{event.title}</h3>
         <p className="card__text">{event.description}</p>
         <div className="card__marks" onClick={keepToMarks} onKeyDown={keepToMarks}>
+          <div className="marks-row">
           <InterestPicker event={event} size="small" />
+          <DevNoteButton event={event} size="small" />
+        </div>
           <PlanPicker event={event} size="small" />
         </div>
       </div>
