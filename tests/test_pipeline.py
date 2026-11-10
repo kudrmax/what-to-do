@@ -1,10 +1,11 @@
+import json
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
 import respx
 
-from tests.helpers import channel_page, extraction_by_text, judge_same_titles, raw_event
+from tests.helpers import FakeLlm, channel_page, extraction_by_text, judge_same_titles, raw_event
 from where_to_go.container import Container
 from where_to_go.models import Mark, Plan, Source
 from where_to_go.llm import LlmError
@@ -303,3 +304,80 @@ async def test_a_dateless_follow_up_cannot_be_split_off(tmp_path):
     with pytest.raises(ValueError, match="нет даты"):
         container.cards.split(card.id, follow_up.id)
     await container.close()
+
+
+async def refresh(container):
+    container.refresh.start()
+    progress = await container.refresh.wait()
+    assert progress.stage is Stage.DONE, progress.errors
+    return progress
+
+
+def new_rules(container):
+    container.settings.update(extraction_prompt=container.settings.load().extraction_prompt + "\nRead the photos too.")
+
+
+@respx.mock
+async def test_posts_read_with_old_rules_are_read_again_and_keep_their_cards_and_marks(tmp_path):
+    answers = {
+        "дайджест": [raw_event("Квиз", SOON, None, from_organizer=True), raw_event("Лекция", LATER_DAY, "19:00", from_organizer=True)],
+        "реклама": [],
+    }
+    container = await build(tmp_path, extraction_by_text(answers), judge_same_titles())
+    serve_channels([(1, EARLIER, "дайджест месяца"), (2, RECENT, "реклама")], [])
+    await refresh(container)
+    quiz = next(e for e in container.events.in_city(1) if e.original_title == "Квиз")
+    container.events.set_mark(quiz.id, Mark(interest=5, plan=Plan.SURE))
+
+    answers["дайджест"] = [
+        raw_event("Квиз", SOON, "20:00", from_organizer=True, price=500, currency="RSD"),
+        raw_event("Чайный клуб", LATER_DAY, "18:00", from_organizer=True),
+    ]
+    new_rules(container)
+    progress = await refresh(container)
+
+    assert progress.posts_to_read == 2
+    cards = {e.original_title: e for e in container.events.in_city(1)}
+    assert set(cards) == {"Квиз", "Чайный клуб"}  # the lecture is no longer announced, its card is gone
+    again = cards["Квиз"]
+    assert again.id == quiz.id and (again.interest, again.plan) == (5, Plan.SURE)
+    assert again.start_time.strftime("%H:%M") == "20:00" and again.price == 500
+    assert len(container.mentions.of_event(quiz.id)) == 1
+
+    progress = await refresh(container)
+    assert progress.posts_to_read == 0
+
+
+@respx.mock
+async def test_only_the_latest_posts_of_a_channel_and_not_hand_curated_ones_are_read_again(tmp_path):
+    answers = {marker: [raw_event(marker.title(), SOON, "19:00")] for marker in ("первый", "второй", "третий", "четвёртый")}
+    container = await build(tmp_path, extraction_by_text(answers), judge_same_titles())
+    container.settings.update(recent_posts=3)
+    days_ago = [(datetime.now(UTC) - timedelta(days=d)).isoformat() for d in (4, 3, 2, 1)]
+    serve_channels([(i + 1, day, text) for i, (day, text) in enumerate(zip(days_ago, ("первый", "второй", "третий", "четвёртый")))], [])
+    container.settings.update(recent_posts=4)
+    await refresh(container)
+    container.settings.update(recent_posts=3)
+    cards = {e.original_title: e.id for e in container.events.in_city(1)}
+    container.cards.merge(cards["Третий"], cards["Четвёртый"])
+
+    new_rules(container)
+    progress = await refresh(container)
+
+    assert progress.posts_to_read == 1  # post 2: post 1 is older than the latest three, 3 and 4 were merged by hand
+    kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
+    assert [p.external_id for p in container.posts.to_read([kafana.id], "other rules", 3)] == [2]
+
+
+@respx.mock
+async def test_places_of_a_post_read_again_are_not_doubled(tmp_path):
+    def answer(_, prompt):
+        posts = json.loads(prompt.split("\n", 1)[1])
+        return {"posts": [{"post_id": p["post_id"], "events": [], "places": [{"name": "Скалодром", "address": None, "description": "Каждый день"}]} for p in posts]}
+
+    container = await build(tmp_path, FakeLlm(answer), judge_same_titles())
+    serve_channels([(1, RECENT, "про скалодром")], [])
+    await refresh(container)
+    new_rules(container)
+    await refresh(container)
+    assert [p.name for p in container.places.in_city(1)] == ["Скалодром"]

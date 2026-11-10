@@ -26,6 +26,7 @@ class Database:
         self.engine: Engine = create_engine(url, **options)
         sa_event.listen(self.engine, "connect", _sqlite_pragmas)
         SQLModel.metadata.create_all(self.engine)
+        self._add_new_columns()
 
     @contextmanager
     def session(self) -> Iterator[Session]:
@@ -34,6 +35,19 @@ class Database:
 
     def close(self) -> None:
         self.engine.dispose()
+
+    def _add_new_columns(self) -> None:
+        """create_all makes missing tables only; a nullable column added to a model is added to its existing table here."""
+        with self.engine.begin() as connection:
+            for table in SQLModel.metadata.sorted_tables:
+                present = {row[1] for row in connection.exec_driver_sql(f'PRAGMA table_info("{table.name}")')}
+                for column in table.columns:
+                    if column.name in present:
+                        continue
+                    if not column.nullable:
+                        raise RuntimeError(f"{table.name}.{column.name} is new and required: it needs a migration")
+                    kind = column.type.compile(dialect=self.engine.dialect)
+                    connection.exec_driver_sql(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}')
 
 
 def _sqlite_pragmas(connection, _record) -> None:

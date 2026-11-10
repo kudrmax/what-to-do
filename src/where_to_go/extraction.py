@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,6 +20,13 @@ class ExtractionContext:
     language: str
     tags: list[str]
     fallback_tag: str
+
+    @property
+    def rules(self) -> str:
+        """What decides how a post is read; a post read with other rules is read again.
+        Tags are left out: editing the list should not re-read every channel."""
+        rules = json.dumps([self.prompt, self.language, Reading.model_json_schema()], ensure_ascii=False, sort_keys=True)
+        return hashlib.sha256(rules.encode()).hexdigest()[:16]
 
 
 @dataclass(frozen=True)

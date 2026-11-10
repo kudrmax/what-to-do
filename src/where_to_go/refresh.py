@@ -11,7 +11,7 @@ from sqlmodel import Field, SQLModel
 from where_to_go.models import City, Post, Public, Source
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
-from where_to_go.linking import EventLinker
+from where_to_go.linking import EventLinker, PostMentions
 from where_to_go.llm import LlmError
 from where_to_go.repositories import (
     CityRepository,
@@ -66,14 +66,14 @@ class PostReader:
         settings: SettingsRepository,
         tags: TagRepository,
         posts: PostRepository,
-        mentions: MentionRepository,
+        post_mentions: PostMentions,
         places: PlaceRepository,
         extractor: PostExtractor,
     ) -> None:
         self._settings = settings
         self._tags = tags
         self._posts = posts
-        self._mentions = mentions
+        self._post_mentions = post_mentions
         self._places = places
         self._extractor = extractor
 
@@ -100,11 +100,11 @@ class PostReader:
                 self._posts.mark_failed(post.id, str(error))
             raise
         for result in results:
-            for index, (event, image) in enumerate(result.events):
-                self._mentions.add(result.post_id, index, event, image)
+            self._post_mentions.store(result.post_id, result.events)
+            self._places.forget_post(result.post_id)
             for place in result.places:
                 self._places.add(context.city.id, result.post_id, place)
-            self._posts.mark_processed(result.post_id)
+            self._posts.mark_processed(result.post_id, context.rules)
 
 
 class RefreshService:
@@ -170,9 +170,9 @@ class RefreshService:
         await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s) for s in sources.values()])
 
         self.progress.stage = Stage.READING
-        posts = self._posts.unprocessed(sources)
-        self.progress.posts_to_read = len(posts)
         context = self._post_reader.context(city)
+        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts)
+        self.progress.posts_to_read = len(posts)
         await self._bounded(self.READ_CONCURRENCY, [self._read(batch, sources, context) for batch in self._post_reader.batches(posts)])
 
         self.progress.stage = Stage.MERGING

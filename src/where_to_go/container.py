@@ -10,7 +10,7 @@ from where_to_go.db import Database
 from where_to_go.extraction import PostExtractor
 from where_to_go.feed import Feed
 from where_to_go.images import ImageStore
-from where_to_go.linking import EventCards, EventLinker
+from where_to_go.linking import EventCards, EventLinker, PostMentions
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.refresh import PostReader, RefreshService
@@ -97,7 +97,7 @@ class Container:
             settings=settings,
             tags=tags,
             posts=posts,
-            mentions=mentions,
+            post_mentions=PostMentions(mentions, cards),
             places=places,
             extractor=PostExtractor(extraction_llm or ClaudeJsonLlm(EXTRACTION_MODEL), images),
         )

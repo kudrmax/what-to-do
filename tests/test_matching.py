@@ -77,3 +77,17 @@ def test_dateless_follow_up_looks_only_at_its_channels_cards_not_yet_over(events
     follow_up = mention(9, day=None, at=None, update=UpdateKind.DETAILS, title="Тайваньская церемония", source_id=1)
 
     assert [e.id for e in CandidateFinder(events).find(1, follow_up)] == [named, other]
+
+
+def test_a_post_read_again_pairs_each_event_with_its_old_mention():
+    from where_to_go.linking import PostMentions
+
+    old = [mention(1, title="Тайваньская церемония"), mention(2, title="Чайный квиз"), mention(3, title="Лекция о чае", day=date(2026, 11, 20))]
+    new = [
+        mention(7, title="Квиз про чай").data,
+        mention(8, title="Тайваньская чайная церемония").data,
+        mention(9, title="Лекция о чае и экономике", day=date(2026, 11, 21)).data,
+        mention(10, title="Чайный клуб", day=date(2026, 12, 3)).data,
+    ]
+    pairs = PostMentions._pair(old, new)
+    assert {i: m.id for i, m in pairs.items()} == {0: 2, 1: 1, 2: 3}

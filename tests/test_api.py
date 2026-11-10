@@ -81,7 +81,7 @@ def seeded(client, *events):
         c.posts.add_new(source.id, CollectedPost(external_id=external, url=f"https://t.me/{handle}/{external}", published_at=datetime(2026, 11, 1, tzinfo=UTC), text="текст"), [])
         post = next(p for p in c.posts.unprocessed([source.id]) if p.external_id == external)
         mention = c.mentions.add(post.id, 0, ExtractedEvent.model_validate(raw), None)
-        c.posts.mark_processed(post.id)
+        c.posts.mark_processed(post.id, "test")
         ids.append(c.cards.create(city.id, mention))
         c.cards.refresh(ids[-1])
     return ids

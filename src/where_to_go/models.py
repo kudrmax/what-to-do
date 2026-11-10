@@ -311,6 +311,7 @@ class Post(SQLModel, table=True):
     image_paths: list[str] = json_field(list[str], default_factory=list)
     processed_at: datetime | None = Field(default=None, index=True)
     process_error: str | None = None
+    read_with: str | None = Field(default=None, description="Fingerprint of the reading rules the post was last read with")
 
     source: Source = Relationship(sa_relationship_kwargs={"lazy": "joined"})
 
