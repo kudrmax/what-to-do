@@ -240,3 +240,18 @@ def test_dev_note_is_saved_for_a_card(client):
     assert note.json()["event_id"] == event_id
     assert client.post(f"/events/{event_id}/dev-notes", json={"text": "   "}).status_code == 422
     assert client.post("/events/999999/dev-notes", json={"text": "x"}).status_code == 404
+
+
+@respx.mock
+def test_a_source_starts_new_and_can_become_favorite(client):
+    respx.route(host="testserver").pass_through()
+    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы"}).json()
+    assert source["status"] == "new"
+
+    marked = client.put(f"/sources/{source['id']}/status", json={"status": "favorite"})
+    assert marked.status_code == 200 and marked.json()["status"] == "favorite"
+    assert [s["status"] for s in client.get("/sources").json()] == ["favorite"]
+
+    assert client.put(f"/sources/{source['id']}/status", json={"status": "old"}).status_code == 422
+    assert client.put("/sources/999/status", json={"status": "new"}).status_code == 404

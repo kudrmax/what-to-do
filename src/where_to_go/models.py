@@ -72,6 +72,13 @@ class SourceKind(StrEnum):
     TELEGRAM = "telegram"
 
 
+class SourceStatus(StrEnum):
+    """The user's own mark on a source, only to find their way among many."""
+
+    NEW = "new"
+    FAVORITE = "favorite"
+
+
 class ChannelLink(StrEnum):
     LINK = "link"
     FORWARD = "forward"
@@ -310,6 +317,9 @@ class SourceBase(SQLModel):
     last_refreshed_at: datetime | None = None
     last_error: str | None = Field(default=None, description="Shown next to the source; null when the last refresh went fine")
     events_found: int = Field(default=0, description="Cards this source contributes to")
+    status: SourceStatus = Field(
+        default=SourceStatus.NEW, sa_column_kwargs={"server_default": SourceStatus.NEW.name}, description="The user's mark: every source starts new"
+    )
 
 
 class Source(SourceBase, table=True):
@@ -524,6 +534,10 @@ class PotentialSourceOrigin(Public):
     source_title: str
     post_url: str
     published_at: datetime
+
+
+class SourceStatusChange(SQLModel):
+    status: SourceStatus
 
 
 class PotentialSourceMark(SQLModel):

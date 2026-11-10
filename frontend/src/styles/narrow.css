@@ -34,9 +34,14 @@
   }
 
   .sources-table__row {
-    grid-template-columns: auto auto minmax(0, 1fr) auto;
-    grid-template-areas: "name name name actions" "updated count state state";
+    grid-template-columns: 32px auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "favorite name name name actions" "favorite updated count state state";
     row-gap: 6px;
+  }
+
+  .sources-table__favorite {
+    grid-area: favorite;
+    align-self: start;
   }
 
   .sources-table__name {

@@ -59,3 +59,22 @@ def test_a_column_added_to_a_model_is_added_to_an_old_database(tmp_path):
     Database(path).close()
     with sqlite3.connect(path) as upgraded:
         assert "read_with" in {row[1] for row in upgraded.execute("PRAGMA table_info(posts)")}
+
+
+def test_a_required_column_with_a_default_fills_the_rows_of_an_old_database(tmp_path):
+    import sqlite3
+
+    from where_to_go.db import Database
+    from where_to_go.models import SourceStatus
+    from where_to_go.repositories import SourceRepository
+
+    path = tmp_path / "old.sqlite3"
+    Database(path).close()
+    with sqlite3.connect(path) as old:
+        old.execute("INSERT INTO cities (name, timezone) VALUES ('Белград', 'Europe/Belgrade')")
+        old.execute("INSERT INTO sources (kind, handle, title, events_found, city_id) VALUES ('TELEGRAM', 'quizbg', 'Квизы', 0, 1)")
+        old.execute("ALTER TABLE sources DROP COLUMN status")
+    upgraded = Database(path)
+    [source] = SourceRepository(upgraded).in_city(1)
+    upgraded.close()
+    assert source.status == SourceStatus.NEW
