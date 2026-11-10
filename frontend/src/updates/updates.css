@@ -143,6 +143,15 @@
   white-space: nowrap;
 }
 
+.shell__nav .update-pill {
+  align-self: flex-start;
+  margin: auto 0 8px 12px;
+}
+
+.shell__nav .update-pill + .shell__link--bottom {
+  margin-top: 0;
+}
+
 .update-pill:hover {
   border-color: var(--accent);
 }

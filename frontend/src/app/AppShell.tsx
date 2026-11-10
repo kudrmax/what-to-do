@@ -6,6 +6,7 @@ import { useActiveCity } from "../api/useActiveCity";
 import { useNativeWindow } from "../native/useNativeWindow";
 import { Icon } from "../ui/Icon";
 import { Popover } from "../ui/Popover";
+import { UpdateIndicator } from "../updates/UpdatesProvider";
 import { SECTIONS } from "./routes";
 import "./AppShell.css";
 
@@ -23,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {section.title}
           </NavLink>
         ))}
+        <UpdateIndicator />
         <NavLink to={SECTIONS.settings.path} className="shell__link shell__link--bottom">
           <Icon name={SECTIONS.settings.icon} />
           {SECTIONS.settings.title}
