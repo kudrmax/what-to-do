@@ -976,6 +976,231 @@
      }
     }
    }
+  },
+  "/version": {
+   "get": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Get Version",
+    "description": "The version this copy runs.",
+    "operationId": "get_version_version_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/VersionView"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/updates": {
+   "get": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Check For Updates",
+    "description": "Whether a newer release is out and what it changes. Releases are asked at most once a day; `force` asks now.",
+    "operationId": "check_for_updates_updates_get",
+    "parameters": [
+     {
+      "name": "force",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Force"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UpdateStatusView"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/update": {
+   "post": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Start Update",
+    "description": "Starts updating this copy to the latest release; the app restarts on its way. Poll `GET /update/state`.",
+    "operationId": "start_update_update_post",
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/update/state": {
+   "get": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Get Update State",
+    "description": "How the update started from the app is going.",
+    "operationId": "get_update_state_update_state_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UpdateProgress"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/changelog": {
+   "get": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Get Changelog",
+    "description": "Every release of the installed copy, newest first.",
+    "operationId": "get_changelog_changelog_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ChangelogEntryView"
+         },
+         "type": "array",
+         "title": "Response Get Changelog Changelog Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/changelog/unseen": {
+   "get": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Get Unseen Changelog",
+    "description": "Releases installed since the user last saw the changelog; empty on a fresh install.",
+    "operationId": "get_unseen_changelog_changelog_unseen_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/ChangelogEntryView"
+         },
+         "type": "array",
+         "title": "Response Get Unseen Changelog Changelog Unseen Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/changelog/seen": {
+   "post": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Mark Changelog Seen",
+    "description": "What's new was shown: it does not show again until the next update.",
+    "operationId": "mark_changelog_seen_changelog_seen_post",
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     }
+    }
+   }
+  },
+  "/changelog/assets/{version}/{path}": {
+   "get": {
+    "tags": [
+     "releases"
+    ],
+    "summary": "Get Changelog Asset",
+    "description": "An image of a release's changelog.",
+    "operationId": "get_changelog_asset_changelog_assets__version___path__get",
+    "parameters": [
+     {
+      "name": "version",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Version"
+      }
+     },
+     {
+      "name": "path",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Path"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {
@@ -1034,6 +1259,56 @@
     ],
     "title": "AppSettings",
     "description": "Every setting of the app, described once: storage, the API and its change request all come from here."
+   },
+   "ChangelogEntryView": {
+    "properties": {
+     "version": {
+      "type": "string",
+      "title": "Version"
+     },
+     "released_on": {
+      "type": "string",
+      "format": "date",
+      "title": "Released On"
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary"
+     },
+     "sections": {
+      "items": {
+       "$ref": "#/components/schemas/ChangelogSectionView"
+      },
+      "type": "array",
+      "title": "Sections"
+     }
+    },
+    "type": "object",
+    "required": [
+     "version",
+     "released_on",
+     "summary",
+     "sections"
+    ],
+    "title": "ChangelogEntryView"
+   },
+   "ChangelogSectionView": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "html": {
+      "type": "string",
+      "title": "Html"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "html"
+    ],
+    "title": "ChangelogSectionView"
    },
    "CityBase": {
     "properties": {
@@ -2065,6 +2340,123 @@
     ],
     "title": "UpdateKind"
    },
+   "UpdateProgress": {
+    "properties": {
+     "state": {
+      "$ref": "#/components/schemas/UpdateState"
+     },
+     "log_tail": {
+      "type": "string",
+      "title": "Log Tail",
+      "default": ""
+     },
+     "steps": {
+      "items": {
+       "$ref": "#/components/schemas/UpdateStep"
+      },
+      "type": "array",
+      "title": "Steps",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "state"
+    ],
+    "title": "UpdateProgress",
+    "description": "How the update started from the app is going. `log_tail` is what broke and the end of the log\nonce it failed; `steps` are its stages in order, empty when unknown."
+   },
+   "UpdateState": {
+    "type": "string",
+    "enum": [
+     "idle",
+     "running",
+     "failed",
+     "done"
+    ],
+    "title": "UpdateState"
+   },
+   "UpdateStatusView": {
+    "properties": {
+     "current": {
+      "type": "string",
+      "title": "Current"
+     },
+     "latest": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Latest"
+     },
+     "available": {
+      "type": "boolean",
+      "title": "Available"
+     },
+     "entries": {
+      "items": {
+       "$ref": "#/components/schemas/ChangelogEntryView"
+      },
+      "type": "array",
+      "title": "Entries"
+     },
+     "check_failed": {
+      "type": "boolean",
+      "title": "Check Failed"
+     },
+     "restart_command": {
+      "type": "string",
+      "title": "Restart Command"
+     },
+     "update_command": {
+      "type": "string",
+      "title": "Update Command"
+     }
+    },
+    "type": "object",
+    "required": [
+     "current",
+     "latest",
+     "available",
+     "entries",
+     "check_failed",
+     "restart_command",
+     "update_command"
+    ],
+    "title": "UpdateStatusView"
+   },
+   "UpdateStep": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "status": {
+      "$ref": "#/components/schemas/UpdateStepStatus"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "status"
+    ],
+    "title": "UpdateStep",
+    "description": "One stage of the update as the user sees it, such as \"Устанавливаем v1.2.0\"."
+   },
+   "UpdateStepStatus": {
+    "type": "string",
+    "enum": [
+     "done",
+     "current",
+     "pending",
+     "failed"
+    ],
+    "title": "UpdateStepStatus"
+   },
    "ValidationError": {
     "properties": {
      "loc": {
@@ -2104,6 +2496,19 @@
      "type"
     ],
     "title": "ValidationError"
+   },
+   "VersionView": {
+    "properties": {
+     "version": {
+      "type": "string",
+      "title": "Version"
+     }
+    },
+    "type": "object",
+    "required": [
+     "version"
+    ],
+    "title": "VersionView"
    }
   }
  },
@@ -2127,6 +2532,10 @@
   {
    "name": "refresh",
    "description": "Collect new posts and turn them into cards"
+  },
+  {
+   "name": "releases",
+   "description": "The installed version, its changelog and updating to a newer release"
   }
  ]
 }

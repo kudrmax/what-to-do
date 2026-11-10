@@ -374,6 +374,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Version
+         * @description The version this copy runs.
+         */
+        get: operations["get_version_version_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check For Updates
+         * @description Whether a newer release is out and what it changes. Releases are asked at most once a day; `force` asks now.
+         */
+        get: operations["check_for_updates_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Update
+         * @description Starts updating this copy to the latest release; the app restarts on its way. Poll `GET /update/state`.
+         */
+        post: operations["start_update_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Update State
+         * @description How the update started from the app is going.
+         */
+        get: operations["get_update_state_update_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/changelog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Changelog
+         * @description Every release of the installed copy, newest first.
+         */
+        get: operations["get_changelog_changelog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/changelog/unseen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Unseen Changelog
+         * @description Releases installed since the user last saw the changelog; empty on a fresh install.
+         */
+        get: operations["get_unseen_changelog_changelog_unseen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/changelog/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Changelog Seen
+         * @description What's new was shown: it does not show again until the next update.
+         */
+        post: operations["mark_changelog_seen_changelog_seen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/changelog/assets/{version}/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Changelog Asset
+         * @description An image of a release's changelog.
+         */
+        get: operations["get_changelog_asset_changelog_assets__version___path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -436,6 +596,27 @@ export interface components {
              *     Never set both same_as_card and same_as_announcement.
              */
             matching_prompt: string;
+        };
+        /** ChangelogEntryView */
+        ChangelogEntryView: {
+            /** Version */
+            version: string;
+            /**
+             * Released On
+             * Format: date
+             */
+            released_on: string;
+            /** Summary */
+            summary: string;
+            /** Sections */
+            sections: components["schemas"]["ChangelogSectionView"][];
+        };
+        /** ChangelogSectionView */
+        ChangelogSectionView: {
+            /** Title */
+            title: string;
+            /** Html */
+            html: string;
         };
         /** CityBase */
         CityBase: {
@@ -912,6 +1093,60 @@ export interface components {
          * @enum {string}
          */
         UpdateKind: "announcement" | "reschedule" | "cancellation" | "details";
+        /**
+         * UpdateProgress
+         * @description How the update started from the app is going. `log_tail` is what broke and the end of the log
+         *     once it failed; `steps` are its stages in order, empty when unknown.
+         */
+        UpdateProgress: {
+            state: components["schemas"]["UpdateState"];
+            /**
+             * Log Tail
+             * @default
+             */
+            log_tail: string;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["UpdateStep"][];
+        };
+        /**
+         * UpdateState
+         * @enum {string}
+         */
+        UpdateState: "idle" | "running" | "failed" | "done";
+        /** UpdateStatusView */
+        UpdateStatusView: {
+            /** Current */
+            current: string;
+            /** Latest */
+            latest: string | null;
+            /** Available */
+            available: boolean;
+            /** Entries */
+            entries: components["schemas"]["ChangelogEntryView"][];
+            /** Check Failed */
+            check_failed: boolean;
+            /** Restart Command */
+            restart_command: string;
+            /** Update Command */
+            update_command: string;
+        };
+        /**
+         * UpdateStep
+         * @description One stage of the update as the user sees it, such as "Устанавливаем v1.2.0".
+         */
+        UpdateStep: {
+            /** Title */
+            title: string;
+            status: components["schemas"]["UpdateStepStatus"];
+        };
+        /**
+         * UpdateStepStatus
+         * @enum {string}
+         */
+        UpdateStepStatus: "done" | "current" | "pending" | "failed";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -924,6 +1159,11 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VersionView */
+        VersionView: {
+            /** Version */
+            version: string;
         };
     };
     responses: never;
@@ -1594,6 +1834,187 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefreshProgress"];
+                };
+            };
+        };
+    };
+    get_version_version_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionView"];
+                };
+            };
+        };
+    };
+    check_for_updates_updates_get: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatusView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_update_update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_update_state_update_state_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateProgress"];
+                };
+            };
+        };
+    };
+    get_changelog_changelog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangelogEntryView"][];
+                };
+            };
+        };
+    };
+    get_unseen_changelog_changelog_unseen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangelogEntryView"][];
+                };
+            };
+        };
+    };
+    mark_changelog_seen_changelog_seen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_changelog_asset_changelog_assets__version___path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: string;
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

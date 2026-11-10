@@ -5,7 +5,7 @@
   }
 
   .screen {
-    padding: 24px 24px 36px;
+    padding: max(24px, var(--titlebar-h)) 24px 36px;
   }
 
   .week__day {

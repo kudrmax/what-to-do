@@ -14,6 +14,7 @@ from where_to_go.linking import EventCards, EventLinker, PostMentions
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.refresh import PostReader, RefreshService
+from where_to_go.releases import PROJECT_DIR, Releases, ReleaseSource
 from where_to_go.repositories import (
     CityRepository,
     EventRepository,
@@ -69,6 +70,7 @@ class Container:
     feed: Feed
     post_reader: PostReader
     refresh: RefreshService
+    releases: Releases
 
     @classmethod
     def build(
@@ -77,6 +79,8 @@ class Container:
         extraction_llm: JsonLlm | None = None,
         matching_llm: JsonLlm | None = None,
         http: httpx.AsyncClient | None = None,
+        project_dir: Path = PROJECT_DIR,
+        release_source: ReleaseSource | None = None,
     ) -> Container:
         db = Database(data_dir / "where-to-go.sqlite3")
         http = http or httpx.AsyncClient(timeout=30, headers={"User-Agent": USER_AGENT})
@@ -132,6 +136,7 @@ class Container:
             feed=Feed(events),
             post_reader=post_reader,
             refresh=refresh,
+            releases=Releases.build(project_dir, data_dir, release_source),
         )
 
     async def close(self) -> None:

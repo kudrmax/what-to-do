@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from sqlmodel import Field, SQLModel
 
 from where_to_go.about import APP_NAME, VERSION
+from where_to_go.api import releases as release_routes
 from where_to_go.api.errors import validation_error
 from where_to_go.calendar_file import EventCalendarFile
 from where_to_go.container import Container
@@ -136,7 +137,8 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         title=APP_NAME,
         version=VERSION,
         description=DESCRIPTION,
-        openapi_tags=[{"name": tag.value, "description": text} for tag, text in TAG_HELP.items()],
+        openapi_tags=[{"name": tag.value, "description": text} for tag, text in TAG_HELP.items()]
+        + [{"name": release_routes.TAG, "description": release_routes.TAG_HELP}],
         lifespan=lifespan,
     )
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -345,6 +347,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         """Progress of the current or the last refresh; poll it while `running` is true."""
         return c.refresh.progress
 
+    app.include_router(release_routes.router)
     return app
 
 
