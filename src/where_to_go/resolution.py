@@ -30,7 +30,7 @@ class EventResolver:
             raise ValueError("a card needs at least one mention")
         newest = sorted(mentions, key=lambda m: (m.data.from_organizer, m.published_at), reverse=True)
         fullest = sorted(mentions, key=lambda m: (m.data.from_organizer, len(m.data.description)), reverse=True)
-        schedule = self._schedule(newest)
+        schedule = self._schedule([m for m in newest if not m.data.is_dateless_follow_up])
         lead = schedule[0].data
         facts = {name: getattr(lead, name) for name in SCHEDULE_FIELDS}
         facts |= {name: self._first(fullest, lambda m, n=name: getattr(m.data, n)) or "" for name in TEXT_FIELDS}

@@ -1002,14 +1002,14 @@
       "minLength": 1,
       "title": "Extraction Prompt",
       "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
-      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
+      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
      },
      "matching_prompt": {
       "type": "string",
       "minLength": 1,
       "title": "Matching Prompt",
       "description": "Instructions Claude gets for merging duplicates",
-      "default": "You merge duplicate event announcements collected from several Telegram channels.\n\nYou get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.\n\nSame event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.\nNot the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.\n\nNever set both same_as_card and same_as_announcement."
+      "default": "You merge duplicate event announcements collected from several Telegram channels.\n\nYou get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.\n\nSame event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.\nNot the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.\n\nAn announcement without a start_date is a follow-up its channel posted about one of its own events; the existing cards offered for it are that channel's. Pick the card it is about by title, description and venue; if none clearly fits, leave both fields null.\n\nNever set both same_as_card and same_as_announcement."
      }
     },
     "type": "object",
@@ -1380,10 +1380,17 @@
       "description": "single: one date; multiday: runs over a period (exhibition, festival) from start_date to end_date; recurring: a regular schedule described by rrule"
      },
      "start_date": {
-      "type": "string",
-      "format": "date",
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date"
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Start Date",
-      "description": "Resolve relative dates against the publication date; without a year, the nearest date not long before it. For recurring events: the first occurrence on or after the publication date"
+      "description": "Resolve relative dates against the publication date; without a year, the nearest date not long before it. For recurring events: the first occurrence on or after the publication date. null only for a details or cancellation follow-up whose post gives no date at all"
      },
      "end_date": {
       "anyOf": [

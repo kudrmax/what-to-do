@@ -4,7 +4,7 @@ import pytest
 
 from tests.helpers import FakeLlm, mention
 from where_to_go.db import Database
-from where_to_go.models import EventFacts, EventKind
+from where_to_go.models import EventFacts, EventKind, UpdateKind
 from where_to_go.matching import CandidateFinder, DuplicateJudge, MatchDecision
 from where_to_go.repositories import CityRepository, EventRepository, SettingsRepository
 
@@ -62,3 +62,18 @@ async def test_the_judge_prompt_comes_from_settings(events):
     llm = judge_answer()
     await DuplicateJudge(llm, lambda: "мой промпт").decide([mention(1)], [])
     assert llm.calls[0][0] == "мой промпт"
+
+
+def test_dateless_follow_up_looks_only_at_its_channels_cards_not_yet_over(events):
+    def channel_card(title, day, source_id):
+        event = events.get(card(events, title, day))
+        event.source_ids = [source_id]
+        return events.save(event).id
+
+    other = channel_card("Тихая церемония", date(2026, 11, 4), 1)
+    named = channel_card("Тайваньская церемония", date(2026, 11, 6), 1)
+    channel_card("Тайваньская церемония", date(2026, 10, 3), 1)
+    channel_card("Тайваньская церемония", date(2026, 11, 6), 2)
+    follow_up = mention(9, day=None, at=None, update=UpdateKind.DETAILS, title="Тайваньская церемония", source_id=1)
+
+    assert [e.id for e in CandidateFinder(events).find(1, follow_up)] == [named, other]

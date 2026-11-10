@@ -254,6 +254,11 @@ class MentionRepository:
             )
             return list(s.exec(query).unique())
 
+    def delete(self, mention_id: int) -> None:
+        with self._db.session() as s:
+            s.delete(s.get(Mention, mention_id))
+            s.commit()
+
     def of_event(self, event_id: int) -> list[Mention]:
         with self._db.session() as s:
             query = select(Mention).join(Post).where(Mention.event_id == event_id).order_by(Post.published_at)

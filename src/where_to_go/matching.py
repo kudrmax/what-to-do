@@ -41,6 +41,8 @@ class CandidateFinder:
         self._events = events
 
     def find(self, city_id: int, mention: Mention) -> list[Event]:
+        if mention.data.is_dateless_follow_up:
+            return self._followed_up(city_id, mention)
         day = mention.data.start_date
         same_days = self._events.near(city_id, day - self.SAME_DAY_SLACK, day + self.SAME_DAY_SLACK)
         wide = self._events.near(city_id, day - self.RESCHEDULE_WINDOW, day + self.RESCHEDULE_WINDOW)
@@ -53,6 +55,13 @@ class CandidateFinder:
                 scored[event.id] = (score, event)
         ranked = sorted(scored.values(), key=lambda pair: pair[0], reverse=True)
         return [event for _, event in ranked[: self.LIMIT]]
+
+    def _followed_up(self, city_id: int, mention: Mention) -> list[Event]:
+        """A follow-up without a date can only be about an event its own channel announced and that was not over when it was posted."""
+        since = mention.published_at.date() - self.SAME_DAY_SLACK
+        cards = [e for e in self._events.near(city_id, since, since + self.RESCHEDULE_WINDOW) if mention.source_id in e.source_ids]
+        cards.sort(key=lambda e: (-TitleSimilarity.score(mention, e), e.start_date))
+        return cards[: self.LIMIT]
 
 
 class JudgeDecision(SQLModel):
