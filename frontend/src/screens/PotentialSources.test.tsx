@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createApi, type PotentialSource } from "../api/client";
+import { ApiError, createApi, type PotentialSource, type Source } from "../api/client";
 import { ApiContext } from "../api/queries";
 import { PotentialSources } from "./PotentialSources";
 
@@ -26,6 +26,7 @@ function setup(found: PotentialSource[]) {
   const api = createApi("");
   vi.spyOn(api, "potentialSources").mockResolvedValue(found);
   const mark = vi.spyOn(api, "markPotentialSource").mockResolvedValue(undefined as never);
+  const adopt = vi.spyOn(api, "adoptPotentialSource").mockResolvedValue({} as Source);
   render(
     <ApiContext.Provider value={api}>
       <QueryClientProvider client={new QueryClient()}>
@@ -33,7 +34,7 @@ function setup(found: PotentialSource[]) {
       </QueryClientProvider>
     </ApiContext.Provider>,
   );
-  return { mark };
+  return { mark, adopt };
 }
 
 describe("potential sources", () => {
@@ -45,7 +46,7 @@ describe("potential sources", () => {
     expect(within(row).getByRole("link", { name: "Канал 1" }).getAttribute("href")).toBe("https://t.me/source/1");
     expect(within(row).getByLabelText("Пост переслан из этого канала")).toBeTruthy();
     expect(within(row).getByLabelText("Пост ссылается на этот канал")).toBeTruthy();
-    expect(screen.getByText("Разобранные").closest("details")?.open).toBe(false);
+    expect(screen.getByText("Неинтересные").closest("details")?.open).toBe(false);
   });
 
   it("shows the first posts and the rest on request", async () => {
@@ -56,9 +57,25 @@ describe("potential sources", () => {
     expect(screen.getByRole("link", { name: "Канал 5" })).toBeTruthy();
   });
 
-  it("marks a channel processed", async () => {
-    const { mark } = setup([potential(1, "lectures_bg", false)]);
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Разобрано" }));
+  it("turns a channel into a source", async () => {
+    const { adopt } = setup([potential(1, "lectures_bg", false)]);
+    fireEvent.click(await screen.findByRole("button", { name: "В источники" }));
+    await waitFor(() => expect(adopt).toHaveBeenCalledWith(1));
+  });
+
+  it("keeps a channel that could not be added and says why", async () => {
+    const { adopt } = setup([potential(1, "lectures_bg", false)]);
+    adopt.mockRejectedValue(new ApiError(422, "Канал закрыт или у него выключен веб-просмотр"));
+    fireEvent.click(await screen.findByRole("button", { name: "В источники" }));
+    expect(await screen.findByText("Не получилось добавить: Канал закрыт или у него выключен веб-просмотр")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "В источники" })).toBeTruthy();
+  });
+
+  it("puts an uninteresting channel away and brings it back", async () => {
+    const { mark } = setup([potential(1, "lectures_bg", false), potential(2, "old_one", true)]);
+    fireEvent.click(await screen.findByRole("button", { name: "Неинтересно" }));
     await waitFor(() => expect(mark).toHaveBeenCalledWith(1, true));
+    fireEvent.click(screen.getByRole("button", { name: "Вернуть" }));
+    await waitFor(() => expect(mark).toHaveBeenCalledWith(2, false));
   });
 });

@@ -75,6 +75,7 @@ export function createApi(baseUrl: string) {
     markSource: (id: number, status: SourceStatus) => answer(client.PUT("/sources/{source_id}/status", { ...source(id), body: { status } })),
     deleteSource: (id: number) => answer(client.DELETE("/sources/{source_id}", source(id))),
     potentialSources: () => answer(client.GET("/potential-sources")),
+    adoptPotentialSource: (id: number) => answer(client.POST("/potential-sources/{potential_id}/source", { params: { path: { potential_id: id } } })),
     markPotentialSource: (id: number, processed: boolean) =>
       answer(client.PUT("/potential-sources/{potential_id}/processed", { params: { path: { potential_id: id } }, body: { processed } })),
 

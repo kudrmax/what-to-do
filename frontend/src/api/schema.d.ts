@@ -163,6 +163,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/potential-sources/{potential_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Potential Source
+         * @description Adds the channel as a source of the active city and marks it processed. Already a source: it is just marked.
+         *
+         *     422: the channel is closed or has no web preview; nothing changes and it stays in the list.
+         */
+        post: operations["adopt_potential_source_potential_sources__potential_id__source_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/potential-sources/{potential_id}/processed": {
         parameters: {
             query?: never;
@@ -1745,6 +1767,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PotentialSourcePublic"][];
+                };
+            };
+        };
+    };
+    adopt_potential_source_potential_sources__potential_id__source_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                potential_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

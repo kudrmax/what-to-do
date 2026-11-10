@@ -1,8 +1,9 @@
 import { useState } from "react";
 
 import type { PotentialSource, PotentialSourceOrigin } from "../api/client";
-import { useMarkPotentialSource, usePotentialSources } from "../api/queries";
+import { useAdoptPotentialSource, useMarkPotentialSource, usePotentialSources } from "../api/queries";
 import { ago, plural } from "../domain/dates";
+import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
 import { Section } from "../ui/Screen";
 import "./PotentialSources.css";
@@ -23,7 +24,7 @@ export function PotentialSources() {
     <div className="potential">
       <Section
         title="Потенциальные источники"
-        hint="Каналы, из которых ваши источники пересылают посты или на которые ссылаются. Откройте канал и, если подходит, добавьте его выше. Отмеченные «Разобрано» больше не появятся."
+        hint="Каналы, из которых ваши источники пересылают посты или на которые ссылаются. Откройте канал и решите: добавить в источники или убрать как неинтересный. Убранные больше не появятся."
       >
         {waiting.length ? (
           <ul className="potential__list">
@@ -32,12 +33,12 @@ export function PotentialSources() {
             ))}
           </ul>
         ) : (
-          <p className="muted">{processed.length ? "Всё разобрано." : "Пока ничего. Они находятся при обновлении, когда Claude читает посты."}</p>
+          <p className="muted">{processed.length ? "Новых каналов нет." : "Пока ничего. Они находятся при обновлении, когда Claude читает посты."}</p>
         )}
         {processed.length > 0 && (
           <details className="potential__processed">
             <summary className="potential__summary">
-              <span>Разобранные</span>
+              <span>Неинтересные</span>
               <span className="potential__count">{processed.length}</span>
             </summary>
             <ul className="potential__list">
@@ -54,6 +55,8 @@ export function PotentialSources() {
 
 function PotentialRow({ potential }: { potential: PotentialSource }) {
   const mark = useMarkPotentialSource();
+  const adopt = useAdoptPotentialSource();
+  const busy = mark.isPending || adopt.isPending;
   const [expanded, setExpanded] = useState(false);
   const origins = expanded ? potential.origins : potential.origins.slice(0, ORIGINS_SHOWN);
   const hidden = potential.origins.length - origins.length;
@@ -74,16 +77,24 @@ function PotentialRow({ potential }: { potential: PotentialSource }) {
             Ещё {hidden} {plural(hidden, "пост", "поста", "постов")}
           </button>
         )}
+        {adopt.error && <p className="error-text">Не получилось добавить: {errorText(adopt.error)}</p>}
       </div>
-      <label className="potential__check">
-        <input
-          type="checkbox"
-          checked={potential.processed}
-          disabled={mark.isPending}
-          onChange={(e) => mark.mutate({ id: potential.id, processed: e.target.checked })}
-        />
-        <span>Разобрано</span>
-      </label>
+      <div className="potential__actions">
+        {potential.processed ? (
+          <button type="button" className="button button--small button--quiet" disabled={busy} onClick={() => mark.mutate({ id: potential.id, processed: false })}>
+            Вернуть
+          </button>
+        ) : (
+          <>
+            <button type="button" className="button button--small" disabled={busy} onClick={() => adopt.mutate(potential.id)}>
+              {adopt.isPending ? "Добавляю…" : "В источники"}
+            </button>
+            <button type="button" className="button button--small button--quiet" disabled={busy} onClick={() => mark.mutate({ id: potential.id, processed: true })}>
+              Неинтересно
+            </button>
+          </>
+        )}
+      </div>
     </li>
   );
 }

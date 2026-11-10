@@ -91,6 +91,7 @@ export const useAddCity = () => useApiMutation((api, city: NewCity) => api.addCi
 export const usePotentialSources = () => useApiQuery(keys.potentialSources, (api) => api.potentialSources());
 export const useMarkPotentialSource = () =>
   useApiMutation((api, { id, processed }: { id: number; processed: boolean }) => api.markPotentialSource(id, processed), STALE.potentialSources);
+export const useAdoptPotentialSource = () => useApiMutation((api, id: number) => api.adoptPotentialSource(id), STALE.sources);
 export const useAddSource = () => useApiMutation((api, source: NewSource) => api.addSource(source), STALE.sources);
 export const useRenameSource = () => useApiMutation((api, { id, title }: { id: number; title: string }) => api.renameSource(id, title), STALE.sources);
 export const useMarkSource = () =>

@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.4.1"
+  "version": "1.5.0"
  },
  "paths": {
   "/settings": {
@@ -381,6 +381,49 @@
          },
          "type": "array",
          "title": "Response List Potential Sources Potential Sources Get"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/potential-sources/{potential_id}/source": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Adopt Potential Source",
+    "description": "Adds the channel as a source of the active city and marks it processed. Already a source: it is just marked.\n\n422: the channel is closed or has no web preview; nothing changes and it stays in the list.",
+    "operationId": "adopt_potential_source_potential_sources__potential_id__source_post",
+    "parameters": [
+     {
+      "name": "potential_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Potential Id"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourcePublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
         }
        }
       }
