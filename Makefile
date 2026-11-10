@@ -133,7 +133,7 @@ _up: $(PY_DEPS_STAMP)
 	@.venv/bin/where-to-go --ui frontend/dist --port $(PORT) $(DATA_ARG) >> $(APP_LOG) 2>&1 & echo $$! > $(APP_PID)
 	$(call wait_started)
 	@printf "\n$(BANNER_COLOR)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-	@printf "  Чем заняться  [instance: %s]\n" "$(INSTANCE_ENV_NAME)"
+	@printf "  What To Do  [instance: %s]\n" "$(INSTANCE_ENV_NAME)"
 	@printf "  → http://localhost:%s\n" "$(PORT)"
 	@printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n\n"
 

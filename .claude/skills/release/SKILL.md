@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cuts a release of «Чем заняться» - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes and creates the GitHub Release. Use when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release". Never on your own initiative: a merge to master is not a release.
+description: Cuts a release of «What To Do» - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes and creates the GitHub Release. Use when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release". Never on your own initiative: a merge to master is not a release.
 ---
 
 # Release
