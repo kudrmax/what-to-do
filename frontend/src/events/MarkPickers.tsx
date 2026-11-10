@@ -55,7 +55,7 @@ export function PlanPicker({ event, size }: { event: EventCard; size: Size }) {
           aria-pressed={mark.plan === plan}
           onClick={() => mark.setPlan(plan)}
         >
-          <Icon name={PLANS[plan].icon} size={size === "small" ? 16 : 18} strokeWidth={2.2} />
+          <Icon name={PLANS[plan].icon} size={size === "small" ? 14 : 18} strokeWidth={2.2} />
         </button>
       ))}
     </div>

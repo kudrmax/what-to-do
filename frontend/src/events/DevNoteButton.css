@@ -26,9 +26,9 @@
 }
 
 .dev-note__button--small {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
 }
 
 .dev-note__button--large {
