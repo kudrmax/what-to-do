@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 
 import { useChangeSettings, useCities } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
+import { useNativeWindow } from "../native/useNativeWindow";
 import { Icon } from "../ui/Icon";
 import { Popover } from "../ui/Popover";
 import { SECTIONS } from "./routes";
@@ -11,8 +12,9 @@ import "./AppShell.css";
 const MENU = [SECTIONS.feed, SECTIONS.calendar, SECTIONS.plans, SECTIONS.sources];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const onMouseDown = useNativeWindow();
   return (
-    <div className="shell">
+    <div className="shell" onMouseDown={onMouseDown}>
       <nav className="shell__nav" aria-label="Разделы">
         <CityMenu />
         {MENU.map((section) => (
