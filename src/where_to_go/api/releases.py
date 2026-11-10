@@ -99,7 +99,7 @@ def start_update(request: Request, releases: ReleasesDep) -> None:
     """Starts updating this copy to the latest release; the app restarts on its way. Poll `GET /update/state`."""
     container: Container = request.app.state.container
     if container.refresh.progress.running:
-        raise HTTPException(409, "Сейчас идёт обновление событий. Дождитесь его конца и обновите приложение")
+        raise HTTPException(423, "Сейчас идёт обновление событий. Дождитесь его конца и обновите приложение")
     try:
         releases.runner.start()
     except UpdateAlreadyRunningError as error:

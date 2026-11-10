@@ -5,6 +5,7 @@ import { useAddCity, useAddTag, useChangeSettings, useCities, useDefaultSettings
 import { SECTIONS } from "../app/routes";
 import { errorText } from "../ui/errors";
 import { InlineEdit } from "../ui/InlineEdit";
+import { UpdatesSection } from "../updates/UpdatesSection";
 import { Screen, Section } from "../ui/Screen";
 import "./SettingsScreen.css";
 
@@ -16,6 +17,7 @@ export function SettingsScreen() {
       {settings.data && <ReadingSection settings={settings.data} />}
       <TagsSection />
       {settings.data && <PromptsSection settings={settings.data} />}
+      <UpdatesSection />
     </Screen>
   );
 }

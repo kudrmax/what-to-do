@@ -1,0 +1,303 @@
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spinner-turn 0.8s linear infinite;
+}
+
+@keyframes spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Releases the way the Obsidian changelog shows them. */
+.changelog {
+  padding: 32px 36px 28px;
+}
+
+.changelog__title {
+  margin-bottom: 24px;
+  font-size: var(--title-size);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.changelog__empty {
+  color: var(--text-muted);
+}
+
+.changelog__entry + .changelog__entry {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+.changelog__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.changelog__version {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.changelog__day {
+  font-size: var(--label-size);
+  color: var(--text-muted);
+}
+
+.changelog__summary {
+  margin-top: 12px;
+  font-size: var(--body-size);
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.changelog__section {
+  margin-top: 24px;
+}
+
+.changelog__section-title {
+  margin-bottom: 8px;
+  font-size: var(--section-size);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.changelog__body {
+  font-size: var(--body-size);
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.changelog__body p + p,
+.changelog__body p + ul,
+.changelog__body ul + p {
+  margin-top: 10px;
+}
+
+.changelog__body ul {
+  padding-left: 20px;
+  list-style: disc;
+}
+
+.changelog__body li + li {
+  margin-top: 6px;
+}
+
+.changelog__body li::marker {
+  color: var(--text-faint);
+}
+
+.changelog__body strong {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.changelog__body a {
+  color: var(--accent);
+}
+
+.changelog__body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-top: 12px;
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-card);
+}
+
+.changelog__footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin: 28px -36px -28px;
+  padding: 16px 36px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 18px 18px;
+  background: var(--bg);
+}
+
+/* The header pill while a newer release is out. */
+.update-pill {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--label-size);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.update-pill:hover {
+  border-color: var(--accent);
+}
+
+.update-check {
+  padding: 32px 56px 32px 32px;
+}
+
+.update-check__text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--body-size);
+}
+
+/* While the update runs the app under it is closed. */
+.updating {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--scrim);
+}
+
+.updating__card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow: auto;
+  padding: 28px;
+  border-radius: 18px;
+  background: var(--bg);
+  box-shadow: var(--shadow-modal);
+}
+
+.updating__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--section-size);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.updating__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.updating__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.updating__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--body-size);
+  color: var(--text);
+}
+
+.updating__step[data-status="done"],
+.updating__step[data-status="pending"] {
+  color: var(--text-muted);
+}
+
+.updating__step[data-status="failed"] {
+  color: var(--accent-strong);
+}
+
+.updating__mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+}
+
+.updating__fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.updating__hint {
+  font-size: var(--label-size);
+  color: var(--text-muted);
+}
+
+.updating__by-hand {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 20px;
+  list-style: decimal;
+  font-size: var(--label-size);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.updating__by-hand kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--line-control);
+  border-radius: 5px;
+  background: var(--bg-muted);
+  font: inherit;
+  font-size: var(--caption-size);
+}
+
+.updating__command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.updating__command code {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-small);
+  background: var(--bg-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--caption-size);
+  overflow-wrap: anywhere;
+}
+
+.updating__log {
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: var(--radius-small);
+  background: var(--bg-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--caption-size);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--text-2);
+}
+
+.updating__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.setting-row__control--buttons {
+  align-items: stretch;
+}
