@@ -11,7 +11,7 @@ from where_to_go.container import Container
 
 @pytest.fixture
 def client(tmp_path):
-    extraction = extraction_by_text({"квиз": [raw_event("Квиз", "2099-01-02", "20:00", tags=["Игры и квизы"])]})
+    extraction = extraction_by_text({"квиз": [raw_event("Квиз", "2099-01-02", "20:00", tags=["Игры и квизы"], photo=0)]})
     app = create_app(lambda: Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge_same_titles()))
     with TestClient(app) as test_client:
         yield test_client

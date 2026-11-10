@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
 import os
+from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -11,8 +14,19 @@ class LlmError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class LlmImage:
+    """A picture Claude looks at, introduced by a caption that names it in the prompt."""
+
+    caption: str
+    media_type: str
+    data: bytes
+
+
 class JsonLlm(Protocol):
-    async def complete_json(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]: ...
+    async def complete_json(
+        self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
+    ) -> dict[str, Any]: ...
 
 
 class ClaudeJsonLlm:
@@ -22,7 +36,9 @@ class ClaudeJsonLlm:
         self._model = model
         ClaudeCliEnvironment.prepare()
 
-    async def complete_json(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
+    async def complete_json(
+        self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
+    ) -> dict[str, Any]:
         options = ClaudeAgentOptions(
             model=self._model,
             system_prompt=system,
@@ -34,7 +50,7 @@ class ClaudeJsonLlm:
         )
         result: ResultMessage | None = None
         try:
-            async for message in query(prompt=prompt, options=options):
+            async for message in query(prompt=self._message(prompt, images) if images else prompt, options=options):
                 if isinstance(message, ResultMessage):
                     result = message
         except Exception as error:
@@ -43,6 +59,17 @@ class ClaudeJsonLlm:
             detail = (result.errors or result.result) if result else "no result"
             raise LlmError(f"Claude did not return structured output: {detail}")
         return result.structured_output
+
+    @staticmethod
+    async def _message(prompt: str, images: Sequence[LlmImage]) -> AsyncIterator[dict[str, Any]]:
+        """Images go in streaming input: one user message, each picture after its caption."""
+        content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        for image in images:
+            content.append({"type": "text", "text": image.caption})
+            content.append(
+                {"type": "image", "source": {"type": "base64", "media_type": image.media_type, "data": base64.b64encode(image.data).decode()}}
+            )
+        yield {"type": "user", "message": {"role": "user", "content": content}, "parent_tool_use_id": None}
 
 
 class ClaudeCliEnvironment:

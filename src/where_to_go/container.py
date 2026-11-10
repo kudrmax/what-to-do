@@ -99,7 +99,7 @@ class Container:
             posts=posts,
             mentions=mentions,
             places=places,
-            extractor=PostExtractor(extraction_llm or ClaudeJsonLlm(EXTRACTION_MODEL)),
+            extractor=PostExtractor(extraction_llm or ClaudeJsonLlm(EXTRACTION_MODEL), images),
         )
         refresh = RefreshService(
             settings=settings,

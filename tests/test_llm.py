@@ -35,6 +35,7 @@ def fake_query(*messages, error: Exception | None = None):
 
     async def query(prompt, options):
         seen["options"] = options
+        seen["prompt"] = prompt if isinstance(prompt, str) else [m async for m in prompt]
         if error:
             raise error
         for message in messages:
@@ -62,3 +63,25 @@ async def test_failures_become_llm_errors(monkeypatch, messages, error):
     monkeypatch.setattr(llm_module, "query", query)
     with pytest.raises(LlmError):
         await ClaudeJsonLlm("m").complete_json("s", "p", {})
+
+
+async def test_images_go_after_their_captions_in_one_user_message(monkeypatch):
+    from where_to_go.llm import LlmImage
+
+    query, seen = fake_query(result(structured_output={}))
+    monkeypatch.setattr(llm_module, "query", query)
+    await ClaudeJsonLlm("m").complete_json("s", "posts", {}, [LlmImage("Post 1, photo 0:", "image/png", b"\x89PNG")])
+    [message] = seen["prompt"]
+    assert message["type"] == "user"
+    assert message["message"]["content"] == [
+        {"type": "text", "text": "posts"},
+        {"type": "text", "text": "Post 1, photo 0:"},
+        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw=="}},
+    ]
+
+
+async def test_without_images_the_prompt_is_plain_text(monkeypatch):
+    query, seen = fake_query(result(structured_output={}))
+    monkeypatch.setattr(llm_module, "query", query)
+    await ClaudeJsonLlm("m").complete_json("s", "posts", {})
+    assert seen["prompt"] == "posts"
