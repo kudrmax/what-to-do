@@ -188,3 +188,44 @@ def test_closed_channel_cannot_be_added(client):
     response = client.post("/sources", json={"link": "t.me/secretchan"})
     assert response.status_code == 422 and "закрыт" in response.json()["detail"]
     assert client.post("/sources", json={"link": "https://example.com"}).status_code == 422
+
+
+def calendar_entry(client, event_id):
+    from icalendar import Calendar
+
+    response = client.get(f"/events/{event_id}/calendar.ics")
+    assert response.status_code == 200 and response.headers["content-type"].startswith("text/calendar")
+    assert f'filename="event-{event_id}.ics"' in response.headers["content-disposition"]
+    [entry] = Calendar.from_ical(response.content).walk("VEVENT")
+    return entry, response.text
+
+
+def test_calendar_file_of_a_timed_event(client):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    [quiz] = seeded(client, ("quizbg", raw_event("Квиз", "2099-01-02", "20:00", address="Улица 1")))
+    entry, text = calendar_entry(client, quiz)
+    start = datetime(2099, 1, 2, 20, 0, tzinfo=ZoneInfo("Europe/Belgrade"))
+    assert entry.decoded("dtstart") == start and entry.decoded("dtend") == start + timedelta(hours=2)
+    assert str(entry["summary"]) == "Квиз" and str(entry["location"]) == "Бар, Улица 1"
+    assert str(entry["url"]) == "https://t.me/quizbg/1" and "Описание: Квиз" in str(entry["description"])
+    assert "BEGIN:VTIMEZONE" in text and "TZID:Europe/Belgrade" in text
+
+
+def test_calendar_file_of_untimed_multiday_and_recurring_events(client):
+    from datetime import date
+
+    untimed, fair, club = seeded(
+        client,
+        ("a", raw_event("Ярмарка", "2099-01-02", None)),
+        ("a", raw_event("Выставка", "2099-01-02", "10:00", kind="multiday", end_date="2099-01-10")),
+        ("a", raw_event("Клуб", "2099-01-05", "19:00", kind="recurring", rrule="FREQ=WEEKLY;BYDAY=TU")),
+    )
+    entry, _ = calendar_entry(client, untimed)
+    assert (entry.decoded("dtstart"), entry.decoded("dtend")) == (date(2099, 1, 2), date(2099, 1, 3))
+    entry, _ = calendar_entry(client, fair)
+    assert (entry.decoded("dtstart"), entry.decoded("dtend")) == (date(2099, 1, 2), date(2099, 1, 11))
+    entry, _ = calendar_entry(client, club)
+    assert entry["rrule"]["FREQ"] == ["WEEKLY"] and entry["rrule"]["BYDAY"] == ["TU"]
+    assert client.get("/events/999/calendar.ics").status_code == 404

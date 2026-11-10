@@ -11,6 +11,7 @@ dependencies = [
     "claude-agent-sdk>=0.2.180",
     "fastapi>=0.162.2",
     "httpx>=0.28.1",
+    "icalendar>=7.3.0",
     "pydantic>=2.14.3",
     "python-dateutil>=4.0.0",
     "selectolax>=1.0.2",

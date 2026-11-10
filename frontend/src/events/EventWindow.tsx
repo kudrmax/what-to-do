@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import type { EventCard, Mention } from "../api/client";
-import { useEvent, useFeed, useMentions, useMerge, useSplit } from "../api/queries";
+import { useApi, useEvent, useFeed, useMentions, useMerge, useSplit } from "../api/queries";
 import { SECTIONS } from "../app/routes";
 import { ago, dayAndMonth, longDate } from "../domain/dates";
 import { formatPrice } from "../domain/price";
@@ -37,6 +37,7 @@ export function EventWindow() {
 function EventDetails({ event, day }: { event: EventCard; day: string }) {
   const recurrence = describeRecurrence(event.rrule);
   const price = formatPrice(event.price, event.currency);
+  const api = useApi();
   return (
     <article className="details">
       <EventPhoto path={event.image_url} className="details__photo" />
@@ -52,13 +53,14 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
         <h2 className={`details__title${event.is_cancelled ? " details__title--cancelled" : ""}`}>{event.title}</h2>
 
         <div className="details__facts">
-          <div className="fact">
+          <a className="fact fact--link" href={api.calendarFileUrl(event.id)} download aria-label="Добавить в календарь" data-tip="Добавить в календарь">
             <Icon name="calendar" className="fact__icon" />
             <div className="fact__text">
               <EventTime event={event} className="fact__main" />
               <span className="fact__sub">{recurrence ?? (event.kind === "multiday" ? "Можно прийти в любой день" : longDate(day))}</span>
             </div>
-          </div>
+            <Icon name="calendarAdd" size={14} className="fact__external" />
+          </a>
           {event.place && (
             <a className="fact fact--link" href={event.map_url ?? undefined} target="_blank" rel="noreferrer" data-tip="Открыть на карте">
               <Icon name="pin" className="fact__icon" />

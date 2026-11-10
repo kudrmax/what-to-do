@@ -53,6 +53,7 @@ export function createApi(baseUrl: string) {
 
   return {
     imageUrl: (path: string | null | undefined) => (path ? baseUrl + path : null),
+    calendarFileUrl: (id: number) => `${baseUrl}/events/${id}/calendar.ics`,
 
     settings: () => answer(client.GET("/settings")),
     defaultSettings: () => answer(client.GET("/settings/defaults")),

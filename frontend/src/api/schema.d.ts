@@ -226,6 +226,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/{event_id}/calendar.ics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Calendar File
+         * @description The card as an .ics file for Apple Calendar, Google Calendar or Outlook.
+         *     A timed event is put in for two hours, since posts give no end time.
+         */
+        get: operations["calendar_file_events__event_id__calendar_ics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events/{event_id}/mark": {
         parameters: {
             query?: never;
@@ -1331,6 +1352,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MentionPublic"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calendar_file_events__event_id__calendar_ics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/calendar": unknown;
                 };
             };
             /** @description Validation Error */

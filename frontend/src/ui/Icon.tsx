@@ -22,6 +22,12 @@ const PATHS = {
       <path d="M3 10h18M8 3v4M16 3v4" />
     </>
   ),
+  calendarAdd: (
+    <>
+      <path d="M21 12V8a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h6M3 10h18M8 3v4M16 3v4" />
+      <path d="M18 15v6M15 18h6" />
+    </>
+  ),
   bookmark: <path d="M6 3h12v18l-6-4-6 4z" />,
   feed: (
     <>
