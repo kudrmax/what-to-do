@@ -1,18 +1,36 @@
 .card {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   border: 1px solid var(--line-card);
   border-radius: var(--radius-card);
   background: var(--bg);
   box-shadow: var(--shadow-card);
   cursor: pointer;
-  transition: box-shadow 160ms ease, transform 160ms ease;
 }
 
-.card:hover {
+.card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
   box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+  transition: opacity 160ms ease-out;
+}
+
+.card:hover::after {
+  opacity: 1;
+  transition-duration: 80ms;
+}
+
+.card__layout {
+  overflow: hidden;
+  border-radius: inherit;
 }
 
 .card {
