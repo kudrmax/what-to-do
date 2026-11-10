@@ -141,3 +141,16 @@ async def test_the_schema_claude_gets_carries_the_field_descriptions():
 def test_new_photo_rules_make_new_reading_rules():
     other = ExtractionContext(CONTEXT.city, CONTEXT.prompt, CONTEXT.language, CONTEXT.tags, CONTEXT.fallback_tag, photo_rules="other")
     assert other.rules != CONTEXT.rules
+
+
+async def test_claude_is_asked_for_the_booking_link_and_this_events_lines():
+    _, llm = await extract_one([])
+    event = llm.schemas[0]["$defs"]["EventReading"]["properties"]
+    assert "ticket shop" in event["booking"]["description"] and "copied exactly" in event["post_lines"]["description"]
+
+
+async def test_a_booking_link_and_lines_come_through():
+    booking = {"url": "https://tickets.rs/x", "kind": "tickets"}
+    result, _ = await extract_one([raw_event("Концерт", "2026-11-13", booking=booking, post_lines=["19:00 Концерт"])])
+    [event] = events(result)
+    assert (event.booking.url, event.booking.kind, event.post_lines) == ("https://tickets.rs/x", "tickets", ["19:00 Концерт"])

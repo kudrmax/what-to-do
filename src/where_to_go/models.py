@@ -63,6 +63,11 @@ class Plan(StrEnum):
         return self in (Plan.MAYBE, Plan.SURE)
 
 
+class BookingKind(StrEnum):
+    REGISTRATION = "registration"
+    TICKETS = "tickets"
+
+
 class SourceKind(StrEnum):
     TELEGRAM = "telegram"
 
@@ -102,6 +107,13 @@ class Public(SQLModel):
 # ---------- an event ----------
 
 
+class Booking(SQLModel):
+    """Where one signs up for an event or buys a ticket."""
+
+    url: str = Field(description="The link exactly as the post gives it")
+    kind: BookingKind = Field(description="registration: a form, a bot or a page to sign up; tickets: a ticket shop")
+
+
 class EventFacts(SQLModel):
     """What a post says about an event. Claude fills these in; a card shows them."""
 
@@ -135,6 +147,12 @@ class EventFacts(SQLModel):
     )
     currency: str | None = Field(default=None, description="ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0")
     tags: list[str] = json_field(list[str], default_factory=list, description="One or two tags from the allowed list")
+    booking: Booking | None = json_field(
+        Booking | None,
+        default=None,
+        description="Where to sign up or buy a ticket for this event: a registration form, a booking bot or a ticket shop the post "
+        "links to. null when the post gives none; never the channel or another post about the event",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -183,6 +201,10 @@ class ExtractedEvent(EventFacts):
     )
     from_organizer: bool = Field(
         default=False, description="true when the channel itself organizes or hosts the event, false for afisha and repost channels"
+    )
+    post_lines: list[str] = Field(
+        default_factory=list,
+        description="The lines of the post text that are about this event, copied exactly. Empty when the whole post is about this one event",
     )
 
     @model_validator(mode="after")
@@ -399,6 +421,11 @@ class Mention(SQLModel, table=True):
         return images[self.image_index] if self.image_index is not None and self.image_index < len(images) else None
 
 
+class PostPhoto(Public):
+    url: str
+    text: str | None = Field(default=None, description="What Claude read on the photo; null until it is read")
+
+
 class MentionPublic(Public):
     """One original post behind a card."""
 
@@ -410,6 +437,11 @@ class MentionPublic(Public):
     post_url: str
     post_text: str
     published_at: datetime
+    photos: list[PostPhoto] = Field(default_factory=list, description="Every photo of the post, in its order")
+    event_photo: int | None = Field(default=None, description="Index in photos of the one that shows this event")
+    event_lines: list[int] = Field(
+        default_factory=list, description="Indexes of the post_text lines about this event; empty when the whole post is about it"
+    )
 
 
 class ExtractedPlace(SQLModel):

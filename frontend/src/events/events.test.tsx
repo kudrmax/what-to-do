@@ -26,6 +26,7 @@ function card(overrides: Partial<EventCard> = {}): EventCard {
     address: null,
     price: 0,
     currency: null,
+    booking: null,
     tags: ["Игры и квизы", "Встреча"],
     interest: null,
     plan: null,

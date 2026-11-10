@@ -14,6 +14,9 @@ function mention(id: number, title: string, fromOrganizer: boolean): Mention {
     post_text: "",
     published_at: "2026-11-03T10:00:00Z",
     data: { from_organizer: fromOrganizer } as Mention["data"],
+    photos: [],
+    event_photo: null,
+    event_lines: [],
   };
 }
 

@@ -215,7 +215,8 @@ export interface paths {
         };
         /**
          * Event Mentions
-         * @description The original posts a card is built from, oldest first.
+         * @description The original posts a card is built from: the organizer's first, then the most detailed, then the newest.
+         *     Each comes with its photos, what Claude read on them, and the lines about this event.
          */
         get: operations["event_mentions_events__event_id__mentions_get"];
         put?: never;
@@ -620,6 +621,24 @@ export interface components {
              */
             matching_model: components["schemas"]["ClaudeModel"];
         };
+        /**
+         * Booking
+         * @description Where one signs up for an event or buys a ticket.
+         */
+        Booking: {
+            /**
+             * Url
+             * @description The link exactly as the post gives it
+             */
+            url: string;
+            /** @description registration: a form, a bot or a page to sign up; tickets: a ticket shop */
+            kind: components["schemas"]["BookingKind"];
+        };
+        /**
+         * BookingKind
+         * @enum {string}
+         */
+        BookingKind: "registration" | "tickets";
         /** ChangelogEntryView */
         ChangelogEntryView: {
             /** Version */
@@ -763,6 +782,8 @@ export interface components {
              * @description One or two tags from the allowed list
              */
             tags: string[];
+            /** @description Where to sign up or buy a ticket for this event: a registration form, a booking bot or a ticket shop the post links to. null when the post gives none; never the channel or another post about the event */
+            booking: components["schemas"]["Booking"] | null;
             /**
              * Is Cancelled
              * @default false
@@ -856,6 +877,8 @@ export interface components {
              * @description One or two tags from the allowed list
              */
             tags?: string[];
+            /** @description Where to sign up or buy a ticket for this event: a registration form, a booking bot or a ticket shop the post links to. null when the post gives none; never the channel or another post about the event */
+            booking?: components["schemas"]["Booking"] | null;
             /**
              * @description announcement: a normal announcement; reschedule: moves an event announced earlier (give the new date and time); cancellation: cancels one; details: only adds details to one announced earlier
              * @default announcement
@@ -867,6 +890,11 @@ export interface components {
              * @default false
              */
             from_organizer: boolean;
+            /**
+             * Post Lines
+             * @description The lines of the post text that are about this event, copied exactly. Empty when the whole post is about this one event
+             */
+            post_lines?: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -911,6 +939,21 @@ export interface components {
              * Format: date-time
              */
             published_at: string;
+            /**
+             * Photos
+             * @description Every photo of the post, in its order
+             */
+            photos: components["schemas"]["PostPhoto"][];
+            /**
+             * Event Photo
+             * @description Index in photos of the one that shows this event
+             */
+            event_photo: number | null;
+            /**
+             * Event Lines
+             * @description Indexes of the post_text lines about this event; empty when the whole post is about it
+             */
+            event_lines: number[];
         };
         /** MergeRequest */
         MergeRequest: {
@@ -957,6 +1000,16 @@ export interface components {
          * @enum {string}
          */
         PlanFilter: "none" | "maybe" | "sure" | "no" | "went";
+        /** PostPhoto */
+        PostPhoto: {
+            /** Url */
+            url: string;
+            /**
+             * Text
+             * @description What Claude read on the photo; null until it is read
+             */
+            text: string | null;
+        };
         /** RefreshProgress */
         RefreshProgress: {
             /** @default idle */
