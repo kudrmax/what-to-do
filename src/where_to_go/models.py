@@ -437,11 +437,19 @@ class CollectedPost(SQLModel):
     image_urls: list[str] = []
 
 
+class EventReading(ExtractedEvent):
+    """An event Claude found, with the photo of the post that shows it."""
+
+    photo: int | None = Field(
+        description="Index of the post's photo that shows this event: its poster or its card. null when no photo shows it alone"
+    )
+
+
 class PostReading(SQLModel):
     """What Claude finds in one post; most posts announce nothing and give two empty lists."""
 
     post_id: int
-    events: list[ExtractedEvent] = Field(description="One item per event; a digest post gives one item per event it lists")
+    events: list[EventReading] = Field(description="One item per event; a digest post gives one item per event it lists")
     places: list[ExtractedPlace] = []
 
 

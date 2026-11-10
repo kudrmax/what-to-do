@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 
 _EXTENSIONS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+_MEDIA_TYPES = {extension: media_type for media_type, extension in _EXTENSIONS.items()}
 
 
 class ImageStore:
@@ -21,6 +22,12 @@ class ImageStore:
         if candidate.parent != self._folder.resolve() or not candidate.is_file():
             return None
         return candidate
+
+    def load(self, name: str) -> tuple[str, bytes] | None:
+        """The media type and bytes of a stored image."""
+        path = self.path(name)
+        media_type = _MEDIA_TYPES.get(path.suffix) if path else None
+        return (media_type, path.read_bytes()) if path and media_type else None
 
     async def save(self, url: str) -> str | None:
         stem = hashlib.sha1(url.split("?")[0].encode()).hexdigest()

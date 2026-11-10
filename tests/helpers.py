@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime, time
 from typing import Any
 
+from where_to_go.llm import LlmImage
 from where_to_go.models import EventKind, ExtractedEvent, Mention, Post, Source, UpdateKind
 
 
@@ -15,10 +16,12 @@ class FakeLlm:
         self._answer = answer
         self.calls: list[tuple[str, str]] = []
         self.schemas: list[dict[str, Any]] = []
+        self.images: list[list[LlmImage]] = []
 
-    async def complete_json(self, system: str, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
+    async def complete_json(self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()) -> dict[str, Any]:
         self.calls.append((system, prompt))
         self.schemas.append(schema)
+        self.images.append(list(images))
         return self._answer(system, prompt)
 
 
@@ -53,6 +56,7 @@ def raw_event(title: str, day: str, at: str | None = "19:00", **extra: Any) -> d
         "tags": ["Лекция"],
         "update_kind": "announcement",
         "from_organizer": False,
+        "photo": None,
     }
     event.update(extra)
     return event

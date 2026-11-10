@@ -19,7 +19,7 @@ LATER = (datetime.now(UTC) - timedelta(days=1)).isoformat()
 async def app(tmp_path):
     extraction = extraction_by_text(
         {
-            "кафаны": [raw_event("Кафаны", "2026-11-13", "19:00", from_organizer=True)],
+            "кафаны": [raw_event("Кафаны", "2026-11-13", "19:00", from_organizer=True, photo=0)],
             "дайджест": [raw_event("Кафаны", "2026-11-13", "19:30"), raw_event("Джаз", "2026-11-14", None)],
             "реклама": [],
         }
@@ -115,11 +115,11 @@ class FailingOnce:
     def __init__(self, inner, failures: int = 1) -> None:
         self._inner, self._failures, self.calls = inner, failures, 0
 
-    async def complete_json(self, system, prompt, schema):
+    async def complete_json(self, system, prompt, schema, images=()):
         self.calls += 1
         if self.calls <= self._failures:
             raise LlmError("rate limited")
-        return await self._inner.complete_json(system, prompt, schema)
+        return await self._inner.complete_json(system, prompt, schema, images)
 
 
 async def build(tmp_path, extraction, judge):
@@ -234,9 +234,9 @@ async def test_raising_recent_posts_reads_older_posts_of_a_channel_already_read(
 
 
 @respx.mock
-async def test_digest_items_without_an_image_choice_get_no_image(tmp_path):
-    digest = [raw_event("Квиз", "2026-11-13"), raw_event("Лекция", "2026-11-14")]
-    single = [raw_event("Кафаны", "2026-11-15")]
+async def test_each_digest_item_shows_the_photo_claude_chose_for_it(tmp_path):
+    digest = [raw_event("Квиз", "2026-11-13", photo=0), raw_event("Лекция", "2026-11-14", photo=None)]
+    single = [raw_event("Кафаны", "2026-11-15", photo=0)]
     container = await build(tmp_path, extraction_by_text({"дайджест": digest, "кафаны": single}), judge_same_titles())
     serve_channels([(1, RECENT, "лекция про кафаны")], [(7, RECENT, "дайджест недели")])
 
@@ -244,7 +244,7 @@ async def test_digest_items_without_an_image_choice_get_no_image(tmp_path):
     await container.refresh.wait()
 
     images = {e.original_title: e.image_path for e in container.events.in_city(1)}
-    assert images["Квиз"] is None and images["Лекция"] is None
+    assert images["Квиз"] is not None and images["Лекция"] is None
     assert images["Кафаны"] is not None
     await container.close()
 

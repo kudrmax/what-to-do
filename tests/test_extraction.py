@@ -1,5 +1,7 @@
 import json
+import tempfile
 from datetime import UTC, date, datetime, time
+from pathlib import Path
 
 import pytest
 
@@ -7,6 +9,7 @@ from tests.helpers import FakeLlm, raw_event
 from where_to_go.models import City, EventKind, Post, Source, UpdateKind
 from where_to_go.settings import AppSettings
 from where_to_go.extraction import ExtractionContext, PostExtractor
+from where_to_go.images import ImageStore
 
 CONTEXT = ExtractionContext(City(id=1, name="Белград", timezone="Europe/Belgrade"), AppSettings().extraction_prompt, "русский", ["Лекция", "Концерт"], "не распознано")
 SOURCES = {1: Source(id=1, city_id=1, handle="bg", title="Афиша")}
@@ -17,13 +20,26 @@ def post(post_id: int = 10, images: int = 0) -> Post:
                 published_at=datetime(2026, 11, 9, 17, 30, tzinfo=UTC), text="текст", image_paths=[f"{i}.jpg" for i in range(images)])
 
 
+def photo_store(*names: str) -> ImageStore:
+    """A store holding the given stored image names, each a few distinct bytes."""
+    folder = Path(tempfile.mkdtemp())
+    for name in names:
+        (folder / name).write_bytes(name.encode())
+    return ImageStore(folder, client=None)
+
+
+def extractor(llm, store: ImageStore | None = None) -> PostExtractor:
+    return PostExtractor(llm, store or photo_store())
+
+
 def events(result):
     return [event for event, _ in result.events]
 
 
 async def extract_one(events: list[dict], images: int = 0, places: list[dict] | None = None):
     llm = FakeLlm(lambda *_: {"posts": [{"post_id": 10, "events": events, "places": places or []}]})
-    [result] = await PostExtractor(llm).extract([post(images=images)], SOURCES, CONTEXT)
+    store = photo_store(*(f"{i}.jpg" for i in range(images)))
+    [result] = await extractor(llm, store).extract([post(images=images)], SOURCES, CONTEXT)
     return result, llm
 
 
@@ -65,13 +81,33 @@ async def test_tags_outside_the_list_fall_back():
     assert [e.tags for e in events(result)] == [["не распознано"], ["Концерт"]]
 
 
-async def test_a_post_about_one_event_gives_it_its_first_image_a_digest_gives_none():
-    single, _ = await extract_one([raw_event("А", "2026-11-13")], images=2)
-    digest, _ = await extract_one([raw_event("А", "2026-11-13"), raw_event("Б", "2026-11-14")], images=2)
-    no_images, _ = await extract_one([raw_event("А", "2026-11-13")], images=0)
-    assert [image for _, image in single.events] == [0]
-    assert [image for _, image in digest.events] == [None, None]
-    assert [image for _, image in no_images.events] == [None]
+async def test_claude_sees_the_photos_of_each_post_captioned_with_post_and_index():
+    llm = FakeLlm(lambda *_: {"posts": []})
+    store = photo_store("a.jpg", "b.png", "c.jpg")
+    first = post(10, images=0).model_copy(update={"image_paths": ["a.jpg", "b.png"]})
+    second = post(11, images=0).model_copy(update={"image_paths": ["gone.jpg", "c.jpg"]})
+    await extractor(llm, store).extract([first, second], SOURCES, CONTEXT)
+    sent = [(i.caption, i.media_type, i.data) for i in llm.images[0]]
+    assert sent == [
+        ("Post 10, photo 0:", "image/jpeg", b"a.jpg"),
+        ("Post 10, photo 1:", "image/png", b"b.png"),
+        ("Post 11, photo 1:", "image/jpeg", b"c.jpg"),
+    ]
+    items = json.loads(llm.calls[0][1].split("\n", 1)[1])
+    assert [item["photos"] for item in items] == [2, 1]
+
+
+async def test_each_event_gets_the_photo_claude_points_at_if_claude_saw_it():
+    result, _ = await extract_one(
+        [raw_event("А", "2026-11-13", photo=1), raw_event("Б", "2026-11-14", photo=None), raw_event("В", "2026-11-15", photo=7)],
+        images=2,
+    )
+    assert [image for _, image in result.events] == [1, None, None]
+
+
+async def test_at_most_ten_photos_of_a_post_are_sent():
+    _, llm = await extract_one([], images=12)
+    assert len(llm.images[0]) == 10
 
 
 async def test_places_are_kept_apart_from_events():
@@ -81,7 +117,7 @@ async def test_places_are_kept_apart_from_events():
 
 async def test_post_missing_from_the_answer_yields_nothing():
     llm = FakeLlm(lambda *_: {"posts": []})
-    [result] = await PostExtractor(llm).extract([post()], SOURCES, CONTEXT)
+    [result] = await extractor(llm).extract([post()], SOURCES, CONTEXT)
     assert result.events == [] and result.places == []
 
 
@@ -91,22 +127,22 @@ async def test_prompt_gives_local_publication_time_tags_and_language():
     assert '"Лекция", "Концерт"' in system and "русский" in system and "Белград" in system
     item = json.loads(prompt.split("\n", 1)[1])[0]
     assert item["published"] == "2026-11-09 18:30 (Monday)" and item["channel"] == "Афиша"
-    assert "image" not in system and "images" not in item
+    assert item["photos"] == 0
 
 
 def test_posts_are_read_in_batches():
-    batches = PostExtractor(FakeLlm(lambda *_: {})).batches([post(i) for i in range(20)])
+    batches = extractor(FakeLlm(lambda *_: {})).batches([post(i) for i in range(20)])
     assert [len(b) for b in batches] == [8, 8, 4]
 
 
 async def test_the_prompt_comes_from_settings():
     custom = ExtractionContext(CONTEXT.city, "Город {city}, язык {language}", "русский", ["Лекция"], "не распознано")
     llm = FakeLlm(lambda *_: {"posts": []})
-    await PostExtractor(llm).extract([post()], SOURCES, custom)
+    await extractor(llm).extract([post()], SOURCES, custom)
     assert llm.calls[0][0] == "Город Белград, язык русский"
 
 
 async def test_the_schema_claude_gets_carries_the_field_descriptions():
     _, llm = await extract_one([])
-    price = llm.schemas[0]["$defs"]["ExtractedEvent"]["properties"]["price"]
-    assert "0 when free" in price["description"]
+    event = llm.schemas[0]["$defs"]["EventReading"]["properties"]
+    assert "0 when free" in event["price"]["description"] and "poster" in event["photo"]["description"]
