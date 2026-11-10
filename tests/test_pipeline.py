@@ -7,7 +7,7 @@ import respx
 
 from tests.helpers import photos_saying, FakeLlm, channel_page, extraction_by_text, judge_same_titles, raw_event
 from where_to_go.container import Container
-from where_to_go.models import Mark, Plan, Source
+from where_to_go.models import Booking, BookingKind, Mark, Plan, Source
 from where_to_go.llm import LlmError
 from where_to_go.refresh import Stage
 from where_to_go.repositories import SettingsRepository
@@ -460,3 +460,16 @@ def test_a_transaction_saves_everything_or_nothing(tmp_path):
         container.cities.add("Белград", "Europe/Belgrade")
         container.cities.add("Нови-Сад", "Europe/Belgrade")
     assert len(Container.build(tmp_path, http=httpx.AsyncClient()).cities.all()) == 2
+
+
+@respx.mock
+async def test_a_card_keeps_where_to_sign_up_as_a_booking(tmp_path):
+    booking = {"url": "https://t.me/reg_bot", "kind": "registration"}
+    container = await build(tmp_path, extraction_by_text({"кафаны": [raw_event("Кафаны", SOON, booking=booking)]}), judge_same_titles())
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+
+    await refresh(container)
+
+    [card] = container.events.in_city(1)
+    assert card.booking == Booking(url="https://t.me/reg_bot", kind=BookingKind.REGISTRATION)
+    await container.close()

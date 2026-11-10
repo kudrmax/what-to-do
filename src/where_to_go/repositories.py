@@ -402,7 +402,7 @@ class EventRepository:
         self._db = db
 
     def create(self, city_id: int, facts: EventFacts) -> Event:
-        return self.save(Event(city_id=city_id, **facts.model_dump(include=set(EventFacts.model_fields))))
+        return self.save(Event(city_id=city_id, **facts.facts()))
 
     def save(self, event: Event) -> Event:
         with self._db.session() as s:
