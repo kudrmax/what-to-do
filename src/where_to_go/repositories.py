@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from typing import Any
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlmodel import col, select
 
 from where_to_go.db import Database
@@ -19,8 +19,11 @@ from where_to_go.models import (
     Mark,
     Mention,
     PhotoText,
+    ChannelLink,
     Place,
     Post,
+    PotentialSource,
+    PotentialSourcePost,
     Setting,
     Source,
     Tag,
@@ -333,6 +336,65 @@ class PlaceRepository:
     def in_city(self, city_id: int) -> list[Place]:
         with self._db.session() as s:
             return list(s.exec(select(Place).where(Place.city_id == city_id).order_by(Place.name)).unique())
+
+
+class PotentialSourceRepository:
+    def __init__(self, db: Database) -> None:
+        self._db = db
+
+    def note(self, city_id: int, post_id: int, handles: dict[str, ChannelLink]) -> None:
+        """What the post points to now replaces what it pointed to when read before.
+        A processed channel takes no more posts; an unprocessed one no post points to anymore goes away."""
+        with self._db.session() as s:
+            for link in s.exec(select(PotentialSourcePost).where(PotentialSourcePost.post_id == post_id)).unique():
+                s.delete(link)
+            s.flush()
+            for handle, via in handles.items():
+                found = self._find(s, city_id, handle) or PotentialSource(city_id=city_id, handle=handle, found_at=_now())
+                if found.processed:
+                    continue
+                s.add(found)
+                s.flush()
+                s.add(PotentialSourcePost(potential_source_id=found.id, post_id=post_id, via=via))
+            s.flush()
+            linked = select(PotentialSourcePost.potential_source_id)
+            orphans = select(PotentialSource).where(PotentialSource.processed == False, col(PotentialSource.id).not_in(linked))  # noqa: E712
+            for orphan in s.exec(orphans):
+                s.delete(orphan)
+            s.commit()
+
+    def in_city(self, city_id: int) -> list[tuple[PotentialSource, list[PotentialSourcePost]]]:
+        with self._db.session() as s:
+            found = list(s.exec(select(PotentialSource).where(PotentialSource.city_id == city_id)))
+            ids = [p.id for p in found]
+            links = s.exec(select(PotentialSourcePost).where(col(PotentialSourcePost.potential_source_id).in_(ids))).unique()
+            by_source: dict[int, list[PotentialSourcePost]] = {}
+            for link in links:
+                by_source.setdefault(link.potential_source_id, []).append(link)
+            return [(p, by_source.get(p.id, [])) for p in found]
+
+    def get(self, potential_id: int) -> PotentialSource:
+        with self._db.session() as s:
+            found = s.get(PotentialSource, potential_id)
+        if found is None:
+            raise KeyError(potential_id)
+        return found
+
+    def mark(self, potential_id: int, processed: bool) -> PotentialSource:
+        with self._db.session() as s:
+            found = s.get(PotentialSource, potential_id)
+            if found is None:
+                raise KeyError(potential_id)
+            found.processed = processed
+            s.add(found)
+            s.commit()
+            s.refresh(found)
+            return found
+
+    @staticmethod
+    def _find(s: Any, city_id: int, handle: str) -> PotentialSource | None:
+        query = select(PotentialSource).where(PotentialSource.city_id == city_id, func.lower(PotentialSource.handle) == handle.lower())
+        return s.exec(query).first()
 
 
 class EventRepository:

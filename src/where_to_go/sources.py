@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 from where_to_go.linking import EventCards
-from where_to_go.models import City, Source, SourceKind
-from where_to_go.repositories import EventRepository, SourceRepository
+from where_to_go.models import (
+    ChannelLink,
+    ChannelReference,
+    City,
+    Post,
+    PotentialSourceOrigin,
+    PotentialSourcePublic,
+    Source,
+    SourceKind,
+)
+from where_to_go.repositories import EventRepository, PotentialSourceRepository, SourceRepository
 from where_to_go.telegram import SourceError, TelegramChannelReader, TelegramHandle
 
 
@@ -32,3 +41,54 @@ class SourceCatalog:
         self._sources.delete(source_id)
         for event_id in affected:
             self._cards.refresh(event_id)
+
+
+class PotentialSources:
+    """Channels the posts point to that the user has not added yet: leads to look at, never added on their own."""
+
+    BOT_SUFFIX = "bot"
+
+    def __init__(self, potential: PotentialSourceRepository, sources: SourceRepository) -> None:
+        self._potential = potential
+        self._sources = sources
+
+    def note(self, city_id: int, post: Post, references: list[ChannelReference]) -> None:
+        known = self._known_handles(city_id) | {post.source.handle.lower()}
+        found: dict[str, tuple[str, ChannelLink]] = {}
+        for reference in references:
+            handle = self._handle(reference.handle)
+            if handle is None or handle.lower() in known:
+                continue
+            if handle.lower() not in found or reference.via == ChannelLink.FORWARD:
+                found[handle.lower()] = (handle, reference.via)
+        self._potential.note(city_id, post.id, dict(found.values()))
+
+    def in_city(self, city_id: int) -> list[PotentialSourcePublic]:
+        """Most pointed to first; a channel the user has since added as a source is left out."""
+        known = self._known_handles(city_id)
+        result = []
+        for found, links in self._potential.in_city(city_id):
+            if found.handle.lower() in known or (not found.processed and not links):
+                continue
+            origins = [
+                PotentialSourceOrigin(via=link.via, source_title=link.post.source.title, post_url=link.post.url, published_at=link.post.published_at)
+                for link in links
+            ]
+            origins.sort(key=lambda o: o.published_at, reverse=True)
+            result.append(PotentialSourcePublic(id=found.id, handle=found.handle, processed=found.processed, found_at=found.found_at, origins=origins))
+        result.sort(key=lambda p: (len(p.origins), max((o.published_at for o in p.origins), default=p.found_at)), reverse=True)
+        return result
+
+    def mark(self, potential_id: int, processed: bool) -> None:
+        self._potential.mark(potential_id, processed)
+
+    def _known_handles(self, city_id: int) -> set[str]:
+        return {s.handle.lower() for s in self._sources.in_city(city_id)}
+
+    @classmethod
+    def _handle(cls, raw: str) -> str | None:
+        try:
+            handle = TelegramHandle.parse(raw)
+        except SourceError:
+            return None
+        return None if handle.lower().endswith(cls.BOT_SUFFIX) else handle

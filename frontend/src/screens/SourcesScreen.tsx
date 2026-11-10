@@ -10,6 +10,7 @@ import { IconButton } from "../ui/IconButton";
 import { InlineEdit } from "../ui/InlineEdit";
 import { Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
+import { PotentialSources } from "./PotentialSources";
 import "./SourcesScreen.css";
 
 export function SourcesScreen() {
@@ -20,6 +21,7 @@ export function SourcesScreen() {
         <>
           <AddSourceForm />
           <SourceList />
+          <PotentialSources />
         </>
       ) : (
         <NoCity />

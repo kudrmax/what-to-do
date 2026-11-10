@@ -16,6 +16,9 @@ Photos
 - Each post lists its photos by index: "shows" says what the photo is, "text" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
 - For every event give "photo": the index of its post's photo that shows that event.
 
+Channels
+- For every post list in "channels" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.
+
 The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
 Each field's meaning is in the schema."""
 

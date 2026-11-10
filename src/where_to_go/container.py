@@ -25,12 +25,13 @@ from where_to_go.repositories import (
     PhotoTextRepository,
     PlaceRepository,
     PostRepository,
+    PotentialSourceRepository,
     SettingsRepository,
     SourceRepository,
     TagRepository,
 )
 from where_to_go.resolution import EventResolver
-from where_to_go.sources import SourceCatalog
+from where_to_go.sources import PotentialSources, SourceCatalog
 from where_to_go.telegram import TelegramChannelReader
 
 PROVISIONAL_TAGS = [
@@ -60,6 +61,7 @@ class Container:
     cities: CityRepository
     sources: SourceRepository
     catalog: SourceCatalog
+    potential_sources: PotentialSources
     posts: PostRepository
     mentions: MentionRepository
     places: PlaceRepository
@@ -106,6 +108,7 @@ class Container:
         photo_llm = photo_llm or ClaudeJsonLlm(lambda: settings.load().photo_model)
         linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards)
         photo_texts = PhotoTextRepository(db)
+        potential_sources = PotentialSources(PotentialSourceRepository(db), sources)
         photos = PhotoTranscriber(photo_llm, images, photo_texts, lambda: settings.load().photo_prompt)
         post_reader = PostReader(
             settings=settings,
@@ -113,6 +116,7 @@ class Container:
             posts=posts,
             post_mentions=PostMentions(mentions, cards),
             places=places,
+            potential_sources=potential_sources,
             extractor=PostExtractor(extraction_llm),
             photos=photos,
             photo_texts=photo_texts,
@@ -138,6 +142,7 @@ class Container:
             cities=cities,
             sources=sources,
             catalog=SourceCatalog(sources, events, cards, reader),
+            potential_sources=potential_sources,
             posts=posts,
             mentions=mentions,
             places=places,

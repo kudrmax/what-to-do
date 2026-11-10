@@ -16,6 +16,7 @@ const keys = {
   defaults: ["settings", "defaults"],
   cities: ["cities"],
   sources: ["sources"],
+  potentialSources: ["potential-sources"],
   tags: ["tags"],
   feed: ["feed"],
   event: ["event"],
@@ -25,7 +26,8 @@ const keys = {
 /** What a change makes stale: the cards, or everything that depends on the active city. */
 const STALE = {
   cards: [keys.feed, keys.event],
-  sources: [keys.sources],
+  sources: [keys.sources, keys.potentialSources],
+  potentialSources: [keys.potentialSources],
   tags: [keys.tags, keys.feed, keys.event],
   settings: [keys.settings],
   city: [[]] as QueryKey[],
@@ -86,6 +88,9 @@ export const useMerge = () => useApiMutation((api, { id, otherId }: { id: number
 export const useSplit = () => useApiMutation((api, { id, mentionId }: { id: number; mentionId: number }) => api.split(id, mentionId), STALE.cards);
 export const useChangeSettings = () => useApiMutation((api, change: SettingsChange) => api.changeSettings(change), STALE.city);
 export const useAddCity = () => useApiMutation((api, city: NewCity) => api.addCity(city), STALE.city);
+export const usePotentialSources = () => useApiQuery(keys.potentialSources, (api) => api.potentialSources());
+export const useMarkPotentialSource = () =>
+  useApiMutation((api, { id, processed }: { id: number; processed: boolean }) => api.markPotentialSource(id, processed), STALE.potentialSources);
 export const useAddSource = () => useApiMutation((api, source: NewSource) => api.addSource(source), STALE.sources);
 export const useRenameSource = () => useApiMutation((api, { id, title }: { id: number; title: string }) => api.renameSource(id, title), STALE.sources);
 export const useDeleteSource = () => useApiMutation((api, id: number) => api.deleteSource(id), STALE.city);
