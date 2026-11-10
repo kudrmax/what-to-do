@@ -7,8 +7,9 @@ import respx
 
 from tests.helpers import photos_saying, FakeLlm, channel_page, extraction_by_text, judge_same_titles, raw_event
 from where_to_go.container import Container
-from where_to_go.models import Booking, BookingKind, Mark, Plan, Source
+from where_to_go.models import Booking, BookingKind, Mark, Mention, Plan, Source
 from where_to_go.llm import LlmError
+from where_to_go.reading_rules import ReadingRules
 from where_to_go.refresh import Stage
 from where_to_go.repositories import SettingsRepository
 
@@ -235,7 +236,7 @@ async def test_raising_recent_posts_reads_older_posts_of_a_channel_already_read(
 
 
 @respx.mock
-async def test_each_digest_item_shows_the_photo_claude_chose_for_it(tmp_path):
+async def test_the_poster_of_a_digest_reaches_its_items_claude_gave_no_photo(tmp_path):
     digest = [raw_event("Квиз", "2026-11-13", photo=0), raw_event("Лекция", "2026-11-14", photo=None)]
     single = [raw_event("Кафаны", "2026-11-15", photo=0)]
     container = await build(tmp_path, extraction_by_text({"дайджест": digest, "кафаны": single}), judge_same_titles())
@@ -245,7 +246,7 @@ async def test_each_digest_item_shows_the_photo_claude_chose_for_it(tmp_path):
     await container.refresh.wait()
 
     images = {e.original_title: e.image_path for e in container.events.in_city(1)}
-    assert images["Квиз"] is not None and images["Лекция"] is None
+    assert images["Квиз"] is not None and images["Лекция"] == images["Квиз"]
     assert images["Кафаны"] is not None
     await container.close()
 
@@ -313,12 +314,48 @@ async def refresh(container):
     return progress
 
 
-def new_rules(container):
-    container.settings.update(extraction_prompt=container.settings.load().extraction_prompt + "\nRead the photos too.")
+@pytest.fixture
+def new_rules(monkeypatch):
+    return lambda: monkeypatch.setattr(ReadingRules, "POSTS", "next")
 
 
 @respx.mock
-async def test_posts_read_with_old_rules_are_read_again_and_keep_their_cards_and_marks(tmp_path):
+async def test_an_edited_prompt_reads_no_post_again(tmp_path):
+    container = await build(tmp_path, extraction_by_text({"дайджест": [raw_event("Квиз", SOON)]}), judge_same_titles())
+    serve_channels([(1, RECENT, "дайджест месяца")], [])
+    await refresh(container)
+
+    container.settings.update(extraction_prompt=container.settings.load().extraction_prompt + "\nRead the photos too.")
+
+    assert (await refresh(container)).posts_to_read == 0
+    await container.close()
+
+
+@respx.mock
+async def test_cards_already_built_get_the_poster_their_post_shares(tmp_path):
+    answers = {"цикл": [raw_event("Лекция 1", SOON, photo=0), raw_event("Лекция 2", LATER_DAY, photo=0)]}
+    container = await build(tmp_path, extraction_by_text(answers), judge_same_titles())
+    serve_channels([(1, RECENT, "цикл лекций")], [])
+    await refresh(container)
+    card = next(e for e in container.events.in_city(1) if e.original_title == "Лекция 2")
+    [second] = container.mentions.of_event(card.id)
+    with container.db.session() as s:
+        stored = s.get(Mention, second.id)
+        stored.image_index = None
+        s.add(stored)
+        s.commit()
+    container.cards.refresh(second.event_id)
+    assert container.events.get(second.event_id).image_path is None
+
+    await refresh(container)
+
+    images = {e.original_title: e.image_path for e in container.events.in_city(1)}
+    assert images["Лекция 2"] is not None and images["Лекция 2"] == images["Лекция 1"]
+    await container.close()
+
+
+@respx.mock
+async def test_posts_read_with_old_rules_are_read_again_and_keep_their_cards_and_marks(tmp_path, new_rules):
     answers = {
         "дайджест": [raw_event("Квиз", SOON, None, from_organizer=True), raw_event("Лекция", LATER_DAY, "19:00", from_organizer=True)],
         "реклама": [],
@@ -333,7 +370,7 @@ async def test_posts_read_with_old_rules_are_read_again_and_keep_their_cards_and
         raw_event("Квиз", SOON, "20:00", from_organizer=True, price=500, currency="RSD"),
         raw_event("Чайный клуб", LATER_DAY, "18:00", from_organizer=True),
     ]
-    new_rules(container)
+    new_rules()
     progress = await refresh(container)
 
     assert progress.posts_to_read == 2
@@ -349,7 +386,7 @@ async def test_posts_read_with_old_rules_are_read_again_and_keep_their_cards_and
 
 
 @respx.mock
-async def test_only_the_latest_posts_of_a_channel_and_not_hand_curated_ones_are_read_again(tmp_path):
+async def test_only_the_latest_posts_of_a_channel_and_not_hand_curated_ones_are_read_again(tmp_path, new_rules):
     answers = {marker: [raw_event(marker.title(), SOON, "19:00")] for marker in ("первый", "второй", "третий", "четвёртый")}
     container = await build(tmp_path, extraction_by_text(answers), judge_same_titles())
     container.settings.update(recent_posts=3)
@@ -361,7 +398,7 @@ async def test_only_the_latest_posts_of_a_channel_and_not_hand_curated_ones_are_
     cards = {e.original_title: e.id for e in container.events.in_city(1)}
     container.cards.merge(cards["Третий"], cards["Четвёртый"])
 
-    new_rules(container)
+    new_rules()
     progress = await refresh(container)
 
     assert progress.posts_to_read == 1  # post 2: post 1 is older than the latest three, 3 and 4 were merged by hand
@@ -370,7 +407,7 @@ async def test_only_the_latest_posts_of_a_channel_and_not_hand_curated_ones_are_
 
 
 @respx.mock
-async def test_places_of_a_post_read_again_are_not_doubled(tmp_path):
+async def test_places_of_a_post_read_again_are_not_doubled(tmp_path, new_rules):
     def answer(_, prompt):
         posts = json.loads(prompt.split("\n", 1)[1])
         return {"posts": [{"post_id": p["post_id"], "events": [], "places": [{"name": "Скалодром", "address": None, "description": "Каждый день"}]} for p in posts]}
@@ -378,7 +415,7 @@ async def test_places_of_a_post_read_again_are_not_doubled(tmp_path):
     container = await build(tmp_path, FakeLlm(answer), judge_same_titles())
     serve_channels([(1, RECENT, "про скалодром")], [])
     await refresh(container)
-    new_rules(container)
+    new_rules()
     await refresh(container)
     assert [p.name for p in container.places.in_city(1)] == ["Скалодром"]
 

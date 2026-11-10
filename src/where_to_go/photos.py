@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Callable, Iterable
 from typing import Any
 
@@ -10,6 +8,7 @@ from pydantic import ValidationError
 from where_to_go.images import ImageStore
 from where_to_go.llm import JsonLlm, LlmImage
 from where_to_go.models import PhotoReading, PhotoReadings, PhotoText, Post
+from where_to_go.reading_rules import ReadingRules
 from where_to_go.repositories import PhotoTextRepository
 
 
@@ -30,10 +29,9 @@ class PhotoTranscriber:
     def shown(cls, post: Post) -> list[str]:
         return post.image_paths[: cls.PER_POST]
 
-    def rules(self) -> str:
-        """What decides how a photo is transcribed; a photo transcribed with other rules is transcribed again."""
-        rules = json.dumps([self._prompt(), PhotoReadings.model_json_schema()], ensure_ascii=False, sort_keys=True)
-        return hashlib.sha256(rules.encode()).hexdigest()[:16]
+    @staticmethod
+    def rules() -> str:
+        return ReadingRules.PHOTOS
 
     def untranscribed(self, posts: Iterable[Post]) -> list[str]:
         """Stored photos of these posts that have no text under the current rules; a lost file has nothing to read."""

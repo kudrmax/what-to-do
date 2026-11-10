@@ -6,6 +6,7 @@ import respx
 from fastapi.testclient import TestClient
 
 from tests.helpers import FakeLlm, channel_page, judge_same_titles, photos_saying
+from where_to_go.reading_rules import ReadingRules
 from where_to_go.api import create_app
 from where_to_go.container import Container
 from where_to_go.models import Source
@@ -133,14 +134,14 @@ async def test_a_processed_channel_never_comes_back(tmp_path):
 
 
 @respx.mock
-async def test_a_post_read_again_replaces_what_it_pointed_to(tmp_path):
+async def test_a_post_read_again_replaces_what_it_pointed_to(tmp_path, monkeypatch):
     answers = {"пост": [link("old_one")]}
     container = await build(tmp_path, pointing(answers))
     serve([(1, RECENT, "пост")])
     await refresh(container)
 
     answers["пост"] = [link("new_one")]
-    container.settings.update(extraction_prompt=container.settings.load().extraction_prompt + "\nRead the photos too.")
+    monkeypatch.setattr(ReadingRules, "POSTS", "next")
     await refresh(container)
 
     assert handles(container) == ["new_one"]

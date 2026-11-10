@@ -183,6 +183,23 @@ class PostMentions:
         for event_id in changed - {None}:
             self._cards.refresh(event_id)
 
+    def share_posters(self) -> None:
+        """A post whose events with a photo all have the same one gives it to its events without:
+        it is the poster of the whole post, such as of a lecture series."""
+        changed: set[int | None] = set()
+        with self._cards.atomically():
+            for mentions in self._mentions.of_posts_with_some_photoless():
+                given = {m.image_index for m in mentions} - {None}
+                if len(given) != 1:
+                    continue
+                [poster] = given
+                for mention in mentions:
+                    if mention.image_index is None:
+                        self._mentions.set_image(mention.id, poster)
+                        changed.add(mention.event_id)
+            for event_id in changed - {None}:
+                self._cards.refresh(event_id)
+
     @classmethod
     def _pair(cls, old: list[Mention], new: list[ExtractedEvent]) -> dict[int, Mention]:
         """Each new item takes the old mention most like it: the same date first, then the closest title."""
