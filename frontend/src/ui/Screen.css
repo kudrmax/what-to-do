@@ -1,5 +1,5 @@
 .screen {
-  padding: 32px 40px 48px;
+  padding: max(32px, var(--titlebar-h)) 40px 48px;
   display: flex;
   flex-direction: column;
   gap: 24px;

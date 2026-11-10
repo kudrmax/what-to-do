@@ -50,4 +50,8 @@
   --body-size: 15px;
   --label-size: 13px;
   --caption-size: 12px;
+
+  /* The macOS app (macos/) runs the page under its title bar and sets --shell-*; a browser has none.
+     Nothing but empty space sits in that strip, so the window buttons and the restart note stay clear. */
+  --titlebar-h: var(--shell-titlebar-h, 0px);
 }

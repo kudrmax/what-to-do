@@ -5,7 +5,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 40px 24px;
+  padding: max(40px, var(--titlebar-h)) 24px 40px;
   overflow-y: auto;
   background: var(--scrim);
   animation: modal-fade 140ms ease;

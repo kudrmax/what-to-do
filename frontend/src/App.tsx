@@ -11,6 +11,8 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { PlansScreen } from "./screens/PlansScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { SourcesScreen } from "./screens/SourcesScreen";
+import { onNativeCheckForUpdates } from "./native/nativeHost";
+import { UpdatesProvider } from "./updates/UpdatesProvider";
 
 const queries = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } } });
 
@@ -43,7 +45,9 @@ export function App({ api }: { api: Api }) {
     <ApiContext.Provider value={api}>
       <QueryClientProvider client={queries}>
         <BrowserRouter>
-          <Screens />
+          <UpdatesProvider onNativeCheck={onNativeCheckForUpdates}>
+            <Screens />
+          </UpdatesProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ApiContext.Provider>

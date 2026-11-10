@@ -1,6 +1,6 @@
 [project]
 name = "where-to-go"
-version = "0.1.0"
+version = "1.0.0"
 description = "Local backend of «Чем заняться»: Telegram event announcements turned into event cards by Claude"
 readme = "README.md"
 authors = [
@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.162.2",
     "httpx>=0.28.1",
     "icalendar>=7.3.0",
+    "markdown-it-py>=4.2.0",
     "pydantic>=2.14.3",
     "python-dateutil>=4.0.0",
     "selectolax>=1.0.2",

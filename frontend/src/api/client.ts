@@ -19,6 +19,10 @@ export type Plan = Schemas["Plan"];
 export type PlanFilter = Schemas["PlanFilter"];
 export type Mark = Schemas["Mark"];
 export type Conflict = Schemas["Conflict"];
+export type UpdateStatus = Schemas["UpdateStatusView"];
+export type UpdateProgress = Schemas["UpdateProgress"];
+export type UpdateStep = Schemas["UpdateStep"];
+export type ChangelogEntry = Schemas["ChangelogEntryView"];
 export type FeedQuery = NonNullable<paths["/events"]["get"]["parameters"]["query"]>;
 
 export class ApiError extends Error {
@@ -80,6 +84,14 @@ export function createApi(baseUrl: string) {
 
     refresh: () => answer(client.POST("/refresh")),
     refreshStatus: () => answer(client.GET("/refresh")),
+
+    version: () => answer(client.GET("/version")),
+    updates: (force: boolean) => answer(client.GET("/updates", { params: { query: { force } } })),
+    startUpdate: () => answer(client.POST("/update")),
+    updateState: () => answer(client.GET("/update/state")),
+    changelog: () => answer(client.GET("/changelog")),
+    unseenChangelog: () => answer(client.GET("/changelog/unseen")),
+    markChangelogSeen: () => answer(client.POST("/changelog/seen")),
   };
 }
 
