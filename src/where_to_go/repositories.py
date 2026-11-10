@@ -293,15 +293,11 @@ class MentionRepository:
         with self._db.session() as s:
             return list(s.exec(select(Mention).where(Mention.post_id == post_id).order_by(Mention.item_index)).unique())
 
-    def of_posts_with_some_photoless(self) -> list[list[Mention]]:
-        """The mentions of every post where some events have a photo and some have none, post by post."""
+    def of_posts_with_photoless(self) -> list[list[Mention]]:
+        """The mentions of every post where some event has no photo, post by post."""
         with self._db.session() as s:
-            mixed = (
-                select(Mention.post_id)
-                .group_by(Mention.post_id)
-                .having(func.count(Mention.image_index) > 0, func.count(Mention.image_index) < func.count())
-            )
-            query = select(Mention).where(col(Mention.post_id).in_(mixed)).order_by(Mention.post_id, Mention.item_index)
+            lacking = select(Mention.post_id).where(col(Mention.image_index).is_(None))
+            query = select(Mention).where(col(Mention.post_id).in_(lacking)).order_by(Mention.post_id, Mention.item_index)
             mentions = list(s.exec(query).unique())
         return [list(group) for _, group in groupby(mentions, key=lambda m: m.post_id)]
 

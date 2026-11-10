@@ -184,21 +184,29 @@ class PostMentions:
             self._cards.refresh(event_id)
 
     def share_posters(self) -> None:
-        """A post whose events with a photo all have the same one gives it to its events without:
-        it is the poster of the whole post, such as of a lecture series."""
+        """Events Claude left without a photo get the poster of the whole post, such as of a lecture series:
+        the photo every other event of the post has, or the post's only photo when no event has one."""
         changed: set[int | None] = set()
         with self._cards.atomically():
-            for mentions in self._mentions.of_posts_with_some_photoless():
-                given = {m.image_index for m in mentions} - {None}
-                if len(given) != 1:
+            for mentions in self._mentions.of_posts_with_photoless():
+                poster = self._poster(mentions)
+                if poster is None:
                     continue
-                [poster] = given
                 for mention in mentions:
                     if mention.image_index is None:
                         self._mentions.set_image(mention.id, poster)
                         changed.add(mention.event_id)
             for event_id in changed - {None}:
                 self._cards.refresh(event_id)
+
+    @staticmethod
+    def _poster(mentions: list[Mention]) -> int | None:
+        given = {m.image_index for m in mentions} - {None}
+        if len(given) == 1:
+            return given.pop()
+        if not given and len(mentions[0].post.image_paths) == 1:
+            return 0
+        return None
 
     @classmethod
     def _pair(cls, old: list[Mention], new: list[ExtractedEvent]) -> dict[int, Mention]:

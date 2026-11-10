@@ -355,6 +355,19 @@ async def test_cards_already_built_get_the_poster_their_post_shares(tmp_path):
 
 
 @respx.mock
+async def test_the_only_photo_of_a_post_goes_to_its_events_claude_gave_no_photo(tmp_path):
+    answers = {"музеи": [raw_event("Военный музей", SOON, photo=None), raw_event("Музей Югославии", SOON, photo=None)]}
+    container = await build(tmp_path, extraction_by_text(answers), judge_same_titles())
+    serve_channels([(1, RECENT, "музеи бесплатно")], [])
+
+    await refresh(container)
+
+    images = {e.original_title: e.image_path for e in container.events.in_city(1)}
+    assert images["Военный музей"] is not None and images["Музей Югославии"] == images["Военный музей"]
+    await container.close()
+
+
+@respx.mock
 async def test_posts_read_with_old_rules_are_read_again_and_keep_their_cards_and_marks(tmp_path, new_rules):
     answers = {
         "дайджест": [raw_event("Квиз", SOON, None, from_organizer=True), raw_event("Лекция", LATER_DAY, "19:00", from_organizer=True)],
