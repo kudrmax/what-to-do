@@ -224,7 +224,7 @@ function Thumb({ url, label, onClick }: { url: string; label: string; onClick: (
   if (broken) return null;
   return (
     <button type="button" className="thumb" aria-label={label} onClick={onClick}>
-      <img src={api.imageUrl(url) ?? undefined} alt="" loading="lazy" onError={() => setBroken(true)} />
+      <img src={api.imageUrl(url) ?? undefined} alt="" onError={() => setBroken(true)} />
     </button>
   );
 }

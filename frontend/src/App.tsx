@@ -21,10 +21,11 @@ function Screens() {
   const location = useLocation();
   const background = (location.state as { background?: Location } | null)?.background;
   const isEvent = location.pathname.startsWith("/event/");
+  const screen = background ?? (isEvent ? { ...location, pathname: SECTIONS.feed.path, search: "" } : location);
   return (
     <>
-      <AppShell>
-        <Routes location={background ?? (isEvent ? { ...location, pathname: SECTIONS.feed.path, search: "" } : location)}>
+      <AppShell screenPath={screen.pathname}>
+        <Routes location={screen}>
           <Route path={SECTIONS.feed.path} element={<FeedScreen />} />
           <Route path={SECTIONS.calendar.path} element={<CalendarScreen />} />
           <Route path={SECTIONS.plans.path} element={<PlansScreen />} />

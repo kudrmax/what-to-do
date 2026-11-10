@@ -1,6 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { EventCard } from "../api/client";
+import { usePrefetchMentions } from "../api/queries";
 import { formatPrice } from "../domain/price";
 import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
@@ -19,6 +20,7 @@ interface Props {
 /** A card in a list. A click anywhere opens the event; the marks below work on their own. */
 export function EventCardView({ event, day, shownTags = [] }: Props) {
   const open = useOpenEvent();
+  const prefetch = usePrefetchMentions();
   const tag = event.tags.find((t) => shownTags.includes(t)) ?? event.tags[0];
   const price = event.is_cancelled ? null : formatPrice(event.price, event.currency);
   const show = () => open(event.id, day);
@@ -31,6 +33,8 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       tabIndex={0}
       aria-label={event.title}
       onClick={show}
+      onPointerEnter={() => prefetch(event.id)}
+      onFocus={() => prefetch(event.id)}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && show()}
     >
       <div className="card__layout">

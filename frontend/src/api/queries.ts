@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
-import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, FeedQuery, Mark, NewCity, NewSource, SettingsChange } from "./client";
+import type { Api, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -51,8 +51,34 @@ export const useCities = () => useApiQuery(keys.cities, (api) => api.cities());
 export const useSources = (enabled = true) => useApiQuery(keys.sources, (api) => api.sources(), enabled);
 export const useTags = () => useApiQuery(keys.tags, (api) => api.tags());
 export const useFeed = (query: FeedQuery, enabled = true) => useApiQuery([...keys.feed, query], (api) => api.feed(query), enabled);
-export const useEvent = (id: number) => useApiQuery([...keys.event, id], (api) => api.event(id));
-export const useMentions = (id: number) => useApiQuery([...keys.event, id, "mentions"], (api) => api.mentions(id));
+/** An event opens at once with the card already in a loaded feed, and is then refreshed from the server. */
+export function useEvent(id: number) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useQuery({
+    queryKey: [...keys.event, id],
+    queryFn: () => api.event(id),
+    initialData: () => cardFromFeed(client, id)?.event,
+    initialDataUpdatedAt: () => cardFromFeed(client, id)?.updatedAt,
+  });
+}
+
+function cardFromFeed(client: QueryClient, id: number): { event: EventCard; updatedAt: number } | undefined {
+  for (const query of client.getQueryCache().findAll({ queryKey: keys.feed })) {
+    const found = (query.state.data as Occurrence[] | undefined)?.find((item) => item.event.id === id);
+    if (found) return { event: found.event, updatedAt: query.state.dataUpdatedAt };
+  }
+  return undefined;
+}
+const mentionsKey = (id: number) => [...keys.event, id, "mentions"];
+export const useMentions = (id: number) => useApiQuery(mentionsKey(id), (api) => api.mentions(id));
+
+/** Loads an event's mentions ahead, so its window opens whole instead of filling in. */
+export function usePrefetchMentions() {
+  const api = useApi();
+  const client = useQueryClient();
+  return (id: number) => client.prefetchQuery({ queryKey: mentionsKey(id), queryFn: () => api.mentions(id) });
+}
 
 export const useSetMark = () => useApiMutation((api, { id, mark }: { id: number; mark: Mark }) => api.mark(id, mark), STALE.cards);
 export const useAddDevNote = () => useApiMutation((api, { id, text }: { id: number; text: string }) => api.addDevNote(id, text), []);

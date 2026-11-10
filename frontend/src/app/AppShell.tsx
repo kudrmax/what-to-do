@@ -10,22 +10,25 @@ import { UpdateIndicator } from "../updates/UpdatesProvider";
 import { SECTIONS } from "./routes";
 import "./AppShell.css";
 
+const linkClass = (active: boolean, extra = "") => () => ["shell__link", extra, active ? "active" : ""].filter(Boolean).join(" ");
+
 const MENU = [SECTIONS.feed, SECTIONS.calendar, SECTIONS.plans, SECTIONS.sources];
 
-export function AppShell({ children }: { children: ReactNode }) {
+/** The window frame with the sections menu; `screenPath` is the screen shown, which stays lit under an open event. */
+export function AppShell({ screenPath, children }: { screenPath: string; children: ReactNode }) {
   const onMouseDown = useNativeWindow();
   return (
     <div className="shell" onMouseDown={onMouseDown}>
       <nav className="shell__nav" aria-label="Разделы">
         <CityMenu />
         {MENU.map((section) => (
-          <NavLink key={section.path} to={section.path} end className="shell__link">
+          <NavLink key={section.path} to={section.path} className={linkClass(screenPath === section.path)}>
             <Icon name={section.icon} />
             {section.title}
           </NavLink>
         ))}
         <UpdateIndicator />
-        <NavLink to={SECTIONS.settings.path} className="shell__link shell__link--bottom">
+        <NavLink to={SECTIONS.settings.path} className={linkClass(screenPath.startsWith(SECTIONS.settings.path), "shell__link--bottom")}>
           <Icon name={SECTIONS.settings.icon} />
           {SECTIONS.settings.title}
         </NavLink>
