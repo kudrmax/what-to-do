@@ -48,9 +48,10 @@ class PotentialSources:
 
     BOT_SUFFIX = "bot"
 
-    def __init__(self, potential: PotentialSourceRepository, sources: SourceRepository) -> None:
+    def __init__(self, potential: PotentialSourceRepository, sources: SourceRepository, catalog: SourceCatalog) -> None:
         self._potential = potential
         self._sources = sources
+        self._catalog = catalog
 
     def note(self, city_id: int, post: Post, references: list[ChannelReference]) -> None:
         known = self._known_handles(city_id) | {post.source.handle.lower()}
@@ -81,6 +82,18 @@ class PotentialSources:
 
     def mark(self, potential_id: int, processed: bool) -> None:
         self._potential.mark(potential_id, processed)
+
+    async def adopt(self, city: City, potential_id: int) -> Source:
+        """Adds the channel as a source and only then marks it processed: if adding fails, nothing changes."""
+        found = self._potential.get(potential_id)
+        if found.city_id != city.id:
+            raise KeyError(potential_id)
+        try:
+            source = await self._catalog.add(city, found.handle, None)
+        except DuplicateSourceError:
+            source = next(s for s in self._sources.in_city(city.id) if s.handle.lower() == found.handle.lower())
+        self._potential.mark(found.id, True)
+        return source
 
     def _known_handles(self, city_id: int) -> set[str]:
         return {s.handle.lower() for s in self._sources.in_city(city_id)}

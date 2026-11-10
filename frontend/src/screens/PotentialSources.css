@@ -88,22 +88,10 @@
   cursor: pointer;
 }
 
-.potential__check {
+.potential__actions {
   flex: none;
-  display: inline-flex;
-  align-items: center;
+  display: flex;
   gap: 8px;
-  height: 32px;
-  font-size: 14px;
-  color: var(--text-2);
-  cursor: pointer;
-}
-
-.potential__check input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--accent);
 }
 
 .potential__processed {

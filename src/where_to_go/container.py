@@ -108,7 +108,8 @@ class Container:
         photo_llm = photo_llm or ClaudeJsonLlm(lambda: settings.load().photo_model)
         linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards)
         photo_texts = PhotoTextRepository(db)
-        potential_sources = PotentialSources(PotentialSourceRepository(db), sources)
+        catalog = SourceCatalog(sources, events, cards, reader)
+        potential_sources = PotentialSources(PotentialSourceRepository(db), sources, catalog)
         photos = PhotoTranscriber(photo_llm, images, photo_texts, lambda: settings.load().photo_prompt)
         post_mentions = PostMentions(mentions, cards)
         post_reader = PostReader(
@@ -143,7 +144,7 @@ class Container:
             settings=settings,
             cities=cities,
             sources=sources,
-            catalog=SourceCatalog(sources, events, cards, reader),
+            catalog=catalog,
             potential_sources=potential_sources,
             posts=posts,
             mentions=mentions,

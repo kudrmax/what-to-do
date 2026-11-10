@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 import respx
 from fastapi.testclient import TestClient
 
@@ -11,7 +12,7 @@ from where_to_go.api import create_app
 from where_to_go.container import Container
 from where_to_go.models import Source
 from where_to_go.refresh import Stage
-from where_to_go.telegram import TelegramPageParser
+from where_to_go.telegram import SourceError, TelegramPageParser
 
 EARLIER = (datetime.now(UTC) - timedelta(days=3)).isoformat()
 RECENT = (datetime.now(UTC) - timedelta(days=2)).isoformat()
@@ -192,3 +193,63 @@ def test_potential_sources_are_listed_and_marked_through_the_api(tmp_path):
         assert client.put(f"/potential-sources/{found['id']}/processed", json={"processed": True}).status_code == 204
         assert client.get("/potential-sources").json()[0]["processed"] is True
         assert client.put("/potential-sources/999/processed", json={"processed": True}).status_code == 404
+
+        respx.get("https://t.me/s/lectures_bg").respond(200, text="<html>no preview</html>")
+        assert client.post(f"/potential-sources/{found['id']}/source").status_code == 422
+        respx.get("https://t.me/s/lectures_bg").respond(200, text=channel_page("lectures_bg", []))
+        assert client.post(f"/potential-sources/{found['id']}/source").json()["handle"] == "lectures_bg"
+        assert client.get("/potential-sources").json() == []
+        assert client.post("/potential-sources/999/source").status_code == 404
+
+
+async def found_one(container: Container) -> int:
+    serve([(1, RECENT, "ссылка")])
+    await refresh(container)
+    [found] = container.potential_sources.in_city(1)
+    return found.id
+
+
+@respx.mock
+async def test_a_potential_source_becomes_a_source_and_leaves_the_list(tmp_path):
+    container = await build(tmp_path, pointing({"ссылка": [link("lectures_bg")]}))
+    potential_id = await found_one(container)
+    respx.get("https://t.me/s/lectures_bg").respond(200, text=channel_page("lectures_bg", []))
+
+    source = await container.potential_sources.adopt(container.cities.active(), potential_id)
+
+    assert (source.handle, source.title) == ("lectures_bg", "Канал lectures_bg")
+    assert "lectures_bg" in [s.handle for s in container.sources.in_city(1)]
+    assert container.potential_sources.in_city(1) == []
+    await container.close()
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "unreachable",
+    [lambda route: route.respond(200, text="<html>no preview</html>"), lambda route: route.mock(side_effect=httpx.ConnectError("down"))],
+    ids=["no web preview", "telegram down"],
+)
+async def test_a_potential_source_that_cannot_be_added_stays_as_it_was(tmp_path, unreachable):
+    container = await build(tmp_path, pointing({"ссылка": [link("lectures_bg")]}))
+    potential_id = await found_one(container)
+    unreachable(respx.get("https://t.me/s/lectures_bg"))
+
+    with pytest.raises(SourceError):
+        await container.potential_sources.adopt(container.cities.active(), potential_id)
+
+    assert "lectures_bg" not in [s.handle for s in container.sources.in_city(1)]
+    assert [(p.handle, p.processed) for p in container.potential_sources.in_city(1)] == [("lectures_bg", False)]
+    await container.close()
+
+
+@respx.mock
+async def test_a_channel_already_added_meanwhile_is_just_marked_processed(tmp_path):
+    container = await build(tmp_path, pointing({"ссылка": [link("lectures_bg")]}))
+    potential_id = await found_one(container)
+    container.sources.add(Source(city_id=1, handle="lectures_bg", title="Лекции"))
+
+    source = await container.potential_sources.adopt(container.cities.active(), potential_id)
+
+    assert source.title == "Лекции"
+    assert container.potential_sources.in_city(1) == []
+    await container.close()

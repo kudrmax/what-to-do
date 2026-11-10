@@ -225,6 +225,19 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         Processed ones are included: the client hides them. They are found when posts are read; adding one is up to the user."""
         return c.potential_sources.in_city(city.id)
 
+    @app.post("/potential-sources/{potential_id}/source", response_model=SourcePublic, status_code=201, tags=[ApiTag.SOURCES])
+    async def adopt_potential_source(potential_id: int, c: ContainerDep, city: CityDep):
+        """Adds the channel as a source of the active city and marks it processed. Already a source: it is just marked.
+
+        422: the channel is closed or has no web preview; nothing changes and it stays in the list.
+        """
+        try:
+            return await c.potential_sources.adopt(city, potential_id)
+        except KeyError:
+            raise HTTPException(404, "Нет такого потенциального источника") from None
+        except SourceError as error:
+            raise HTTPException(422, str(error)) from None
+
     @app.put("/potential-sources/{potential_id}/processed", status_code=204, tags=[ApiTag.SOURCES])
     def mark_potential_source(potential_id: int, body: PotentialSourceMark, c: ContainerDep):
         """Marks a potential source processed or not. A processed one takes no more posts, so it never comes back."""
