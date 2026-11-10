@@ -95,6 +95,7 @@ async def test_each_event_gets_the_photo_claude_points_at_if_claude_saw_it():
     assert [image for _, image in result.events] == [1, None, None]
 
 
+
 async def test_at_most_ten_photos_of_a_post_are_read():
     _, llm = await extract_one([], images=12)
     assert len(json.loads(llm.calls[0][1].split("\n", 1)[1])[0]["photos"]) == 10
@@ -138,9 +139,9 @@ async def test_the_schema_claude_gets_carries_the_field_descriptions():
     assert "0 when free" in event["price"]["description"] and "poster" in event["photo"]["description"]
 
 
-def test_new_photo_rules_make_new_reading_rules():
-    other = ExtractionContext(CONTEXT.city, CONTEXT.prompt, CONTEXT.language, CONTEXT.tags, CONTEXT.fallback_tag, photo_rules="other")
-    assert other.rules != CONTEXT.rules
+def test_an_edited_prompt_reads_no_post_again():
+    edited = ExtractionContext(CONTEXT.city, CONTEXT.prompt + "\nRead slowly.", "english", CONTEXT.tags, CONTEXT.fallback_tag)
+    assert edited.rules == CONTEXT.rules
 
 
 async def test_claude_is_asked_for_the_booking_link_and_this_events_lines():

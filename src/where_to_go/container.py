@@ -110,11 +110,12 @@ class Container:
         photo_texts = PhotoTextRepository(db)
         potential_sources = PotentialSources(PotentialSourceRepository(db), sources)
         photos = PhotoTranscriber(photo_llm, images, photo_texts, lambda: settings.load().photo_prompt)
+        post_mentions = PostMentions(mentions, cards)
         post_reader = PostReader(
             settings=settings,
             tags=tags,
             posts=posts,
-            post_mentions=PostMentions(mentions, cards),
+            post_mentions=post_mentions,
             places=places,
             potential_sources=potential_sources,
             extractor=PostExtractor(extraction_llm),
@@ -133,6 +134,7 @@ class Container:
             images=images,
             photos=photos,
             post_reader=post_reader,
+            post_mentions=post_mentions,
             linker=linker,
         )
         return cls(

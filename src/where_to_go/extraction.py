@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -11,6 +10,7 @@ from pydantic import ValidationError
 from where_to_go.llm import JsonLlm
 from where_to_go.models import ChannelReference, City, EventReading, ExtractedEvent, ExtractedPlace, PhotoText, Post, Reading, Source
 from where_to_go.photos import PhotoTranscriber
+from where_to_go.reading_rules import ReadingRules
 
 
 @dataclass(frozen=True)
@@ -20,14 +20,10 @@ class ExtractionContext:
     language: str
     tags: list[str]
     fallback_tag: str
-    photo_rules: str = ""
 
     @property
     def rules(self) -> str:
-        """What decides how a post is read, its photos' text included; a post read with other rules is read again.
-        Tags are left out: editing the list should not re-read every channel."""
-        rules = json.dumps([self.prompt, self.language, Reading.model_json_schema(), self.photo_rules], ensure_ascii=False, sort_keys=True)
-        return hashlib.sha256(rules.encode()).hexdigest()[:16]
+        return ReadingRules.POSTS
 
 
 @dataclass(frozen=True)

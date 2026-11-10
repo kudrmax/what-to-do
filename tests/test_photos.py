@@ -13,6 +13,7 @@ from where_to_go.db import Database
 from where_to_go.images import ImageStore
 from where_to_go.models import Post, Source
 from where_to_go.photos import PhotoTranscriber
+from where_to_go.reading_rules import ReadingRules
 from where_to_go.refresh import Stage
 from where_to_go.repositories import PhotoTextRepository
 from where_to_go.settings import AppSettings, ClaudeModel
@@ -60,16 +61,17 @@ def test_only_stored_photos_without_text_under_the_current_rules_are_untranscrib
     assert photos.untranscribed([post("a.jpg", "gone.jpg"), post("a.jpg", "b.jpg")]) == ["a.jpg", "b.jpg"]
 
 
-async def test_new_photo_rules_make_every_photo_untranscribed_again():
+async def test_an_edited_prompt_leaves_photos_transcribed_and_new_rules_transcribe_them_again(monkeypatch):
     images = store("a.jpg")
     texts = PhotoTextRepository(Database(":memory:"))
     prompt = ["Transcribe"]
     photos = PhotoTranscriber(photos_saying(), images, texts, lambda: prompt[0])
     await photos.transcribe(["a.jpg"])
-    assert photos.untranscribed([post("a.jpg")]) == []
 
     prompt[0] = "Transcribe carefully"
+    assert photos.untranscribed([post("a.jpg")]) == []
 
+    monkeypatch.setattr(ReadingRules, "PHOTOS", "next")
     assert photos.untranscribed([post("a.jpg")]) == ["a.jpg"]
 
 
@@ -152,7 +154,7 @@ async def test_a_post_whose_photo_claude_could_not_read_waits_for_the_next_refre
 
 
 @respx.mock
-async def test_new_photo_rules_transcribe_the_photos_again_and_read_their_posts_again(tmp_path):
+async def test_new_rules_transcribe_the_photos_again_and_read_their_posts_again(tmp_path, monkeypatch):
     extraction = extraction_by_text({"кафаны": [raw_event("Кафаны", "2026-11-13")]})
     photo_llm = photos_saying("КАФАНЫ")
     container = await build(tmp_path, extraction, photo_llm)
@@ -161,6 +163,11 @@ async def test_new_photo_rules_transcribe_the_photos_again_and_read_their_posts_
     await container.refresh.wait()
 
     container.settings.update(photo_prompt="Transcribe every letter")
+    container.refresh.start()
+    assert (await container.refresh.wait()).photos_read == 0
+
+    monkeypatch.setattr(ReadingRules, "PHOTOS", "next")
+    monkeypatch.setattr(ReadingRules, "POSTS", "next")
     container.refresh.start()
     progress = await container.refresh.wait()
 
