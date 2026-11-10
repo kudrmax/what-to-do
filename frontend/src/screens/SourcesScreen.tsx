@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import type { Source } from "../api/client";
-import { useAddSource, useDeleteSource, useRenameSource, useSources } from "../api/queries";
+import { useAddSource, useDeleteSource, useMarkSource, useRenameSource, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
 import { ago, plural } from "../domain/dates";
@@ -56,17 +56,35 @@ function AddSourceForm() {
   );
 }
 
-function SourceList() {
+export function SourceList() {
   const sources = useSources();
   if (!sources.data?.length) {
     return <p className="muted">Каналов пока нет. Добавьте публичный канал с афишей и нажмите «Обновить» в «Ближайших».</p>;
   }
   return (
     <div className="sources-table" role="table" aria-label="Каналы">
-      {sources.data.map((source) => (
+      {favoritesFirst(sources.data).map((source) => (
         <SourceRow key={source.id} source={source} />
       ))}
     </div>
+  );
+}
+
+function favoritesFirst(sources: Source[]): Source[] {
+  return [...sources].sort((a, b) => Number(b.status === "favorite") - Number(a.status === "favorite"));
+}
+
+function FavoriteToggle({ source }: { source: Source }) {
+  const mark = useMarkSource();
+  const favorite = source.status === "favorite";
+  return (
+    <IconButton
+      icon="star"
+      label={favorite ? "Убрать из избранного" : "В избранное"}
+      aria-pressed={favorite}
+      className={`favorite-toggle${favorite ? " favorite-toggle--on" : ""}`}
+      onClick={() => mark.mutate({ id: source.id, status: favorite ? "new" : "favorite" })}
+    />
   );
 }
 
@@ -81,6 +99,9 @@ function SourceRow({ source }: { source: Source }) {
       : { label: "Ждёт обновления", kind: "new" };
   return (
     <div className="sources-table__row" role="row">
+      <span role="cell" className="sources-table__favorite">
+        <FavoriteToggle source={source} />
+      </span>
       <div className="sources-table__name" role="cell">
         <InlineEdit value={source.title} label="Название канала" className="sources-table__title" onSave={(title) => rename.mutate({ id: source.id, title })} />
         <a href={source.url} target="_blank" rel="noreferrer" className="sources-table__link">

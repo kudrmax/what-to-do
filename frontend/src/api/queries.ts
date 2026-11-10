@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange } from "./client";
+import type { Api, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange, SourceStatus } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -93,6 +93,8 @@ export const useMarkPotentialSource = () =>
   useApiMutation((api, { id, processed }: { id: number; processed: boolean }) => api.markPotentialSource(id, processed), STALE.potentialSources);
 export const useAddSource = () => useApiMutation((api, source: NewSource) => api.addSource(source), STALE.sources);
 export const useRenameSource = () => useApiMutation((api, { id, title }: { id: number; title: string }) => api.renameSource(id, title), STALE.sources);
+export const useMarkSource = () =>
+  useApiMutation((api, { id, status }: { id: number; status: SourceStatus }) => api.markSource(id, status), STALE.sources);
 export const useDeleteSource = () => useApiMutation((api, id: number) => api.deleteSource(id), STALE.city);
 export const useAddTag = () => useApiMutation((api, name: string) => api.addTag(name), STALE.tags);
 export const useRenameTag = () => useApiMutation((api, { id, name }: { id: number; name: string }) => api.renameTag(id, name), STALE.tags);

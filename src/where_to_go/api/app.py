@@ -37,6 +37,7 @@ from where_to_go.models import (
     PotentialSourcePublic,
     Source,
     SourcePublic,
+    SourceStatusChange,
     TagBase,
     TagPublic,
 )
@@ -207,6 +208,11 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def rename_source(body: SourceRename, c: ContainerDep, source: SourceDep):
         """Renames a source."""
         return c.sources.change(source.id, title=body.title.strip())
+
+    @app.put("/sources/{source_id}/status", response_model=SourcePublic, tags=[ApiTag.SOURCES])
+    def mark_source(body: SourceStatusChange, c: ContainerDep, source: SourceDep):
+        """Sets the user's mark on a source: new or favorite. It changes nothing in the refresh or the feed."""
+        return c.sources.change(source.id, status=body.status)
 
     @app.delete("/sources/{source_id}", status_code=204, tags=[ApiTag.SOURCES])
     def delete_source(c: ContainerDep, source: SourceDep):
