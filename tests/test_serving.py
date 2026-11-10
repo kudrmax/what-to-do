@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.helpers import extraction_by_text, judge_same_titles
+from tests.helpers import photos_saying, extraction_by_text, judge_same_titles
 from where_to_go.api import create_app
 from where_to_go.container import Container
 from where_to_go.serving import AppWithInterface
@@ -19,7 +19,7 @@ def interface(tmp_path):
 
 @pytest.fixture
 def client(tmp_path, interface):
-    api = create_app(lambda: Container.build(tmp_path / "data", extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles()))
+    api = create_app(lambda: Container.build(tmp_path / "data", extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying()))
     with TestClient(AppWithInterface.build(api, interface)) as test_client:
         yield test_client
 

@@ -316,6 +316,27 @@ class Post(SQLModel, table=True):
     source: Source = Relationship(sa_relationship_kwargs={"lazy": "joined"})
 
 
+class PhotoTextBase(SQLModel):
+    """What a post photo says, transcribed once so posts are read as text."""
+
+    text: str = Field(
+        description="All the text on the photo word for word, in its own language. Keep line breaks and structure: "
+        'a schedule or a table stays one, one row per line, cells separated by " | ". Do not correct, translate, '
+        "summarize or skip small print. Empty when the photo has no text"
+    )
+    shows: str = Field(
+        description='One short sentence in English about what the photo is, e.g. "poster of a tea ceremony", '
+        '"weekly schedule", "collage of 12 event posters", "people at a table, no text"'
+    )
+
+
+class PhotoText(PhotoTextBase, table=True):
+    __tablename__ = "photo_texts"
+
+    image: str = Field(primary_key=True, description="The stored image file")
+    read_with: str = Field(description="Fingerprint of the transcription rules")
+
+
 class TagBase(SQLModel):
     name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Танцы"]})
 
@@ -456,3 +477,11 @@ class PostReading(SQLModel):
 
 class Reading(SQLModel):
     posts: list[PostReading]
+
+
+class PhotoReading(PhotoTextBase):
+    photo: int = Field(description="The photo's number from its caption")
+
+
+class PhotoReadings(SQLModel):
+    photos: list[PhotoReading] = Field(description="One item per photo")

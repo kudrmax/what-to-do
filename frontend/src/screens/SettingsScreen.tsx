@@ -15,6 +15,7 @@ export function SettingsScreen() {
     <Screen title={SECTIONS.settings.title} narrow>
       <CitiesSection />
       {settings.data && <ReadingSection settings={settings.data} />}
+      {settings.data && <ModelsSection settings={settings.data} />}
       <TagsSection />
       {settings.data && <PromptsSection settings={settings.data} />}
       <UpdatesSection />
@@ -96,6 +97,47 @@ function ReadingSection({ settings }: { settings: Settings }) {
 
 type EditableSetting = "recent_posts" | "description_language";
 
+type ModelSetting = "photo_model" | "extraction_model" | "matching_model";
+type ClaudeModel = Settings[ModelSetting];
+
+const MODELS: { id: ClaudeModel; name: string; tip: string }[] = [
+  { id: "claude-haiku-5-5", name: "Haiku", tip: "Быстрее и дешевле всех" },
+  { id: "claude-sonnet-5-5", name: "Sonnet", tip: "Точнее Haiku, дороже" },
+  { id: "claude-opus-5-5", name: "Opus", tip: "Самая сильная и самая дорогая" },
+];
+
+function ModelsSection({ settings }: { settings: Settings }) {
+  return (
+    <Section title="Модели Claude" hint="Новая модель действует со следующего обновления.">
+      <ModelRow name="photo_model" value={settings.photo_model} label="Расшифровка фото" hint="Переписывает текст с афиш и картинок постов. Haiku путает таблицы и коллажи." />
+      <ModelRow name="extraction_model" value={settings.extraction_model} label="Разбор постов" hint="Превращает посты в события и места." />
+      <ModelRow name="matching_model" value={settings.matching_model} label="Склейка повторов" hint="Решает, что два анонса — одно событие." />
+    </Section>
+  );
+}
+
+function ModelRow({ name, value, label, hint }: { name: ModelSetting; value: ClaudeModel; label: string; hint: string }) {
+  const change = useChangeSettings();
+  return (
+    <div className="setting-row">
+      <div className="setting-row__text">
+        <span className="setting-row__label">{label}</span>
+        <p className="setting-row__hint">{hint}</p>
+      </div>
+      <div className="setting-row__control">
+        <div className="settings-chips" role="group" aria-label={label}>
+          {MODELS.map((model) => (
+            <button key={model.id} type="button" className="chip" aria-pressed={model.id === value} data-tip={model.tip} onClick={() => model.id !== value && change.mutate({ [name]: model.id })}>
+              {model.name}
+            </button>
+          ))}
+        </div>
+        {change.error && <span className="error-text">{errorText(change.error)}</span>}
+      </div>
+    </div>
+  );
+}
+
 /** One setting: its name and what it does on the left, the field on the right; saves on leaving the field. */
 function SettingRow({ name, type, value, label, hint }: { name: EditableSetting; type: "number" | "text"; value: string | number; label: string; hint: string }) {
   const change = useChangeSettings();
@@ -171,14 +213,15 @@ function TagChip({ tag }: { tag: Tag }) {
 
 function PromptsSection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Промпты для Claude" hint="Новый текст действует со следующего обновления. Уже разобранные посты не перечитываются.">
+    <Section title="Промпты для Claude" hint="Новый текст действует со следующего обновления: последние посты каждого канала разберутся заново. Посты, события которых вы склеивали или разделяли вручную, не перечитываются.">
       <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Разбор постов" hint="Как превращать посты в события. Подстановки: {city} — город, {language} — язык описаний, {tags} — список тегов, {fallback} — тег «не распознано»." />
+      <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Расшифровка фото" hint="Как переписывать текст с афиш и картинок постов. Посты потом читаются вместе с этим текстом." />
       <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Склейка повторов" hint="Как решать, что два анонса — одно и то же событие." />
     </Section>
   );
 }
 
-function PromptEditor({ name, value, title, hint }: { name: "extraction_prompt" | "matching_prompt"; value: string; title: string; hint: string }) {
+function PromptEditor({ name, value, title, hint }: { name: "extraction_prompt" | "photo_prompt" | "matching_prompt"; value: string; title: string; hint: string }) {
   const defaults = useDefaultSettings();
   const change = useChangeSettings();
   const [draft, setDraft] = useState(value);

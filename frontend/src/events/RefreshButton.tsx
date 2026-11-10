@@ -6,6 +6,7 @@ import "./RefreshButton.css";
 const STAGE_LABEL: Record<RefreshStatus["stage"], (status?: RefreshStatus) => string> = {
   idle: () => "Собираю посты",
   collecting: () => "Собираю посты",
+  photos: (s) => (s ? `Читаю фото: ${s.photos_read} из ${s.photos_to_read}` : "Читаю фото"),
   reading: (s) => (s ? `Читаю посты: ${s.posts_read} из ${s.posts_to_read}` : "Читаю посты"),
   merging: () => "Склеиваю повторы",
   done: () => "Готово",

@@ -13,11 +13,15 @@ What to keep
 - A follow-up about an event announced earlier is an item too: a post that adds details (update_kind "details"), moves it ("reschedule") or cancels it ("cancellation"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.
 
 Photos
-- The photos of the posts come after them, each captioned with its post and index. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
+- Each post lists its photos by index: "shows" says what the photo is, "text" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
 - For every event give "photo": the index of its post's photo that shows that event.
 
 The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
 Each field's meaning is in the schema."""
+
+PHOTOS = """You transcribe the photos of Telegram posts that announce events: posters, event cards, schedules, digests.
+
+Every photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema."""
 
 MATCHING = """You merge duplicate event announcements collected from several Telegram channels.
 

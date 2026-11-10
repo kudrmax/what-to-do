@@ -574,7 +574,7 @@ export interface components {
              *     - A follow-up about an event announced earlier is an item too: a post that adds details (update_kind "details"), moves it ("reschedule") or cancels it ("cancellation"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.
              *
              *     Photos
-             *     - The photos of the posts come after them, each captioned with its post and index. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
+             *     - Each post lists its photos by index: "shows" says what the photo is, "text" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
              *     - For every event give "photo": the index of its post's photo that shows that event.
              *
              *     The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
@@ -596,6 +596,29 @@ export interface components {
              *     Never set both same_as_card and same_as_announcement.
              */
             matching_prompt: string;
+            /**
+             * Photo Prompt
+             * @description Instructions Claude gets for transcribing post photos
+             * @default You transcribe the photos of Telegram posts that announce events: posters, event cards, schedules, digests.
+             *
+             *     Every photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema.
+             */
+            photo_prompt: string;
+            /**
+             * @description Transcribes post photos; Haiku misreads tables and collages
+             * @default claude-sonnet-5-5
+             */
+            photo_model: components["schemas"]["ClaudeModel"];
+            /**
+             * @description Reads posts into events and places
+             * @default claude-sonnet-5-5
+             */
+            extraction_model: components["schemas"]["ClaudeModel"];
+            /**
+             * @description Merges duplicate announcements
+             * @default claude-haiku-5-5
+             */
+            matching_model: components["schemas"]["ClaudeModel"];
         };
         /** ChangelogEntryView */
         ChangelogEntryView: {
@@ -648,6 +671,11 @@ export interface components {
             /** Id */
             id: number;
         };
+        /**
+         * ClaudeModel
+         * @enum {string}
+         */
+        ClaudeModel: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
         /** Conflict */
         Conflict: {
             field: components["schemas"]["ConflictField"];
@@ -944,6 +972,17 @@ export interface components {
              */
             new_posts: number;
             /**
+             * Photos To Read
+             * @description Photos Claude transcribes in this refresh
+             * @default 0
+             */
+            photos_to_read: number;
+            /**
+             * Photos Read
+             * @default 0
+             */
+            photos_read: number;
+            /**
              * Posts To Read
              * @description Posts Claude reads in this refresh
              * @default 0
@@ -998,6 +1037,17 @@ export interface components {
              * @description Instructions Claude gets for merging duplicates
              */
             matching_prompt?: string | null;
+            /**
+             * Photo Prompt
+             * @description Instructions Claude gets for transcribing post photos
+             */
+            photo_prompt?: string | null;
+            /** @description Transcribes post photos; Haiku misreads tables and collages */
+            photo_model?: components["schemas"]["ClaudeModel"] | null;
+            /** @description Reads posts into events and places */
+            extraction_model?: components["schemas"]["ClaudeModel"] | null;
+            /** @description Merges duplicate announcements */
+            matching_model?: components["schemas"]["ClaudeModel"] | null;
         };
         /**
          * SourceKind
@@ -1064,7 +1114,7 @@ export interface components {
          * Stage
          * @enum {string}
          */
-        Stage: "idle" | "collecting" | "reading" | "merging" | "done" | "failed";
+        Stage: "idle" | "collecting" | "photos" | "reading" | "merging" | "done" | "failed";
         /** TagBase */
         TagBase: {
             /**

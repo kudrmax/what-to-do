@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime, time
 from typing import Any
@@ -35,6 +36,16 @@ def extraction_by_text(events_by_marker: dict[str, list[dict[str, Any]]]) -> Fak
             events = next((e for marker, e in events_by_marker.items() if marker in post["text"]), [])
             result.append({"post_id": post["post_id"], "events": events, "places": []})
         return {"posts": result}
+
+    return FakeLlm(answer)
+
+
+def photos_saying(text: str = "", shows: str = "poster") -> FakeLlm:
+    """Transcription fake: every photo says the same."""
+
+    def answer(_: str, prompt: str) -> dict[str, Any]:
+        count = int(re.search(r"these (\d+) photos", prompt).group(1))
+        return {"photos": [{"photo": number, "text": text, "shows": shows} for number in range(count)]}
 
     return FakeLlm(answer)
 

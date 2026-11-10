@@ -4,7 +4,7 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from tests.helpers import channel_page, extraction_by_text, judge_same_titles, raw_event
+from tests.helpers import photos_saying, channel_page, extraction_by_text, judge_same_titles, raw_event
 from where_to_go.api import create_app
 from where_to_go.container import Container
 
@@ -12,7 +12,7 @@ from where_to_go.container import Container
 @pytest.fixture
 def client(tmp_path):
     extraction = extraction_by_text({"квиз": [raw_event("Квиз", "2099-01-02", "20:00", tags=["Игры и квизы"], photo=0)]})
-    app = create_app(lambda: Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge_same_titles()))
+    app = create_app(lambda: Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge_same_titles(), photo_llm=photos_saying()))
     with TestClient(app) as test_client:
         yield test_client
 
