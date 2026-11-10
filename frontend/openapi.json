@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "0.1.0"
+  "version": "1.1.0"
  },
  "paths": {
   "/settings": {
@@ -634,7 +634,7 @@
      "events"
     ],
     "summary": "Event Mentions",
-    "description": "The original posts a card is built from, oldest first.",
+    "description": "The original posts a card is built from: the organizer's first, then the most detailed, then the newest.\nEach comes with its photos, what Claude read on them, and the lines about this event.",
     "operationId": "event_mentions_events__event_id__mentions_get",
     "parameters": [
      {
@@ -1286,6 +1286,34 @@
     "title": "AppSettings",
     "description": "Every setting of the app, described once: storage, the API and its change request all come from here."
    },
+   "Booking": {
+    "properties": {
+     "url": {
+      "type": "string",
+      "title": "Url",
+      "description": "The link exactly as the post gives it"
+     },
+     "kind": {
+      "$ref": "#/components/schemas/BookingKind",
+      "description": "registration: a form, a bot or a page to sign up; tickets: a ticket shop"
+     }
+    },
+    "type": "object",
+    "required": [
+     "url",
+     "kind"
+    ],
+    "title": "Booking",
+    "description": "Where one signs up for an event or buys a ticket."
+   },
+   "BookingKind": {
+    "type": "string",
+    "enum": [
+     "registration",
+     "tickets"
+    ],
+    "title": "BookingKind"
+   },
    "ChangelogEntryView": {
     "properties": {
      "version": {
@@ -1585,6 +1613,17 @@
       "title": "Tags",
       "description": "One or two tags from the allowed list"
      },
+     "booking": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Booking"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Where to sign up or buy a ticket for this event: a registration form, a booking bot or a ticket shop the post links to. null when the post gives none; never the channel or another post about the event"
+     },
      "is_cancelled": {
       "type": "boolean",
       "title": "Is Cancelled",
@@ -1669,6 +1708,7 @@
      "price",
      "currency",
      "tags",
+     "booking",
      "is_cancelled",
      "conflicts",
      "source_ids",
@@ -1809,6 +1849,17 @@
       "title": "Tags",
       "description": "One or two tags from the allowed list"
      },
+     "booking": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Booking"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Where to sign up or buy a ticket for this event: a registration form, a booking bot or a ticket shop the post links to. null when the post gives none; never the channel or another post about the event"
+     },
      "update_kind": {
       "$ref": "#/components/schemas/UpdateKind",
       "description": "announcement: a normal announcement; reschedule: moves an event announced earlier (give the new date and time); cancellation: cancels one; details: only adds details to one announced earlier",
@@ -1819,6 +1870,14 @@
       "title": "From Organizer",
       "description": "true when the channel itself organizes or hosts the event, false for afisha and repost channels",
       "default": false
+     },
+     "post_lines": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Post Lines",
+      "description": "The lines of the post text that are about this event, copied exactly. Empty when the whole post is about this one event"
      }
     },
     "type": "object",
@@ -1910,6 +1969,34 @@
       "type": "string",
       "format": "date-time",
       "title": "Published At"
+     },
+     "photos": {
+      "items": {
+       "$ref": "#/components/schemas/PostPhoto"
+      },
+      "type": "array",
+      "title": "Photos",
+      "description": "Every photo of the post, in its order"
+     },
+     "event_photo": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Event Photo",
+      "description": "Index in photos of the one that shows this event"
+     },
+     "event_lines": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Event Lines",
+      "description": "Indexes of the post_text lines about this event; empty when the whole post is about it"
      }
     },
     "type": "object",
@@ -1921,7 +2008,10 @@
      "source_title",
      "post_url",
      "post_text",
-     "published_at"
+     "published_at",
+     "photos",
+     "event_photo",
+     "event_lines"
     ],
     "title": "MentionPublic",
     "description": "One original post behind a card."
@@ -2021,6 +2111,32 @@
     ],
     "title": "PlanFilter",
     "description": "A plan to show, or none for cards the user has not marked yet."
+   },
+   "PostPhoto": {
+    "properties": {
+     "url": {
+      "type": "string",
+      "title": "Url"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Text",
+      "description": "What Claude read on the photo; null until it is read"
+     }
+    },
+    "type": "object",
+    "required": [
+     "url",
+     "text"
+    ],
+    "title": "PostPhoto"
    },
    "RefreshProgress": {
     "properties": {

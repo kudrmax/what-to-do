@@ -274,8 +274,9 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     @app.get("/events/{event_id}/mentions", response_model=list[MentionPublic], tags=[ApiTag.EVENTS])
     def event_mentions(c: ContainerDep, event: EventDep):
-        """The original posts a card is built from, oldest first."""
-        return c.mentions.of_event(event.id)
+        """The original posts a card is built from: the organizer's first, then the most detailed, then the newest.
+        Each comes with its photos, what Claude read on them, and the lines about this event."""
+        return c.originals.present(c.mentions.of_event(event.id))
 
     @app.get(
         "/events/{event_id}/calendar.ics",

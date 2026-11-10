@@ -13,6 +13,7 @@ from where_to_go.images import ImageStore
 from where_to_go.linking import EventCards, EventLinker, PostMentions
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
+from where_to_go.originals import OriginalPosts
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
 from where_to_go.releases import PROJECT_DIR, Releases, ReleaseSource
@@ -65,6 +66,7 @@ class Container:
     events: EventRepository
     images: ImageStore
     photos: PhotoTranscriber
+    originals: OriginalPosts
     cards: EventCards
     linker: EventLinker
     feed: Feed
@@ -141,6 +143,7 @@ class Container:
             events=events,
             images=images,
             photos=photos,
+            originals=OriginalPosts(photo_texts),
             cards=cards,
             linker=linker,
             feed=Feed(events),
