@@ -11,12 +11,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import ValidationError
 from sqlmodel import Field, SQLModel
 
 from where_to_go.about import APP_NAME, VERSION
 from where_to_go.api.errors import validation_error
+from where_to_go.calendar_file import EventCalendarFile
 from where_to_go.container import Container
 from where_to_go.feed import FeedFilter, Occurrence, PlanFilter
 from where_to_go.models import (
@@ -263,6 +264,23 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def event_mentions(c: ContainerDep, event: EventDep):
         """The original posts a card is built from, oldest first."""
         return c.mentions.of_event(event.id)
+
+    @app.get(
+        "/events/{event_id}/calendar.ics",
+        tags=[ApiTag.EVENTS],
+        response_class=Response,
+        responses={200: {"content": {EventCalendarFile.MEDIA_TYPE: {}}}},
+    )
+    def calendar_file(c: ContainerDep, event: EventDep):
+        """The card as an .ics file for Apple Calendar, Google Calendar or Outlook.
+        A timed event is put in for two hours, since posts give no end time."""
+        mentions = c.mentions.of_event(event.id)
+        file = EventCalendarFile(event, c.cities.get(event.city_id), mentions[-1].post_url if mentions else None)
+        return Response(
+            file.render(),
+            media_type=EventCalendarFile.MEDIA_TYPE,
+            headers={"Content-Disposition": f'attachment; filename="{file.filename}"'},
+        )
 
     @app.put("/events/{event_id}/mark", response_model=EventPublic, tags=[ApiTag.EVENTS])
     def set_mark(body: Mark, c: ContainerDep, event: EventDep):

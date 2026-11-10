@@ -663,6 +663,45 @@
     }
    }
   },
+  "/events/{event_id}/calendar.ics": {
+   "get": {
+    "tags": [
+     "events"
+    ],
+    "summary": "Calendar File",
+    "description": "The card as an .ics file for Apple Calendar, Google Calendar or Outlook.\nA timed event is put in for two hours, since posts give no end time.",
+    "operationId": "calendar_file_events__event_id__calendar_ics_get",
+    "parameters": [
+     {
+      "name": "event_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Event Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "text/calendar": {}
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/events/{event_id}/mark": {
    "put": {
     "tags": [
