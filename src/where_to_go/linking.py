@@ -1,25 +1,31 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from datetime import date
 
-from where_to_go.models import ExtractedEvent, Mark, Mention
-from where_to_go.matching import CandidateFinder, DuplicateJudge, TitleSimilarity
+from where_to_go.models import Event, ExtractedEvent, Mark, Mention
+from where_to_go.matching import CandidateFinder, DuplicateJudge, MatchDecision, TitleSimilarity
 from where_to_go.repositories import EventRepository, MentionRepository
 from where_to_go.resolution import EventResolver
+
+Atomically = Callable[[], AbstractContextManager[None]]
 
 
 class EventCards:
     """Keeps every card in sync with the mentions it is built from."""
 
-    def __init__(self, events: EventRepository, mentions: MentionRepository, resolver: EventResolver) -> None:
+    def __init__(self, events: EventRepository, mentions: MentionRepository, resolver: EventResolver, atomically: Atomically) -> None:
         self._events = events
         self._mentions = mentions
         self._resolver = resolver
+        self.atomically = atomically
 
     def create(self, city_id: int, mention: Mention, locked: bool = False) -> int:
-        event_id = self._events.create(city_id, mention.data).id
-        self._mentions.assign(mention.id, event_id, locked)
-        return event_id
+        with self.atomically():
+            event_id = self._events.create(city_id, mention.data).id
+            self._mentions.assign(mention.id, event_id, locked)
+            return event_id
 
     def discard(self, mention: Mention) -> None:
         """A follow-up of an event the app does not know: it has no date to make a card of."""
@@ -43,6 +49,11 @@ class EventCards:
         target, other = self._events.get(target_id), self._events.get(other_id)
         if target.city_id != other.city_id:
             raise ValueError("cards belong to different cities")
+        with self.atomically():
+            self._merge(target, other)
+
+    def _merge(self, target: Event, other: Event) -> None:
+        target_id, other_id = target.id, other.id
         for mention in self._mentions.of_event(other_id):
             self._mentions.assign(mention.id, target_id, locked=True)
         for mention in self._mentions.of_event(target_id):
@@ -62,13 +73,14 @@ class EventCards:
         if mention.data.is_dateless_follow_up:
             raise ValueError("В этом посте нет даты, отдельным событием он быть не может")
         city_id = self._events.get(event_id).city_id
-        new_id = self.create(city_id, mention, locked=True)
-        for rest in mentions:
-            if rest.id != mention_id:
-                self._mentions.assign(rest.id, event_id, locked=True)
-        self.refresh(event_id)
-        self.refresh(new_id)
-        return new_id
+        with self.atomically():
+            new_id = self.create(city_id, mention, locked=True)
+            for rest in mentions:
+                if rest.id != mention_id:
+                    self._mentions.assign(rest.id, event_id, locked=True)
+            self.refresh(event_id)
+            self.refresh(new_id)
+            return new_id
 
     def refresh(self, event_id: int) -> None:
         mentions = self._mentions.of_event(event_id)
@@ -79,7 +91,11 @@ class EventCards:
 
 
 class EventLinker:
-    """Attaches newly extracted mentions to existing cards or opens new ones."""
+    """Attaches newly extracted mentions to existing cards or opens new ones.
+
+    Claude judges a chunk first; then the chunk's cards are opened, joined and rebuilt in one transaction,
+    so a stop at any moment leaves every chunk either fully linked or still waiting for the next refresh.
+    """
 
     CHUNK = 15
 
@@ -92,20 +108,23 @@ class EventLinker:
         touched: set[int] = set()
         # Dateless follow-ups go last, when the cards they are about already exist.
         ordered = sorted(mentions, key=lambda m: (m.data.start_date or date.max, m.published_at))
-        try:
-            for start in range(0, len(ordered), self.CHUNK):
-                touched |= await self._link_chunk(city_id, ordered[start : start + self.CHUNK])
-        finally:
-            for event_id in touched:
-                self._cards.refresh(event_id)
+        for start in range(0, len(ordered), self.CHUNK):
+            touched |= await self._link_chunk(city_id, ordered[start : start + self.CHUNK])
         return touched
 
     async def _link_chunk(self, city_id: int, chunk: list[Mention]) -> set[int]:
         candidates = {e.id: e for m in chunk for e in self._finder.find(city_id, m)}
-        if not candidates and len(chunk) == 1:
+        decisions = await self._judge.decide(chunk, list(candidates.values())) if candidates or len(chunk) > 1 else None
+        with self._cards.atomically():
+            touched = self._apply(city_id, chunk, decisions)
+            for event_id in touched:
+                self._cards.refresh(event_id)
+        return touched
+
+    def _apply(self, city_id: int, chunk: list[Mention], decisions: list[MatchDecision] | None) -> set[int]:
+        if decisions is None:
             opened = self._open(city_id, chunk[0])
             return set() if opened is None else {opened}
-        decisions = await self._judge.decide(chunk, list(candidates.values()))
         by_mention = {m.id: m for m in chunk}
         placed: dict[int, int] = {}
         touched: set[int] = set()
@@ -134,7 +153,8 @@ class EventLinker:
 
 class PostMentions:
     """Stores what Claude read in a post. A post read again keeps each event it still announces on the same card,
-    so the card's marks stay; events it no longer announces leave their cards, new ones wait for linking."""
+    so the card's marks stay; events it no longer announces leave their cards, new ones wait for linking.
+    Call it inside a transaction together with marking the post read."""
 
     MIN_SIMILARITY = 0.3
 

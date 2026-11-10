@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from sqlalchemy import event as sa_event
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -24,14 +25,37 @@ class Database:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
             url = f"sqlite:///{path}"
         self.engine: Engine = create_engine(url, **options)
+        self._transaction: ContextVar[Connection | None] = ContextVar(f"transaction of {path}", default=None)
         sa_event.listen(self.engine, "connect", _sqlite_pragmas)
         SQLModel.metadata.create_all(self.engine)
         self._add_new_columns()
 
     @contextmanager
     def session(self) -> Iterator[Session]:
-        with Session(self.engine, expire_on_commit=False) as session:
-            yield session
+        """Inside a transaction a session's commit only stages its changes; the transaction commits them all."""
+        connection = self._transaction.get()
+        if connection is None:
+            with Session(self.engine, expire_on_commit=False) as session:
+                yield session
+        else:
+            with Session(bind=connection, expire_on_commit=False, join_transaction_mode="rollback_only") as session:
+                yield session
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Everything written inside is saved together or not at all, even if the process dies halfway.
+
+        Never wait for Claude or the network inside: SQLite lets one writer at a time, everyone else waits.
+        """
+        if self._transaction.get() is not None:
+            yield
+            return
+        with self.engine.begin() as connection:
+            token = self._transaction.set(connection)
+            try:
+                yield
+            finally:
+                self._transaction.reset(token)
 
     def close(self) -> None:
         self.engine.dispose()

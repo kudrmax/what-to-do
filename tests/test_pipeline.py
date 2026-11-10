@@ -381,3 +381,82 @@ async def test_places_of_a_post_read_again_are_not_doubled(tmp_path):
     new_rules(container)
     await refresh(container)
     assert [p.name for p in container.places.in_city(1)] == ["Скалодром"]
+
+
+class ProcessDied(BaseException):
+    """The app stopped right here: nothing after this line runs, not even exception handlers."""
+
+
+def die_on(target, method: str, monkeypatch) -> None:
+    def died(*args, **kwargs):
+        raise ProcessDied
+
+    monkeypatch.setattr(target, method, died)
+
+
+async def stop_midway(container) -> None:
+    container.refresh.start()
+    with pytest.raises(ProcessDied):
+        await container.refresh.wait()
+    await container.close()
+
+
+async def finish_after_restart(tmp_path) -> Container:
+    container = Container.build(tmp_path, extraction_llm=extraction_by_text(TWO_POSTS), matching_llm=judge_same_titles(), http=httpx.AsyncClient())
+    container.refresh.start()
+    assert (await container.refresh.wait()).stage is Stage.DONE
+    return container
+
+
+TWO_POSTS = {"дайджест": [raw_event("Кафаны", "2026-11-13", "19:30")], "кафаны": [raw_event("Кафаны", "2026-11-13")]}
+
+
+@respx.mock
+async def test_a_stop_while_linking_leaves_no_card_without_posts_and_the_next_refresh_links_them(tmp_path, monkeypatch):
+    container = await build(tmp_path, extraction_by_text(TWO_POSTS), judge_same_titles())
+    serve_channels([(1, RECENT, "лекция про кафаны")], [(7, RECENT, "дайджест недели")])
+    die_on(container.mentions, "assign", monkeypatch)
+    await stop_midway(container)
+    monkeypatch.undo()
+
+    restarted = Container.build(tmp_path, http=httpx.AsyncClient())
+    assert restarted.events.in_city(1) == []
+    assert len(restarted.mentions.unassigned([1, 2])) == 2
+    await restarted.close()
+
+    container = await finish_after_restart(tmp_path)
+    [event] = container.events.in_city(1)
+    assert len(container.mentions.of_event(event.id)) == 2
+    assert event.source_ids == [1, 2]
+    await container.close()
+
+
+@respx.mock
+async def test_a_stop_while_storing_a_post_keeps_none_of_it_and_the_post_is_read_again(tmp_path, monkeypatch):
+    container = await build(tmp_path, extraction_by_text(TWO_POSTS), judge_same_titles())
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+    die_on(container.posts, "mark_processed", monkeypatch)
+    await stop_midway(container)
+    monkeypatch.undo()
+
+    restarted = Container.build(tmp_path, http=httpx.AsyncClient())
+    assert restarted.mentions.of_post(1) == []
+    assert [p.id for p in restarted.posts.unprocessed([1])] == [1]
+    await restarted.close()
+
+    container = await finish_after_restart(tmp_path)
+    [event] = container.events.in_city(1)
+    assert len(container.mentions.of_post(1)) == 1 and event.source_ids == [1]
+    await container.close()
+
+
+def test_a_transaction_saves_everything_or_nothing(tmp_path):
+    container = Container.build(tmp_path, extraction_llm=FakeLlm([]), matching_llm=FakeLlm([]), http=httpx.AsyncClient())
+    with pytest.raises(ProcessDied), container.db.transaction():
+        container.cities.add("Белград", "Europe/Belgrade")
+        raise ProcessDied
+    assert container.cities.all() == []
+    with container.db.transaction():
+        container.cities.add("Белград", "Europe/Belgrade")
+        container.cities.add("Нови-Сад", "Europe/Belgrade")
+    assert len(Container.build(tmp_path, http=httpx.AsyncClient()).cities.all()) == 2
