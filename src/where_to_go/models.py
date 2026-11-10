@@ -159,6 +159,10 @@ class EventFacts(SQLModel):
         "links to. null when the post gives none; never the channel or another post about the event",
     )
 
+    def facts(self) -> dict[str, Any]:
+        """The facts alone, as values: a table model is not validated, so a dump would leave nested facts as dicts."""
+        return {name: getattr(self, name) for name in EventFacts.model_fields}
+
     @model_validator(mode="before")
     @classmethod
     def _one_shape_per_kind(cls, data: Any) -> Any:

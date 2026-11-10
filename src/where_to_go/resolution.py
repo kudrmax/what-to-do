@@ -37,7 +37,7 @@ class EventResolver:
         facts |= {name: self._first(newest, lambda m, n=name: getattr(m.data, n)) for name in DETAIL_FIELDS}
         facts["start_time"] = self._first(schedule, lambda m: m.data.start_time if m.data.start_date == lead.start_date else None)
         facts["tags"] = self._tags(newest)
-        card.sqlmodel_update(EventFacts.model_validate(facts).model_dump(include=set(EventFacts.model_fields)))
+        card.sqlmodel_update(EventFacts.model_validate(facts).facts())
         card.image_path = self._first(fullest, lambda m: m.image_path)
         card.is_cancelled = self._is_cancelled(mentions)
         card.conflicts = self._conflicts(schedule)
