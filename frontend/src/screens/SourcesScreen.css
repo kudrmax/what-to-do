@@ -30,7 +30,7 @@
 
 .sources-table__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 1.2fr) 96px;
+  grid-template-columns: 32px minmax(0, 1.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 1.2fr) 96px;
   align-items: center;
   gap: 16px;
   padding: 12px 4px;
@@ -99,4 +99,17 @@
 .state--new {
   background: var(--bg-muted);
   color: var(--text-muted);
+}
+
+.icon-button.favorite-toggle--on {
+  background: none;
+  color: var(--favorite);
+}
+
+.icon-button.favorite-toggle--on:hover {
+  background: var(--bg-muted);
+}
+
+.favorite-toggle--on svg {
+  fill: currentColor;
 }

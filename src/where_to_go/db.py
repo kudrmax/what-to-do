@@ -61,17 +61,20 @@ class Database:
         self.engine.dispose()
 
     def _add_new_columns(self) -> None:
-        """create_all makes missing tables only; a nullable column added to a model is added to its existing table here."""
+        """create_all makes missing tables only; a column added to a model is added to its existing table here.
+        A required one needs a server default to fill the rows already there."""
         with self.engine.begin() as connection:
             for table in SQLModel.metadata.sorted_tables:
                 present = {row[1] for row in connection.exec_driver_sql(f'PRAGMA table_info("{table.name}")')}
                 for column in table.columns:
                     if column.name in present:
                         continue
-                    if not column.nullable:
+                    default = column.server_default.arg if column.server_default is not None else None
+                    if not column.nullable and default is None:
                         raise RuntimeError(f"{table.name}.{column.name} is new and required: it needs a migration")
                     kind = column.type.compile(dialect=self.engine.dialect)
-                    connection.exec_driver_sql(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}')
+                    rule = f" NOT NULL DEFAULT '{default}'" if default is not None else ""
+                    connection.exec_driver_sql(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}{rule}')
 
 
 def _sqlite_pragmas(connection, _record) -> None:

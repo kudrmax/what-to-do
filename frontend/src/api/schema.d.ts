@@ -122,6 +122,26 @@ export interface paths {
         patch: operations["rename_source_sources__source_id__patch"];
         trace?: never;
     };
+    "/sources/{source_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark Source
+         * @description Sets the user's mark on a source: new or favorite. It changes nothing in the refresh or the feed.
+         */
+        put: operations["mark_source_sources__source_id__status_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/potential-sources": {
         parameters: {
             query?: never;
@@ -1270,6 +1290,11 @@ export interface components {
              * @default 0
              */
             events_found: number;
+            /**
+             * @description The user's mark: every source starts new
+             * @default new
+             */
+            status: components["schemas"]["SourceStatus"];
             /** Id */
             id: number;
             /** Url */
@@ -1293,6 +1318,16 @@ export interface components {
              * @description Empty: the channel's own title is used
              */
             title?: string | null;
+        };
+        /**
+         * SourceStatus
+         * @description The user's own mark on a source, only to find their way among many.
+         * @enum {string}
+         */
+        SourceStatus: "new" | "favorite";
+        /** SourceStatusChange */
+        SourceStatusChange: {
+            status: components["schemas"]["SourceStatus"];
         };
         /** SplitRequest */
         SplitRequest: {
@@ -1636,6 +1671,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SourceRename"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_source_sources__source_id__status_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceStatusChange"];
             };
         };
         responses: {

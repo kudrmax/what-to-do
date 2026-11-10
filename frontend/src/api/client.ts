@@ -10,6 +10,7 @@ export type Settings = Schemas["AppSettings"];
 export type SettingsChange = Schemas["SettingsChange"];
 export type Source = Schemas["SourcePublic"];
 export type NewSource = Schemas["SourceRequest"];
+export type SourceStatus = Schemas["SourceStatus"];
 export type PotentialSource = Schemas["PotentialSourcePublic"];
 export type PotentialSourceOrigin = Schemas["PotentialSourceOrigin"];
 export type Tag = Schemas["TagPublic"];
@@ -71,6 +72,7 @@ export function createApi(baseUrl: string) {
     sources: () => answer(client.GET("/sources")),
     addSource: (body: NewSource) => answer(client.POST("/sources", { body })),
     renameSource: (id: number, title: string) => answer(client.PATCH("/sources/{source_id}", { ...source(id), body: { title } })),
+    markSource: (id: number, status: SourceStatus) => answer(client.PUT("/sources/{source_id}/status", { ...source(id), body: { status } })),
     deleteSource: (id: number) => answer(client.DELETE("/sources/{source_id}", source(id))),
     potentialSources: () => answer(client.GET("/potential-sources")),
     markPotentialSource: (id: number, processed: boolean) =>

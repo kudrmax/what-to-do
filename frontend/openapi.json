@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.3.1"
+  "version": "1.4.1"
  },
  "paths": {
   "/settings": {
@@ -295,6 +295,59 @@
     "responses": {
      "204": {
       "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/status": {
+   "put": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Mark Source",
+    "description": "Sets the user's mark on a source: new or favorite. It changes nothing in the refresh or the feed.",
+    "operationId": "mark_source_sources__source_id__status_put",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Source Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceStatusChange"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourcePublic"
+        }
+       }
+      }
      },
      "422": {
       "description": "Validation Error",
@@ -2675,6 +2728,11 @@
       "description": "Cards this source contributes to",
       "default": 0
      },
+     "status": {
+      "$ref": "#/components/schemas/SourceStatus",
+      "description": "The user's mark: every source starts new",
+      "default": "new"
+     },
      "id": {
       "type": "integer",
       "title": "Id"
@@ -2693,6 +2751,7 @@
      "last_refreshed_at",
      "last_error",
      "events_found",
+     "status",
      "id",
      "url"
     ],
@@ -2741,6 +2800,27 @@
      "link"
     ],
     "title": "SourceRequest"
+   },
+   "SourceStatus": {
+    "type": "string",
+    "enum": [
+     "new",
+     "favorite"
+    ],
+    "title": "SourceStatus",
+    "description": "The user's own mark on a source, only to find their way among many."
+   },
+   "SourceStatusChange": {
+    "properties": {
+     "status": {
+      "$ref": "#/components/schemas/SourceStatus"
+     }
+    },
+    "type": "object",
+    "required": [
+     "status"
+    ],
+    "title": "SourceStatusChange"
    },
    "SplitRequest": {
     "properties": {
