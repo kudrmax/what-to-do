@@ -8,6 +8,7 @@ import { createApi, type EventCard } from "../api/client";
 import { ApiContext } from "../api/queries";
 import { EventCardView } from "./EventCardView";
 import { EventTime } from "./EventTime";
+import { SearchField } from "./SearchField";
 import { useEventFilters } from "./useEventFilters";
 
 function card(overrides: Partial<EventCard> = {}): EventCard {
@@ -115,6 +116,40 @@ describe("filters", () => {
     fireEvent.click(screen.getByText("tags"));
     fireEvent.click(screen.getByText("timed"));
     expect(screen.getByTestId("where").textContent).toBe("/?tags=%D0%9A%D0%B8%D0%BD%D0%BE&tags=%D0%A2%D0%B5%D0%B0%D1%82%D1%80&only_timed=true");
-    expect(JSON.parse(screen.getByTestId("query").textContent!)).toEqual({ tags: ["Кино", "Театр"], sources: [], only_timed: true, hide_multiday: false });
+    expect(JSON.parse(screen.getByTestId("query").textContent!)).toEqual({ tags: ["Кино", "Театр"], sources: [], only_timed: true, hide_multiday: false, search: "" });
+  });
+});
+
+describe("search", () => {
+  function Probe() {
+    const filters = useEventFilters();
+    return (
+      <>
+        <SearchField value={filters.query.search ?? ""} onChange={filters.setSearch} />
+        <output data-testid="search">{filters.query.search}</output>
+      </>
+    );
+  }
+
+  it("puts the words in the address once typing pauses, and clears them", async () => {
+    setup(<Probe />);
+    const field = screen.getByRole("searchbox", { name: "Поиск по событиям" });
+    fireEvent.change(field, { target: { value: "импро иг" } });
+    expect(screen.getByTestId("search").textContent).toBe("");
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("импро иг"));
+    expect(screen.getByTestId("where").textContent).toBe("/?search=%D0%B8%D0%BC%D0%BF%D1%80%D0%BE+%D0%B8%D0%B3");
+    fireEvent.click(screen.getByRole("button", { name: "Очистить поиск" }));
+    expect(field).toHaveValue("");
+    expect(screen.getByTestId("where").textContent).toBe("/");
+  });
+
+  it("takes the cursor on «/» and lets go of the words on Esc", async () => {
+    setup(<Probe />);
+    const field = screen.getByRole("searchbox");
+    fireEvent.keyDown(document.body, { key: "/" });
+    expect(field).toHaveFocus();
+    fireEvent.change(field, { target: { value: "джаз" } });
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(field).toHaveValue("");
   });
 });

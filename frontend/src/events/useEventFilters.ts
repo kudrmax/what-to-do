@@ -2,7 +2,7 @@ import { useSearchParams } from "react-router-dom";
 
 import type { FeedQuery } from "../api/client";
 
-type Shared = Pick<FeedQuery, "tags" | "sources" | "only_timed" | "hide_multiday">;
+type Shared = Pick<FeedQuery, "tags" | "sources" | "only_timed" | "hide_multiday" | "search">;
 
 /** The filters every list of events shares. They live in the address, under the API's own names. */
 export function useEventFilters() {
@@ -18,6 +18,7 @@ export function useEventFilters() {
     sources: params.getAll("sources").map(Number),
     only_timed: flag("only_timed"),
     hide_multiday: flag("hide_multiday"),
+    search: params.get("search") ?? "",
   };
   return {
     query,
@@ -29,6 +30,7 @@ export function useEventFilters() {
         values.forEach((value) => next.append(name, String(value)));
       }),
     setFlag: (name: "only_timed" | "hide_multiday", on: boolean) => change((next) => (on ? next.set(name, "true") : next.delete(name))),
+    setSearch: (text: string) => change((next) => (text.trim() ? next.set("search", text) : next.delete("search"))),
   };
 }
 

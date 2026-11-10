@@ -5,6 +5,7 @@ import { addDays } from "../domain/dates";
 import { SHOWN_PLANS } from "../domain/plans";
 import { DayFeed } from "../events/DayFeed";
 import { FilterBar } from "../events/FilterBar";
+import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { ToggleChip } from "../ui/Chips";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
@@ -41,6 +42,8 @@ export function PlansScreen() {
         <NoCity />
       ) : feed.isError ? (
         <LoadError error={feed.error} />
+      ) : feed.data?.length === 0 && filters.query.search ? (
+        <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.feed, query: { start: today ?? undefined, plans: SHOWN_PLANS.feed } }} />
       ) : feed.data?.length === 0 ? (
         <EmptyState title={past ? "Прошедших планов нет" : "Планов пока нет"} text="Отметьте событие кнопкой «возможно пойду» или «точно пойду» — оно переедет сюда." />
       ) : (

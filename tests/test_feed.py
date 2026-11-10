@@ -1,7 +1,9 @@
+from dataclasses import replace
 from datetime import date, time
 
 from where_to_go.feed import Feed, FeedFilter, PlanFilter
 from where_to_go.models import Event, EventKind, Plan
+from where_to_go.search import SearchQuery
 
 
 def event(**overrides) -> Event:
@@ -82,3 +84,33 @@ def test_day_order_puts_timed_first_then_unknown_time_then_multiday():
         event(id=4, start_date=date(2026, 11, 9), start_time=time(18, 0)),
     ))
     assert [o.event.id for o in feed.occurrences(1, WEEK)] == [4, 3, 2, 1]
+
+
+def test_search_looks_through_title_description_venue_address_and_tags():
+    feed = Feed(
+        Events(
+            event(id=1, title="Импровизационные игры"),
+            event(id=2, title="Концерт", description="Вечер импровизации на рояле"),
+            event(id=3, title="Лекция", venue="Дом молодёжи", tags=["Лекции"]),
+            event(id=4, title="Ярмарка", original_title="Sajam", address="Кнез Михаилова, 5", tags=[]),
+        )
+    )
+
+    def found(text):
+        return {o.event.id for o in feed.occurrences(1, replace(WEEK, search=SearchQuery(text)))}
+
+    assert found("импро") == {1, 2}
+    assert found("молодеж") == {3}
+    assert found("михайл") == {4}
+    assert found("квиз") == {1, 2, 3}
+    assert found("") == {1, 2, 3, 4}
+
+
+def test_search_typed_in_the_wrong_layout_is_tried_in_the_other_one():
+    feed = Feed(Events(event(id=1, title="Импровизационные игры"), event(id=2, title="Jazz jam")))
+
+    def found(text):
+        return {o.event.id for o in feed.occurrences(1, replace(WEEK, search=SearchQuery(text)))}
+
+    assert found("bvghj") == {1}
+    assert found("офяя") == {2}
