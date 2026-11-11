@@ -28,6 +28,7 @@ const PATHS = {
       <path d="M18 15v6M15 18h6" />
     </>
   ),
+  chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   bookmark: <path d="M6 3h12v18l-6-4-6 4z" />,
   star: <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />,
   feed: (

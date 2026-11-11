@@ -21,11 +21,12 @@ const keys = {
   feed: ["feed"],
   event: ["event"],
   refresh: ["refresh"],
+  stats: ["stats"],
 } satisfies Record<string, QueryKey>;
 
 /** What a change makes stale: the cards, or everything that depends on the active city. */
 const STALE = {
-  cards: [keys.feed, keys.event],
+  cards: [keys.feed, keys.event, keys.stats],
   sources: [keys.sources, keys.potentialSources],
   potentialSources: [keys.potentialSources],
   tags: [keys.tags, keys.feed, keys.event],
@@ -51,6 +52,7 @@ export const useSettings = () => useApiQuery(keys.settings, (api) => api.setting
 export const useDefaultSettings = () => useApiQuery(keys.defaults, (api) => api.defaultSettings());
 export const useCities = () => useApiQuery(keys.cities, (api) => api.cities());
 export const useSources = (enabled = true) => useApiQuery(keys.sources, (api) => api.sources(), enabled);
+export const useStats = (enabled = true) => useApiQuery(keys.stats, (api) => api.stats(), enabled);
 export const useTags = () => useApiQuery(keys.tags, (api) => api.tags());
 export const useFeed = (query: FeedQuery, enabled = true) => useApiQuery([...keys.feed, query], (api) => api.feed(query), enabled);
 /** An event opens at once with the card already in a loaded feed, and is then refreshed from the server. */

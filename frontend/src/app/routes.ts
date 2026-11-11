@@ -12,6 +12,7 @@ export const SECTIONS = {
   calendar: { path: "/calendar", title: "Календарь", icon: "calendar" },
   plans: { path: "/plans", title: "Собираюсь пойти", icon: "bookmark" },
   sources: { path: "/sources", title: "Источники", icon: "feed" },
+  stats: { path: "/stats", title: "Статистика", icon: "chart" },
   settings: { path: "/settings", title: "Настройки", icon: "settings" },
 } satisfies Record<string, Section>;
 

@@ -44,6 +44,7 @@ from where_to_go.models import (
 from where_to_go.refresh import RefreshProgress
 from where_to_go.search import SearchQuery
 from where_to_go.settings import AppSettings, SettingsChange
+from where_to_go.statistics import CityStats
 from where_to_go.sources import DuplicateSourceError
 from where_to_go.telegram import SourceError
 
@@ -67,6 +68,7 @@ class ApiTag(StrEnum):
     TAGS = "tags"
     EVENTS = "events"
     REFRESH = "refresh"
+    STATS = "stats"
 
 
 TAG_HELP = {
@@ -75,6 +77,7 @@ TAG_HELP = {
     ApiTag.TAGS: "The fixed list of tags Claude may put on cards",
     ApiTag.EVENTS: "The feed, a card, marks, manual merge and split",
     ApiTag.REFRESH: "Collect new posts and turn them into cards",
+    ApiTag.STATS: "Counts of what was read, found and marked",
 }
 
 
@@ -392,6 +395,14 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def refresh_status(c: ContainerDep):
         """Progress of the current or the last refresh; poll it while `running` is true."""
         return c.refresh.progress
+
+    # ---------- statistics ----------
+
+    @app.get("/stats", response_model=CityStats, tags=[ApiTag.STATS])
+    def statistics(c: ContainerDep, city: CityDep):
+        """What the active city's posts gave: posts and photos read, events found and merged, the user's marks,
+        tags, sources and posts per week."""
+        return c.statistics.of_city(city)
 
     app.include_router(release_routes.router)
     return app

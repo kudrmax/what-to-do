@@ -478,6 +478,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Statistics
+         * @description What the active city's posts gave: posts and photos read, events found and merged, the user's marks,
+         *     tags, sources and posts per week.
+         */
+        get: operations["statistics_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/version": {
         parameters: {
             query?: never;
@@ -680,6 +701,7 @@ export interface components {
              *     Photos
              *     - Each post lists its photos by index: "shows" says what the photo is, "text" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
              *     - For every event give "photo": the index of its post's photo that shows that event.
+             *     - A poster shared by several events of a post, such as the poster of a lecture series, a festival or a programme, is the photo of every one of them.
              *
              *     Channels
              *     - For every post list in "channels" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.
@@ -800,6 +822,42 @@ export interface components {
             timezone: string;
             /** Id */
             id: number;
+        };
+        /** CityStats */
+        CityStats: {
+            posts: components["schemas"]["PostStats"];
+            photos: components["schemas"]["PhotoStats"];
+            events: components["schemas"]["EventStats"];
+            /**
+             * Marked
+             * @description Cards with an interest or a plan
+             */
+            marked: number;
+            /**
+             * Plans
+             * @description Every plan, then no plan; zero counts included
+             */
+            plans: components["schemas"]["PlanCount"][];
+            /**
+             * Interests
+             * @description Stars 5 to 1, then not rated; zero counts included
+             */
+            interests: components["schemas"]["InterestCount"][];
+            /**
+             * Tags
+             * @description Tags on cards, most used first
+             */
+            tags: components["schemas"]["TagCount"][];
+            /**
+             * Sources
+             * @description Sources by the cards they contribute to, most first
+             */
+            sources: components["schemas"]["SourceStats"][];
+            /**
+             * Weeks
+             * @description From the week of the first post, at most 12 weeks, up to the current one; oldest first
+             */
+            weeks: components["schemas"]["WeekStats"][];
         };
         /**
          * ClaudeModel
@@ -946,6 +1004,31 @@ export interface components {
             /** Map Url */
             readonly map_url: string | null;
         };
+        /** EventStats */
+        EventStats: {
+            /**
+             * Announcements
+             * @description Events as single posts announced them, duplicates included
+             */
+            announcements: number;
+            /**
+             * Cards
+             * @description Cards after merging the same event announced several times
+             */
+            cards: number;
+            /**
+             * Merged
+             * @description Cards built from more than one post
+             */
+            merged: number;
+            /** Cancelled */
+            cancelled: number;
+            /**
+             * Places
+             * @description Places without a date found in posts
+             */
+            places: number;
+        };
         /**
          * ExtractedEvent
          * @description One event as one post describes it.
@@ -1037,6 +1120,16 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InterestCount */
+        InterestCount: {
+            /**
+             * Interest
+             * @description Stars from 1 to 5; null: not rated
+             */
+            interest: number | null;
+            /** Count */
+            count: number;
+        };
         /**
          * Mark
          * @description What the user decided about an event: how interesting it is, and whether they are going.
@@ -1109,6 +1202,24 @@ export interface components {
             date: string;
             event: components["schemas"]["EventPublic"];
         };
+        /** PhotoStats */
+        PhotoStats: {
+            /**
+             * Total
+             * @description Photos in the city's posts
+             */
+            total: number;
+            /**
+             * Read
+             * @description Photos Claude has read
+             */
+            read: number;
+            /**
+             * With Text
+             * @description Read photos that have any text on them
+             */
+            with_text: number;
+        };
         /** PlacePublic */
         PlacePublic: {
             /** Name */
@@ -1130,6 +1241,13 @@ export interface components {
          * @enum {string}
          */
         Plan: "maybe" | "sure" | "no" | "went";
+        /** PlanCount */
+        PlanCount: {
+            /** @description null: the card has no plan yet */
+            plan: components["schemas"]["Plan"] | null;
+            /** Count */
+            count: number;
+        };
         /**
          * PlanFilter
          * @description A plan to show, or none for cards the user has not marked yet.
@@ -1145,6 +1263,19 @@ export interface components {
              * @description What Claude read on the photo; null until it is read
              */
             text: string | null;
+        };
+        /** PostStats */
+        PostStats: {
+            /**
+             * Read
+             * @description Posts Claude has read
+             */
+            read: number;
+            /**
+             * With Events
+             * @description Read posts that announce at least one event
+             */
+            with_events: number;
         };
         /** PotentialSourceMark */
         PotentialSourceMark: {
@@ -1341,6 +1472,17 @@ export interface components {
              */
             title?: string | null;
         };
+        /** SourceStats */
+        SourceStats: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Posts */
+            posts: number;
+            /** Events */
+            events: number;
+        };
         /**
          * SourceStatus
          * @description The user's own mark on a source, only to find their way among many.
@@ -1371,6 +1513,13 @@ export interface components {
              * @example Танцы
              */
             name: string;
+        };
+        /** TagCount */
+        TagCount: {
+            /** Tag */
+            tag: string;
+            /** Count */
+            count: number;
         };
         /** TagPublic */
         TagPublic: {
@@ -1463,6 +1612,22 @@ export interface components {
         VersionView: {
             /** Version */
             version: string;
+        };
+        /** WeekStats */
+        WeekStats: {
+            /**
+             * Start
+             * Format: date
+             * @description Monday of the week, in the city's time zone
+             */
+            start: string;
+            /**
+             * Posts
+             * @description Posts published that week and read
+             */
+            posts: number;
+            /** Posts With Events */
+            posts_with_events: number;
         };
     };
     responses: never;
@@ -2287,6 +2452,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefreshProgress"];
+                };
+            };
+        };
+    };
+    statistics_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CityStats"];
                 };
             };
         };

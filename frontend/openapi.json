@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.5.0"
+  "version": "1.6.2"
  },
  "paths": {
   "/settings": {
@@ -1198,6 +1198,28 @@
     }
    }
   },
+  "/stats": {
+   "get": {
+    "tags": [
+     "stats"
+    ],
+    "summary": "Statistics",
+    "description": "What the active city's posts gave: posts and photos read, events found and merged, the user's marks,\ntags, sources and posts per week.",
+    "operationId": "statistics_stats_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CityStats"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/version": {
    "get": {
     "tags": [
@@ -1460,7 +1482,7 @@
       "minLength": 1,
       "title": "Extraction Prompt",
       "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
-      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
+      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n- A poster shared by several events of a post, such as the poster of a lecture series, a festival or a programme, is the photo of every one of them.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
      },
      "matching_prompt": {
       "type": "string",
@@ -1649,6 +1671,77 @@
      "id"
     ],
     "title": "CityPublic"
+   },
+   "CityStats": {
+    "properties": {
+     "posts": {
+      "$ref": "#/components/schemas/PostStats"
+     },
+     "photos": {
+      "$ref": "#/components/schemas/PhotoStats"
+     },
+     "events": {
+      "$ref": "#/components/schemas/EventStats"
+     },
+     "marked": {
+      "type": "integer",
+      "title": "Marked",
+      "description": "Cards with an interest or a plan"
+     },
+     "plans": {
+      "items": {
+       "$ref": "#/components/schemas/PlanCount"
+      },
+      "type": "array",
+      "title": "Plans",
+      "description": "Every plan, then no plan; zero counts included"
+     },
+     "interests": {
+      "items": {
+       "$ref": "#/components/schemas/InterestCount"
+      },
+      "type": "array",
+      "title": "Interests",
+      "description": "Stars 5 to 1, then not rated; zero counts included"
+     },
+     "tags": {
+      "items": {
+       "$ref": "#/components/schemas/TagCount"
+      },
+      "type": "array",
+      "title": "Tags",
+      "description": "Tags on cards, most used first"
+     },
+     "sources": {
+      "items": {
+       "$ref": "#/components/schemas/SourceStats"
+      },
+      "type": "array",
+      "title": "Sources",
+      "description": "Sources by the cards they contribute to, most first"
+     },
+     "weeks": {
+      "items": {
+       "$ref": "#/components/schemas/WeekStats"
+      },
+      "type": "array",
+      "title": "Weeks",
+      "description": "From the week of the first post, at most 12 weeks, up to the current one; oldest first"
+     }
+    },
+    "type": "object",
+    "required": [
+     "posts",
+     "photos",
+     "events",
+     "marked",
+     "plans",
+     "interests",
+     "tags",
+     "sources",
+     "weeks"
+    ],
+    "title": "CityStats"
    },
    "ClaudeModel": {
     "type": "string",
@@ -2002,6 +2095,43 @@
     ],
     "title": "EventPublic"
    },
+   "EventStats": {
+    "properties": {
+     "announcements": {
+      "type": "integer",
+      "title": "Announcements",
+      "description": "Events as single posts announced them, duplicates included"
+     },
+     "cards": {
+      "type": "integer",
+      "title": "Cards",
+      "description": "Cards after merging the same event announced several times"
+     },
+     "merged": {
+      "type": "integer",
+      "title": "Merged",
+      "description": "Cards built from more than one post"
+     },
+     "cancelled": {
+      "type": "integer",
+      "title": "Cancelled"
+     },
+     "places": {
+      "type": "integer",
+      "title": "Places",
+      "description": "Places without a date found in posts"
+     }
+    },
+    "type": "object",
+    "required": [
+     "announcements",
+     "cards",
+     "merged",
+     "cancelled",
+     "places"
+    ],
+    "title": "EventStats"
+   },
    "ExtractedEvent": {
     "properties": {
      "title": {
@@ -2186,6 +2316,32 @@
     "type": "object",
     "title": "HTTPValidationError"
    },
+   "InterestCount": {
+    "properties": {
+     "interest": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interest",
+      "description": "Stars from 1 to 5; null: not rated"
+     },
+     "count": {
+      "type": "integer",
+      "title": "Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "interest",
+     "count"
+    ],
+    "title": "InterestCount"
+   },
    "Mark": {
     "properties": {
      "interest": {
@@ -2331,6 +2487,32 @@
     ],
     "title": "Occurrence"
    },
+   "PhotoStats": {
+    "properties": {
+     "total": {
+      "type": "integer",
+      "title": "Total",
+      "description": "Photos in the city's posts"
+     },
+     "read": {
+      "type": "integer",
+      "title": "Read",
+      "description": "Photos Claude has read"
+     },
+     "with_text": {
+      "type": "integer",
+      "title": "With Text",
+      "description": "Read photos that have any text on them"
+     }
+    },
+    "type": "object",
+    "required": [
+     "total",
+     "read",
+     "with_text"
+    ],
+    "title": "PhotoStats"
+   },
    "PlacePublic": {
     "properties": {
      "name": {
@@ -2382,6 +2564,31 @@
     ],
     "title": "Plan"
    },
+   "PlanCount": {
+    "properties": {
+     "plan": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Plan"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "null: the card has no plan yet"
+     },
+     "count": {
+      "type": "integer",
+      "title": "Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "plan",
+     "count"
+    ],
+    "title": "PlanCount"
+   },
    "PlanFilter": {
     "type": "string",
     "enum": [
@@ -2419,6 +2626,26 @@
      "text"
     ],
     "title": "PostPhoto"
+   },
+   "PostStats": {
+    "properties": {
+     "read": {
+      "type": "integer",
+      "title": "Read",
+      "description": "Posts Claude has read"
+     },
+     "with_events": {
+      "type": "integer",
+      "title": "With Events",
+      "description": "Read posts that announce at least one event"
+     }
+    },
+    "type": "object",
+    "required": [
+     "read",
+     "with_events"
+    ],
+    "title": "PostStats"
    },
    "PotentialSourceMark": {
     "properties": {
@@ -2844,6 +3071,34 @@
     ],
     "title": "SourceRequest"
    },
+   "SourceStats": {
+    "properties": {
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "posts": {
+      "type": "integer",
+      "title": "Posts"
+     },
+     "events": {
+      "type": "integer",
+      "title": "Events"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "posts",
+     "events"
+    ],
+    "title": "SourceStats"
+   },
    "SourceStatus": {
     "type": "string",
     "enum": [
@@ -2908,6 +3163,24 @@
      "name"
     ],
     "title": "TagBase"
+   },
+   "TagCount": {
+    "properties": {
+     "tag": {
+      "type": "string",
+      "title": "Tag"
+     },
+     "count": {
+      "type": "integer",
+      "title": "Count"
+     }
+    },
+    "type": "object",
+    "required": [
+     "tag",
+     "count"
+    ],
+    "title": "TagCount"
    },
    "TagPublic": {
     "properties": {
@@ -3116,6 +3389,32 @@
      "version"
     ],
     "title": "VersionView"
+   },
+   "WeekStats": {
+    "properties": {
+     "start": {
+      "type": "string",
+      "format": "date",
+      "title": "Start",
+      "description": "Monday of the week, in the city's time zone"
+     },
+     "posts": {
+      "type": "integer",
+      "title": "Posts",
+      "description": "Posts published that week and read"
+     },
+     "posts_with_events": {
+      "type": "integer",
+      "title": "Posts With Events"
+     }
+    },
+    "type": "object",
+    "required": [
+     "start",
+     "posts",
+     "posts_with_events"
+    ],
+    "title": "WeekStats"
    }
   }
  },
@@ -3139,6 +3438,10 @@
   {
    "name": "refresh",
    "description": "Collect new posts and turn them into cards"
+  },
+  {
+   "name": "stats",
+   "description": "Counts of what was read, found and marked"
   },
   {
    "name": "releases",
