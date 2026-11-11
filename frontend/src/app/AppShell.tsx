@@ -12,7 +12,7 @@ import "./AppShell.css";
 
 const linkClass = (active: boolean, extra = "") => () => ["shell__link", extra, active ? "active" : ""].filter(Boolean).join(" ");
 
-const MENU = [SECTIONS.feed, SECTIONS.calendar, SECTIONS.plans, SECTIONS.sources];
+const MENU = [SECTIONS.feed, SECTIONS.calendar, SECTIONS.plans, SECTIONS.sources, SECTIONS.stats];
 
 /** The window frame with the sections menu; `screenPath` is the screen shown, which stays lit under an open event. */
 export function AppShell({ screenPath, children }: { screenPath: string; children: ReactNode }) {

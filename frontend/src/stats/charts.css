@@ -1,0 +1,250 @@
+/* ---------- stat tile ---------- */
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.stat-tile__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--label-size);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.stat-tile__label svg {
+  color: var(--accent);
+  flex: none;
+}
+
+.stat-tile__value {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.stat-tile__note {
+  font-size: var(--label-size);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ---------- horizontal bars ---------- */
+
+.bar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bar-list__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 210px) minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+}
+
+.bar-list__label {
+  font-size: 14px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-list__track {
+  display: flex;
+  align-items: center;
+  height: 24px;
+}
+
+.bar-list__bar {
+  height: 14px;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+  transition: background 120ms ease;
+}
+
+.bar-list__bar:hover,
+.bar-list__bar:focus-visible {
+  background: var(--accent-strong);
+}
+
+.bar-list__value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---------- parts of a whole ---------- */
+
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.parts__bar {
+  display: flex;
+  gap: 2px;
+  height: 28px;
+  border-radius: var(--radius-small);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.parts__segment {
+  min-width: 3px;
+  transition: filter 120ms ease;
+}
+
+.parts__segment:hover,
+.parts__segment:focus-visible {
+  filter: brightness(0.88);
+}
+
+.parts__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.parts__item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.parts__swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--on-accent);
+}
+
+.parts__name {
+  color: var(--text-2);
+}
+
+.parts__count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.parts__share {
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- columns ---------- */
+
+.columns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.columns__legend {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: var(--label-size);
+  color: var(--text-muted);
+}
+
+.columns__legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.columns__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.columns__plot {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.columns__column {
+  flex: 1 1 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 6px 6px 0 0;
+}
+
+.columns__column:hover {
+  background: var(--bg-muted);
+}
+
+.columns__stack {
+  width: min(100%, 40px);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
+
+.columns__part {
+  min-height: 2px;
+}
+
+.columns__part:last-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.columns__axis {
+  display: flex;
+  gap: 6px;
+}
+
+.columns__tick {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  font-size: var(--caption-size);
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.series-accent {
+  background: var(--accent);
+}
+
+.series-rest {
+  background: var(--line-strong);
+}

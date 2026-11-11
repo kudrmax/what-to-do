@@ -1,0 +1,125 @@
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1080px;
+}
+
+.stats__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.stats__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.stats-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.stats-panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-panel__hint {
+  font-size: var(--label-size);
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 620px;
+}
+
+.interest {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.interest__tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+}
+
+.interest__tick svg {
+  color: var(--favorite);
+}
+
+.interest__note {
+  font-size: var(--label-size);
+  color: var(--text-muted);
+}
+
+.source-stats {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.source-stats th {
+  text-align: left;
+  font-size: var(--caption-size);
+  font-weight: 500;
+  color: var(--text-faint);
+  padding: 0 0 8px;
+}
+
+.source-stats td {
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.source-stats th + th,
+.source-stats td + td {
+  padding-left: 14px;
+  width: 30%;
+}
+
+.source-stats__name {
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.mini-bar {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-bar__value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mini-bar__track {
+  height: 8px;
+  display: flex;
+}
+
+.mini-bar__fill {
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+}
+
+.mini-bar__fill--quiet {
+  background: var(--line-strong);
+}

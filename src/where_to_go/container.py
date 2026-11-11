@@ -32,6 +32,7 @@ from where_to_go.repositories import (
 )
 from where_to_go.resolution import EventResolver
 from where_to_go.sources import PotentialSources, SourceCatalog
+from where_to_go.statistics import Statistics
 from where_to_go.telegram import TelegramChannelReader
 
 PROVISIONAL_TAGS = [
@@ -77,6 +78,7 @@ class Container:
     post_reader: PostReader
     refresh: RefreshService
     releases: Releases
+    statistics: Statistics
 
     @classmethod
     def build(
@@ -161,6 +163,7 @@ class Container:
             post_reader=post_reader,
             refresh=refresh,
             releases=Releases.build(project_dir, data_dir, release_source),
+            statistics=Statistics(db),
         )
 
     async def close(self) -> None:

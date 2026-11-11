@@ -11,6 +11,7 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { PlansScreen } from "./screens/PlansScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { SourcesScreen } from "./screens/SourcesScreen";
+import { StatsScreen } from "./screens/StatsScreen";
 import { onNativeCheckForUpdates } from "./native/nativeHost";
 import { UpdatesProvider } from "./updates/UpdatesProvider";
 
@@ -30,6 +31,7 @@ function Screens() {
           <Route path={SECTIONS.calendar.path} element={<CalendarScreen />} />
           <Route path={SECTIONS.plans.path} element={<PlansScreen />} />
           <Route path={SECTIONS.sources.path} element={<SourcesScreen />} />
+          <Route path={SECTIONS.stats.path} element={<StatsScreen />} />
           <Route path={SECTIONS.settings.path} element={<SettingsScreen />} />
         </Routes>
       </AppShell>
