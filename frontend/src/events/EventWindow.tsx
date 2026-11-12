@@ -11,6 +11,7 @@ import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { Modal } from "../ui/Modal";
 import { Popover } from "../ui/Popover";
+import { LoadError } from "../ui/Screen";
 import { EventTime } from "./EventTime";
 import { DevNoteButton } from "./DevNoteButton";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
@@ -39,8 +40,13 @@ export function EventWindow() {
 
 type View = (photos: ViewedPhoto[], start: number) => void;
 
+/** How loading the posts went: a failed load must not pass for an event without posts. */
+type MentionsLoad = { loading: boolean; error: unknown; retry: () => void };
+
 function EventDetails({ event, day }: { event: EventCard; day: string }) {
-  const mentions = useMentions(event.id).data ?? [];
+  const query = useMentions(event.id);
+  const mentions = query.data ?? [];
+  const load: MentionsLoad = { loading: query.isPending, error: query.error, retry: () => void query.refetch() };
   const [viewing, setViewing] = useState<{ photos: ViewedPhoto[]; start: number } | null>(null);
   return (
     <article className="details">
@@ -52,7 +58,7 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
         </div>
         <PlanPicker event={event} size="large" />
       </div>
-      <Description event={event} day={day} mentions={mentions} onView={(photos, start) => setViewing({ photos, start })} />
+      <Description event={event} day={day} mentions={mentions} load={load} onView={(photos, start) => setViewing({ photos, start })} />
       {viewing && <PhotoViewer photos={viewing.photos} start={viewing.start} onClose={() => setViewing(null)} />}
     </article>
   );
@@ -123,7 +129,7 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
 
 type Tab = "summary" | "original";
 
-function Description({ event, day, mentions, onView }: { event: EventCard; day: string; mentions: Mention[]; onView: View }) {
+function Description({ event, day, mentions, load, onView }: { event: EventCard; day: string; mentions: Mention[]; load: MentionsLoad; onView: View }) {
   const [tab, setTab] = useState<Tab>("summary");
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "summary", label: "Кратко" },
@@ -139,7 +145,7 @@ function Description({ event, day, mentions, onView }: { event: EventCard; day: 
           </button>
         ))}
       </div>
-      {tab === "summary" ? <Summary event={event} mentions={mentions} onView={onView} /> : <Originals event={event} day={day} mentions={mentions} onView={onView} />}
+      {tab === "summary" ? <Summary event={event} mentions={mentions} onView={onView} /> : <Originals event={event} day={day} mentions={mentions} load={load} onView={onView} />}
     </section>
   );
 }
@@ -159,10 +165,10 @@ function Summary({ event, mentions, onView }: { event: EventCard; mentions: Ment
   );
 }
 
-function Originals({ event, day, mentions, onView }: { event: EventCard; day: string; mentions: Mention[]; onView: View }) {
+function Originals({ event, day, mentions, load, onView }: { event: EventCard; day: string; mentions: Mention[]; load: MentionsLoad; onView: View }) {
   const [chosen, setChosen] = useState<number | null>(null);
   const shown = mentions.find((m) => m.id === chosen) ?? mentions[0];
-  if (!shown) return null;
+  if (!shown) return <OriginalsMissing load={load} />;
   const several = mentions.length > 1;
   const repeated = new Set(mentions.map((m) => m.source_title).filter((title, index, all) => all.indexOf(title) !== index));
   return (
@@ -188,6 +194,11 @@ function Originals({ event, day, mentions, onView }: { event: EventCard; day: st
       <PostText key={shown.id} text={shown.post_text} highlighted={shown.event_lines} />
     </>
   );
+}
+
+function OriginalsMissing({ load }: { load: MentionsLoad }) {
+  if (load.error) return <LoadError error={load.error} onRetry={load.retry} />;
+  return <p className="details__description details__description--muted">{load.loading ? "Загружаю пост…" : "У события не осталось постов."}</p>;
 }
 
 const POSTED = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });

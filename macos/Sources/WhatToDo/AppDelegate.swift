@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = MainMenu.build(appName: appName)
         launcher = ServerLauncher(
             projectDir: config.projectDir,
-            probe: HTTPHealthProbe(url: config.serverURL),
+            probe: HTTPHealthProbe(url: config.versionURL),
             runner: LoginShellRunner(),
             sleeper: TaskSleeper(),
             policy: .standard,

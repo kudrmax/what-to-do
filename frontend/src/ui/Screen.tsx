@@ -31,7 +31,7 @@ export function Section({ title, hint, children }: { title: string; hint?: strin
   );
 }
 
-export function EmptyState({ title, text, link }: { title: string; text?: string; link?: { to: string; label: string } }) {
+export function EmptyState({ title, text, link, action }: { title: string; text?: string; link?: { to: string; label: string }; action?: { label: string; onClick: () => void } }) {
   return (
     <div className="empty">
       <p className="empty__title">{title}</p>
@@ -41,11 +41,16 @@ export function EmptyState({ title, text, link }: { title: string; text?: string
           {link.label}
         </Link>
       )}
+      {action && (
+        <button type="button" className="button button--small" onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }
 
 /** A list the backend could not give: says so and why, instead of an empty page. */
-export function LoadError({ error }: { error: unknown }) {
-  return <EmptyState title="Не получилось загрузить" text={errorText(error) ?? undefined} />;
+export function LoadError({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  return <EmptyState title="Не получилось загрузить" text={errorText(error) ?? undefined} action={onRetry && { label: "Попробовать ещё раз", onClick: onRetry }} />;
 }
