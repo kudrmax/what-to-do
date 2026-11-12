@@ -134,7 +134,7 @@ _up: $(PY_DEPS_STAMP)
 	$(call wait_started)
 	@printf "\n$(BANNER_COLOR)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
 	@printf "  What To Do  [instance: %s]\n" "$(INSTANCE_ENV_NAME)"
-	@printf "  → http://localhost:%s\n" "$(PORT)"
+	@printf "  → http://127.0.0.1:%s\n" "$(PORT)"
 	@printf "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m\n\n"
 
 down:  ## Stop the app

@@ -1,6 +1,6 @@
 # The macOS app
 
-«What To Do» runs in any browser at `http://localhost:<PORT>`. The optional macOS app wraps the same page in a native window:
+«What To Do» runs in any browser at `http://127.0.0.1:<PORT>`. The optional macOS app wraps the same page in a native window:
 
 - It starts the server on launch, so you don't need the terminal.
 - The window has no separate title bar: the page runs under it. Drag the window by an empty spot of the strip along the top, and double-click there to zoom it.
@@ -22,7 +22,7 @@ The app remembers the project folder and port. Run `make app` again after you mo
 
 ## How it starts
 
-On launch, the app checks whether the server answers at `http://localhost:<PORT>/`. If not, it runs `make up` in the project folder and waits up to two minutes. On quit, it runs `make down`, but only if it started the server itself.
+On launch, the app checks whether What To Do itself answers at `http://127.0.0.1:<PORT>/api/version`: another program on the port does not count. If not, it runs `make up` in the project folder and waits up to two minutes. On quit, it runs `make down`, but only if it started the server itself.
 
 `make up` runs in a login shell, which reads `~/.zprofile` but not `~/.zshrc`. If the app can't find `uv`, `claude` or `node`, add them to your `PATH` in `~/.zprofile`.
 

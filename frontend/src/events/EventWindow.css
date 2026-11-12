@@ -156,6 +156,10 @@
   white-space: pre-line;
 }
 
+.details__description--muted {
+  color: var(--text-muted);
+}
+
 /* ---------- photos: one size everywhere, the whole photo opens on click ---------- */
 
 .thumbs {
