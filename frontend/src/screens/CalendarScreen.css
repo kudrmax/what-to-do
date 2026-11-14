@@ -110,9 +110,12 @@
   overflow-wrap: anywhere;
 }
 
-.week__item--going,
-.week__item--going:hover {
+.week__item--going {
   background: var(--accent-soft);
+}
+
+.week__item--going:hover {
+  background: var(--accent-soft-hover);
 }
 
 .week__item--going .week__time {
