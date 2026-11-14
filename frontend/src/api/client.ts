@@ -83,6 +83,8 @@ export function createApi(baseUrl: string) {
     tags: () => answer(client.GET("/tags")),
     addTag: (name: string) => answer(client.POST("/tags", { body: { name } })),
     renameTag: (id: number, name: string) => answer(client.PATCH("/tags/{tag_id}", { params: { path: { tag_id: id } }, body: { name } })),
+    hideTag: (id: number, hidden: boolean) => answer(client.PUT("/tags/{tag_id}/hidden", { params: { path: { tag_id: id } }, body: { hidden } })),
+    reorderTags: (ids: number[]) => answer(client.PUT("/tags/order", { body: { ids } })),
 
     feed: (query: FeedQuery) => answer(client.GET("/events", { params: { query } })),
     event: (id: number) => answer(client.GET("/events/{event_id}", event(id))),

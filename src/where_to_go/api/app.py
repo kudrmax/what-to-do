@@ -39,7 +39,9 @@ from where_to_go.models import (
     SourcePublic,
     SourceStatusChange,
     TagBase,
+    TagOrder,
     TagPublic,
+    TagVisibility,
 )
 from where_to_go.refresh import RefreshProgress
 from where_to_go.search import SearchQuery
@@ -271,6 +273,22 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
 
+    @app.put("/tags/order", response_model=list[TagPublic], tags=[ApiTag.TAGS])
+    def reorder_tags(body: TagOrder, c: ContainerDep):
+        """Sets the display order of the tags: cards show their tags in it. 422 unless every tag is listed once."""
+        try:
+            return c.tags.reorder(body.ids)
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from None
+
+    @app.put("/tags/{tag_id}/hidden", response_model=TagPublic, tags=[ApiTag.TAGS])
+    def hide_tag(tag_id: int, body: TagVisibility, c: ContainerDep):
+        """Blacklists a tag or takes it off the list. Cards marked by the user are shown whatever their tags."""
+        try:
+            return c.tags.set_hidden(tag_id, body.hidden)
+        except KeyError:
+            raise HTTPException(404, "Нет такого тега") from None
+
     # ---------- events ----------
 
     @app.get("/events", response_model=list[Occurrence], tags=[ApiTag.EVENTS])
@@ -293,12 +311,14 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             ),
         ] = "",
     ):
-        """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day."""
+        """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.
+        Unmarked cards with a blacklisted tag are left out."""
         first = start or (c.feed.earliest(city.id) if end else None) or datetime.now(ZoneInfo(city.timezone)).date()
         criteria = FeedFilter(
             start=first,
             end=end,
             tags=frozenset(tags),
+            hidden_tags=c.tags.hidden(),
             source_ids=frozenset(sources),
             only_timed=only_timed,
             hide_multiday=hide_multiday,

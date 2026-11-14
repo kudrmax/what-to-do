@@ -31,6 +31,7 @@ class FeedFilter:
     start: date
     end: date | None = None
     tags: frozenset[str] = frozenset()
+    hidden_tags: frozenset[str] = frozenset()
     source_ids: frozenset[int] = frozenset()
     only_timed: bool = False
     hide_multiday: bool = False
@@ -41,6 +42,8 @@ class FeedFilter:
         if self.search and not self.search.matches(searchable(event)):
             return False
         if self.tags and not self.tags & set(event.tags):
+            return False
+        if event.plan is None and self.hidden_tags & set(event.tags):
             return False
         if self.source_ids and not self.source_ids & set(event.source_ids):
             return False

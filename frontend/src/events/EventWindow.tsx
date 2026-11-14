@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import type { EventCard, Mention } from "../api/client";
-import { useApi, useEvent, useFeed, useMentions, useMerge, useSplit } from "../api/queries";
+import { useApi, useEvent, useFeed, useMentions, useMerge, useSplit, useTags } from "../api/queries";
 import { SECTIONS } from "../app/routes";
 import { dayAndMonth, longDate } from "../domain/dates";
 import { formatPrice } from "../domain/price";
 import { describeRecurrence } from "../domain/recurrence";
+import { orderTags } from "../domain/tags";
 import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { Modal } from "../ui/Modal";
@@ -66,12 +67,13 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
 
 function Head({ event, day, mentions }: { event: EventCard; day: string; mentions: Mention[] }) {
   const api = useApi();
+  const tags = orderTags(event.tags, useTags().data);
   const price = formatPrice(event.price, event.currency);
   const when = describeRecurrence(event.rrule) ?? (event.kind === "multiday" ? "Можно прийти в любой день" : longDate(day));
   return (
     <header className="details__head">
       <div className="details__badges">
-        {event.tags.map((tag) => (
+        {tags.map((tag) => (
           <span key={tag} className="badge">
             {tag}
           </span>

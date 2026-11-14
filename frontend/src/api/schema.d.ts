@@ -249,6 +249,46 @@ export interface paths {
         patch: operations["rename_tag_tags__tag_id__patch"];
         trace?: never;
     };
+    "/tags/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Tags
+         * @description Sets the display order of the tags: cards show their tags in it. 422 unless every tag is listed once.
+         */
+        put: operations["reorder_tags_tags_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags/{tag_id}/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Hide Tag
+         * @description Blacklists a tag or takes it off the list. Cards marked by the user are shown whatever their tags.
+         */
+        put: operations["hide_tag_tags__tag_id__hidden_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -259,6 +299,7 @@ export interface paths {
         /**
          * Feed
          * @description The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.
+         *     Unmarked cards with a blacklisted tag are left out.
          */
         get: operations["feed_events_get"];
         put?: never;
@@ -1521,6 +1562,14 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** TagOrder */
+        TagOrder: {
+            /**
+             * Ids
+             * @description Every tag but the fallback, in the new display order; the fallback stays last
+             */
+            ids: number[];
+        };
         /** TagPublic */
         TagPublic: {
             /**
@@ -1535,6 +1584,16 @@ export interface components {
              * @description Put by Claude when no tag fits; always last, cannot be renamed
              */
             is_fallback: boolean;
+            /**
+             * Hidden
+             * @description Blacklisted: the feed leaves out cards with this tag unless the user marked them
+             */
+            hidden: boolean;
+        };
+        /** TagVisibility */
+        TagVisibility: {
+            /** Hidden */
+            hidden: boolean;
         };
         /**
          * UpdateKind
@@ -2065,6 +2124,74 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TagBase"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_tags_tags_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagPublic"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hide_tag_tags__tag_id__hidden_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tag_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagVisibility"];
             };
         };
         responses: {

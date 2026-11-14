@@ -1,8 +1,9 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { EventCard } from "../api/client";
-import { usePrefetchMentions } from "../api/queries";
+import { usePrefetchMentions, useTags } from "../api/queries";
 import { formatPrice } from "../domain/price";
+import { orderTags } from "../domain/tags";
 import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
 import { DevNoteButton } from "./DevNoteButton";
@@ -21,7 +22,8 @@ interface Props {
 export function EventCardView({ event, day, shownTags = [] }: Props) {
   const open = useOpenEvent();
   const prefetch = usePrefetchMentions();
-  const tag = event.tags.find((t) => shownTags.includes(t)) ?? event.tags[0];
+  const tags = orderTags(event.tags, useTags().data);
+  const tag = tags.find((t) => shownTags.includes(t)) ?? tags[0];
   const price = event.is_cancelled ? null : formatPrice(event.price, event.currency);
   const show = () => open(event.id, day);
   const keepToMarks = (e: MouseEvent | KeyboardEvent) => e.stopPropagation();

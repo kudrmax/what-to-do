@@ -134,7 +134,7 @@ def test_feed_filters(client):
 def test_tags_settings_and_unknown_ids(client):
     client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
     tags = client.get("/tags").json()
-    assert tags[-1] == {"id": tags[-1]["id"], "name": "не распознано", "is_fallback": True}
+    assert tags[-1] == {"id": tags[-1]["id"], "name": "не распознано", "is_fallback": True, "hidden": False}
     renamed_fallback = client.patch(f"/tags/{tags[-1]['id']}", json={"name": "Другое"})
     assert renamed_fallback.status_code == 422 and "не распознано" in renamed_fallback.json()["detail"]
     added = client.post("/tags", json={"name": "Танцы"}).json()
@@ -153,6 +153,39 @@ def test_tags_settings_and_unknown_ids(client):
     assert client.get("/settings/defaults").json()["recent_posts"] == 20
     bad_prompt = client.patch("/settings", json={"extraction_prompt": "Город {town}"})
     assert bad_prompt.status_code == 422 and "{town}" not in client.get("/settings").json()["extraction_prompt"]
+
+
+def test_blacklisted_tags_hide_unmarked_cards(client):
+    concert, lecture, marked = seeded(
+        client,
+        ("a", raw_event("Концерт", "2099-01-02", "21:00", tags=["Концерт"])),
+        ("a", raw_event("Лекция", "2099-01-02", "19:00", tags=["Лекция"])),
+        ("a", raw_event("Джаз", "2099-01-03", "20:00", tags=["Лекция", "Концерт"])),
+    )
+    client.put(f"/events/{marked}/mark", json={"interest": 5, "plan": "sure"})
+    window = {"start": "2099-01-01", "end": "2099-01-07"}
+    concert_tag = next(t for t in client.get("/tags").json() if t["name"] == "Концерт")
+
+    hidden = client.put(f"/tags/{concert_tag['id']}/hidden", json={"hidden": True}).json()
+
+    assert hidden["hidden"] is True
+    shown = [o["event"]["id"] for o in client.get("/events", params=window).json()]
+    assert shown == [lecture, marked]
+    client.put(f"/tags/{concert_tag['id']}/hidden", json={"hidden": False})
+    assert concert in [o["event"]["id"] for o in client.get("/events", params=window).json()]
+    assert client.put("/tags/999/hidden", json={"hidden": True}).status_code == 404
+
+
+def test_reordering_tags_keeps_the_fallback_last(client):
+    tags = client.get("/tags").json()
+    ordinary = [t["id"] for t in tags if not t["is_fallback"]]
+
+    reordered = client.put("/tags/order", json={"ids": ordinary[::-1]}).json()
+
+    assert [t["id"] for t in reordered] == [*ordinary[::-1], tags[-1]["id"]]
+    assert [t["id"] for t in client.get("/tags").json()][:-1] == ordinary[::-1]
+    assert client.put("/tags/order", json={"ids": ordinary[1:]}).status_code == 422
+    assert client.put("/tags/order", json={"ids": [*ordinary, tags[-1]["id"]]}).status_code == 422
 
 
 def test_renaming_a_tag_renames_it_on_cards(client):
