@@ -12,6 +12,7 @@ import { useEventFilters } from "../events/useEventFilters";
 import { useOpenEvent } from "../events/navigation";
 import { IconButton } from "../ui/IconButton";
 import { LoadError, Screen } from "../ui/Screen";
+import { softHyphenate } from "../ui/softHyphens";
 import { NoCity } from "./NoCity";
 import "./CalendarScreen.css";
 
@@ -60,7 +61,7 @@ export function CalendarScreen() {
             {items.map(({ event }) => (
               <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}${event.plan === "no" ? " week__item--declined" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
                 <EventTime event={event} className="week__time" iconSize={14} />
-                <span className="week__title">{event.title}</span>
+                <span className="week__title">{softHyphenate(event.title)}</span>
               </button>
             ))}
           </div>

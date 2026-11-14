@@ -239,6 +239,8 @@ p {
   left: 0;
   z-index: 20;
   min-width: 220px;
+  width: max-content;
+  max-width: 340px;
   max-height: 360px;
   overflow-y: auto;
   padding: 4px;
@@ -269,8 +271,19 @@ p {
 }
 
 .popover__item input {
+  flex: none;
   accent-color: var(--accent);
   margin: 0;
+}
+
+/* A long label wraps; its checkbox stays by the first line. */
+.popover__item:has(> input[type="checkbox"]) {
+  align-items: flex-start;
+  line-height: 20px;
+}
+
+.popover__item > input[type="checkbox"] {
+  margin-top: 4px;
 }
 
 .popover__footer {

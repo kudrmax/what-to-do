@@ -87,6 +87,7 @@
 
 .city .popover {
   right: 0;
+  width: auto;
   min-width: 0;
 }
 
