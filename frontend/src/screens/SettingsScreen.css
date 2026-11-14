@@ -11,6 +11,11 @@
   color: var(--text-muted);
 }
 
+.chip--dashed:hover {
+  border-color: var(--text-faint);
+  color: var(--text);
+}
+
 .settings-form {
   display: flex;
   flex-wrap: wrap;
