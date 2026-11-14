@@ -112,8 +112,8 @@ describe("updates", () => {
     const { spies } = setup(null, { unseen: [ENTRY] });
     expect(await screen.findByRole("dialog", { name: "Что нового" })).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Закрыть"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Что нового" })).toBeNull());
     expect(spies.seen).toHaveBeenCalled();
-    expect(screen.queryByRole("dialog", { name: "Что нового" })).toBeNull();
   });
 
   it("settings tell the version, check now and open the history", async () => {

@@ -38,6 +38,15 @@
   background: var(--bg);
 }
 
+.modal--closing {
+  animation: modal-fade-out 120ms ease forwards;
+  pointer-events: none;
+}
+
+.modal--closing .modal__window {
+  animation: modal-sink 120ms ease forwards;
+}
+
 @keyframes modal-fade {
   from {
     opacity: 0;
@@ -48,5 +57,18 @@
   from {
     opacity: 0;
     transform: translateY(12px);
+  }
+}
+
+@keyframes modal-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-sink {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }

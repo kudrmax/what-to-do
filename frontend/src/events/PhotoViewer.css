@@ -9,6 +9,11 @@
   animation: modal-fade 120ms ease;
 }
 
+.viewer--closing {
+  animation: modal-fade-out 120ms ease forwards;
+  pointer-events: none;
+}
+
 .viewer__stage {
   flex: 1;
   min-width: 0;
