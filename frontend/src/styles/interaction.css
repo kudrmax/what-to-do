@@ -1,0 +1,41 @@
+/*
+ * How controls answer the pointer, in one place and after every other stylesheet:
+ * a press goes one step past the hover, so a click is felt before its result shows.
+ */
+
+.button:active:not(:disabled) {
+  background: var(--accent-ink);
+  transform: scale(0.98);
+}
+
+.button--quiet:active:not(:disabled) {
+  background: var(--bg-pressed);
+}
+
+.button--danger:active:not(:disabled) {
+  background: var(--text);
+}
+
+.icon-button:active:not([aria-disabled="true"]),
+.chip:active,
+.marks button:active,
+.dev-note__button:active,
+.segmented button:active,
+.tabs__tab:active {
+  background: var(--bg-pressed);
+  transform: scale(0.96);
+}
+
+.shell__link:active,
+.city__button:active,
+.week__head:active,
+.week__item:active,
+.popover__item:active,
+.fact--link:active {
+  background: var(--bg-pressed);
+}
+
+/* A press on a mark or a link inside the card belongs to that control, not to the card. */
+.card:active:not(:has(button:active, a:active)) {
+  transform: scale(0.995);
+}
