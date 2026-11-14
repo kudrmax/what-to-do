@@ -417,6 +417,11 @@ a.button:hover {
   font-weight: 500;
 }
 
+.segmented button:not([aria-pressed="true"]):hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
 .segmented button[aria-pressed="true"] {
   background: var(--bg);
   color: var(--text);
