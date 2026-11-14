@@ -54,10 +54,12 @@ export function CalendarScreen() {
       <div className="week">
         {groupByDay(feed.data ?? [], days).map(([day, items]) => (
           <div key={day} className={`week__day${day < today ? " week__day--past" : ""}`}>
-            <Link to={feedFromHref(day)} className="week__head" data-tip={`Ближайшие с ${dayAndMonth(day)}`}>
-              <span className="week__weekday">{weekdayShort(day)}</span>
-              <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
-            </Link>
+            <div className="week__band">
+              <Link to={feedFromHref(day)} className="week__head" data-tip={`Ближайшие с ${dayAndMonth(day)}`}>
+                <span className="week__weekday">{weekdayShort(day)}</span>
+                <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
+              </Link>
+            </div>
             {items.map(({ event }) => (
               <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}${event.plan === "no" ? " week__item--declined" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
                 <EventTime event={event} className="week__time" iconSize={14} />
