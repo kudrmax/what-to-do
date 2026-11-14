@@ -33,6 +33,10 @@
     gap: 10px;
   }
 
+  .stats__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .sources-table {
     display: flex;
     flex-direction: column;
