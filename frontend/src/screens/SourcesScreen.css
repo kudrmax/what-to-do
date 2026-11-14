@@ -24,16 +24,22 @@
 }
 
 .sources-table {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) max-content max-content minmax(0, 0.5fr) 96px;
+  column-gap: 16px;
 }
 
 .sources-table__row {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 1.2fr) 96px;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: 16px;
   padding: 12px 4px;
+}
+
+.sources-table__updated,
+.sources-table__count {
+  white-space: nowrap;
 }
 
 .sources-table__row + .sources-table__row {
