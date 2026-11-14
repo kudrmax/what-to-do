@@ -388,11 +388,21 @@ class Tag(TagBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     position: int = 0
     is_fallback: bool = False
+    hidden: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
 
 
 class TagPublic(TagBase, Public):
     id: int
     is_fallback: bool = Field(description="Put by Claude when no tag fits; always last, cannot be renamed")
+    hidden: bool = Field(description="Blacklisted: the feed leaves out cards with this tag unless the user marked them")
+
+
+class TagVisibility(SQLModel):
+    hidden: bool
+
+
+class TagOrder(SQLModel):
+    ids: list[int] = Field(description="Every tag but the fallback, in the new display order; the fallback stays last")
 
 
 # ---------- mentions and places ----------

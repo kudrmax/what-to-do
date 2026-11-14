@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange, SourceStatus } from "./client";
+import type { Api, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange, SourceStatus, Tag } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -100,6 +100,18 @@ export const useMarkSource = () =>
   useApiMutation((api, { id, status }: { id: number; status: SourceStatus }) => api.markSource(id, status), STALE.sources);
 export const useDeleteSource = () => useApiMutation((api, id: number) => api.deleteSource(id), STALE.city);
 export const useAddTag = () => useApiMutation((api, name: string) => api.addTag(name), STALE.tags);
+export const useHideTag = () => useApiMutation((api, { id, hidden }: { id: number; hidden: boolean }) => api.hideTag(id, hidden), STALE.tags);
+
+/** Shows the new order at once, so a dragged tag does not jump back while the server saves it. */
+export function useReorderTags() {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (ordered: Tag[]) => api.reorderTags(ordered.filter((t) => !t.is_fallback).map((t) => t.id)),
+    onMutate: (ordered: Tag[]) => client.setQueryData(keys.tags, ordered),
+    onSettled: () => Promise.all(STALE.tags.map((queryKey) => client.invalidateQueries({ queryKey }))),
+  });
+}
 export const useRenameTag = () => useApiMutation((api, { id, name }: { id: number; name: string }) => api.renameTag(id, name), STALE.tags);
 
 /** Refresh status; polls while a refresh runs and reloads everything else once it ends. */

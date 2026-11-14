@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.6.2"
+  "version": "1.7.1"
  },
  "paths": {
   "/settings": {
@@ -596,13 +596,112 @@
     }
    }
   },
+  "/tags/order": {
+   "put": {
+    "tags": [
+     "tags"
+    ],
+    "summary": "Reorder Tags",
+    "description": "Sets the display order of the tags: cards show their tags in it. 422 unless every tag is listed once.",
+    "operationId": "reorder_tags_tags_order_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TagOrder"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/TagPublic"
+         },
+         "type": "array",
+         "title": "Response Reorder Tags Tags Order Put"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/tags/{tag_id}/hidden": {
+   "put": {
+    "tags": [
+     "tags"
+    ],
+    "summary": "Hide Tag",
+    "description": "Blacklists a tag or takes it off the list. Cards marked by the user are shown whatever their tags.",
+    "operationId": "hide_tag_tags__tag_id__hidden_put",
+    "parameters": [
+     {
+      "name": "tag_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Tag Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TagVisibility"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TagPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/events": {
    "get": {
     "tags": [
      "events"
     ],
     "summary": "Feed",
-    "description": "The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.",
+    "description": "The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.\nUnmarked cards with a blacklisted tag are left out.",
     "operationId": "feed_events_get",
     "parameters": [
      {
@@ -3182,6 +3281,23 @@
     ],
     "title": "TagCount"
    },
+   "TagOrder": {
+    "properties": {
+     "ids": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Ids",
+      "description": "Every tag but the fallback, in the new display order; the fallback stays last"
+     }
+    },
+    "type": "object",
+    "required": [
+     "ids"
+    ],
+    "title": "TagOrder"
+   },
    "TagPublic": {
     "properties": {
      "name": {
@@ -3200,15 +3316,34 @@
       "type": "boolean",
       "title": "Is Fallback",
       "description": "Put by Claude when no tag fits; always last, cannot be renamed"
+     },
+     "hidden": {
+      "type": "boolean",
+      "title": "Hidden",
+      "description": "Blacklisted: the feed leaves out cards with this tag unless the user marked them"
      }
     },
     "type": "object",
     "required": [
      "name",
      "id",
-     "is_fallback"
+     "is_fallback",
+     "hidden"
     ],
     "title": "TagPublic"
+   },
+   "TagVisibility": {
+    "properties": {
+     "hidden": {
+      "type": "boolean",
+      "title": "Hidden"
+     }
+    },
+    "type": "object",
+    "required": [
+     "hidden"
+    ],
+    "title": "TagVisibility"
    },
    "UpdateKind": {
     "type": "string",

@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from "react";
 
 import type { Settings, Tag } from "../api/client";
-import { useAddCity, useAddTag, useChangeSettings, useCities, useDefaultSettings, useRenameTag, useSettings, useTags } from "../api/queries";
+import { useAddCity, useAddTag, useChangeSettings, useCities, useDefaultSettings, useHideTag, useRenameTag, useReorderTags, useSettings, useTags } from "../api/queries";
 import { SECTIONS } from "../app/routes";
+import { moved } from "../domain/tags";
 import { errorText } from "../ui/errors";
+import { Icon } from "../ui/Icon";
+import { IconButton } from "../ui/IconButton";
 import { InlineEdit } from "../ui/InlineEdit";
 import { UpdatesSection } from "../updates/UpdatesSection";
 import { Screen, Section } from "../ui/Screen";
@@ -172,42 +175,112 @@ function SettingRow({ name, type, value, label, hint }: { name: EditableSetting;
 function TagsSection() {
   const tags = useTags();
   const add = useAddTag();
+  const reorder = useReorderTags();
   const [name, setName] = useState("");
-  const fallback = tags.data?.find((t) => t.is_fallback)?.name;
+  const [dragged, setDragged] = useState<number | null>(null);
+  const list = tags.data ?? [];
+  const fallback = list.find((t) => t.is_fallback)?.name;
+  const movable = list.filter((t) => !t.is_fallback).length;
+  const move = (from: number, to: number) => {
+    if (from !== to && to >= 0 && to < movable) reorder.mutate(moved(list, from, to));
+  };
   return (
-    <Section title="Теги" hint={`Claude ставит событиям только эти теги. Если ни один не подходит — «${fallback ?? "…"}»: по таким событиям видно, какого тега не хватает. Нажмите на тег, чтобы переименовать.`}>
-      <div className="settings-chips">
-        {tags.data?.map((tag) => (
-          <TagChip key={tag.id} tag={tag} />
+    <Section
+      title="Теги"
+      hint={`Claude ставит событиям только эти теги. Если ни один не подходит — «${fallback ?? "…"}»: по таким событиям видно, какого тега не хватает. Перетащите тег, чтобы поменять порядок: в нём теги показываются на карточках. Тег со скрытым глазом — в чёрном списке: такие события не попадают в ленту, но размеченные остаются в «Собираюсь пойти».`}
+    >
+      <ul className="tag-list" aria-label="Теги">
+        {list.map((tag, index) => (
+          <TagRow
+            key={tag.id}
+            tag={tag}
+            dragging={dragged === index}
+            onDragStart={() => setDragged(index)}
+            onDragEnter={() => {
+              if (dragged === null || tag.is_fallback || dragged === index) return;
+              move(dragged, index);
+              setDragged(index);
+            }}
+            onDragEnd={() => setDragged(null)}
+            onMove={(step) => move(index, index + step)}
+          />
         ))}
-        <form
-          className="tag-add"
-          onSubmit={(e) => {
-            e.preventDefault();
-            add.mutate(name.trim(), { onSuccess: () => setName("") });
-          }}
-        >
-          <input className="input tag-add__input" aria-label="Новый тег" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ Новый тег" />
-        </form>
-      </div>
-      {add.error && <p className="error-text">{errorText(add.error)}</p>}
+      </ul>
+      <form
+        className="tag-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add.mutate(name.trim(), { onSuccess: () => setName("") });
+        }}
+      >
+        <input className="input tag-add__input" aria-label="Новый тег" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ Новый тег" />
+      </form>
+      {(add.error || reorder.error) && <p className="error-text">{errorText(add.error ?? reorder.error)}</p>}
     </Section>
   );
 }
 
-function TagChip({ tag }: { tag: Tag }) {
+interface TagRowProps {
+  tag: Tag;
+  dragging: boolean;
+  onDragStart: () => void;
+  onDragEnter: () => void;
+  onDragEnd: () => void;
+  onMove: (step: -1 | 1) => void;
+}
+
+function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: TagRowProps) {
   const rename = useRenameTag();
-  if (tag.is_fallback) {
-    return (
-      <span className="chip chip--dashed" data-tip="Этот тег не переименовывается">
-        {tag.name}
-      </span>
-    );
-  }
+  const hide = useHideTag();
+  const classes = ["tag-row", tag.hidden && "tag-row--hidden", dragging && "tag-row--dragging"].filter(Boolean).join(" ");
   return (
-    <span className="chip">
-      <InlineEdit value={tag.name} label={`Новое имя тега «${tag.name}»`} onSave={(name) => rename.mutate({ id: tag.id, name })} />
-    </span>
+    <li
+      className={classes}
+      draggable={!tag.is_fallback}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", tag.name);
+        onDragStart();
+      }}
+      onDragEnter={onDragEnter}
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnd={onDragEnd}
+      onDrop={(e) => e.preventDefault()}
+    >
+      {tag.is_fallback ? (
+        <span className="tag-row__handle tag-row__handle--fixed" data-tip="Этот тег всегда последний" />
+      ) : (
+        <button
+          type="button"
+          className="tag-row__handle"
+          aria-label={`Переставить «${tag.name}»: стрелки вверх и вниз`}
+          data-tip="Перетащите, чтобы поменять порядок"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+              e.preventDefault();
+              onMove(e.key === "ArrowUp" ? -1 : 1);
+            }
+          }}
+        >
+          <Icon name="grip" size={16} />
+        </button>
+      )}
+      <span className="tag-row__name">
+        {tag.is_fallback ? (
+          <span data-tip="Этот тег не переименовывается">{tag.name}</span>
+        ) : (
+          <InlineEdit value={tag.name} label={`Новое имя тега «${tag.name}»`} onSave={(name) => rename.mutate({ id: tag.id, name })} />
+        )}
+      </span>
+      <IconButton
+        icon={tag.hidden ? "eyeOff" : "eye"}
+        label={tag.hidden ? "В чёрном списке: события с тегом скрыты из ленты. Вернуть в ленту" : "Скрывать события с этим тегом из ленты"}
+        aria-pressed={tag.hidden}
+        className="tag-row__visibility"
+        onClick={() => hide.mutate({ id: tag.id, hidden: !tag.hidden })}
+      />
+      {(rename.error || hide.error) && <span className="error-text tag-row__error">{errorText(rename.error ?? hide.error)}</span>}
+    </li>
   );
 }
 

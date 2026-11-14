@@ -241,6 +241,32 @@ class TagRepository:
             s.refresh(tag)
             return tag
 
+    def hidden(self) -> frozenset[str]:
+        return frozenset(t.name for t in self.all() if t.hidden)
+
+    def set_hidden(self, tag_id: int, hidden: bool) -> Tag:
+        with self._db.session() as s:
+            tag = s.get(Tag, tag_id)
+            if tag is None:
+                raise KeyError(tag_id)
+            tag.hidden = hidden
+            s.add(tag)
+            s.commit()
+            s.refresh(tag)
+            return tag
+
+    def reorder(self, ids: list[int]) -> list[Tag]:
+        """Puts the tags in the given order. The fallback tag stays last whatever the list says."""
+        with self._db.session() as s:
+            ordinary = {t.id: t for t in s.exec(select(Tag).where(Tag.is_fallback == False))}  # noqa: E712
+            if sorted(ids) != sorted(ordinary):
+                raise ValueError("Порядок должен перечислять все теги, кроме «не распознано», по одному разу")
+            for position, tag_id in enumerate(ids):
+                ordinary[tag_id].position = position
+                s.add(ordinary[tag_id])
+            s.commit()
+        return self.all()
+
     def rename(self, tag_id: int, name: str) -> Tag:
         """Renames a tag on every card too. The fallback tag keeps its name: Claude and the cards rely on it."""
         with self._db.session() as s:
