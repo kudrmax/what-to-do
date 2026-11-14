@@ -197,6 +197,10 @@ p {
   font-weight: 500;
 }
 
+.chip[aria-pressed="true"]:hover {
+  background: var(--accent-soft-hover);
+}
+
 .chip__count {
   min-width: 18px;
   height: 18px;
