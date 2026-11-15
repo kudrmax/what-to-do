@@ -2,6 +2,15 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.13.0 — 2026-11-16
+
+Go through the feed one card at a time, like a dating app.
+
+### Review mode
+Switch **Upcoming** from **List** to **Review**: one event fills the screen, and every answer brings the next. Drag the card right or press → for **Maybe**, left or ← for **Not going**, up or ↑ for **For sure**. Keys 1–5 set your interest and move on too, ↓ leaves a card for later, and ⌘Z or the **Undo** button takes the last answer back. A click on the card opens the whole event. The buttons under the card do the same with the mouse, and the app remembers which view you used last.
+![](docs/images/changelog/1.13.0/review-switch.png)
+![](docs/images/changelog/1.13.0/review-swipe.png)
+
 ## 1.12.0 — 2026-11-16
 
 The app now speaks English. Your events, tags and prompts stay as they were.
