@@ -222,6 +222,8 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         """
         try:
             return await c.catalog.preview(city, body.link)
+        except DuplicateSourceError as error:
+            raise HTTPException(409, str(error)) from None
         except SourceError as error:
             raise HTTPException(422, str(error)) from None
 

@@ -45,8 +45,10 @@ class SourceCatalog:
         """What adding the link would add, without adding it."""
         if SourceLink.is_telegram(link):
             handle = TelegramHandle.parse(link)
+            self._refuse_duplicate(city, SourceKind.TELEGRAM, handle, "Этот канал уже добавлен")
             return SitePreview(kind=SourceKind.TELEGRAM, title=await self._reader.title(handle), handle=handle)
         preview, _ = await self._probe.probe(link, ZoneInfo(city.timezone))
+        self._refuse_duplicate(city, SourceKind.WEB, preview.handle, "Этот сайт уже добавлен")
         return preview
 
     async def add(self, city: City, link: str, title: str | None) -> Source:

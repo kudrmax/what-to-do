@@ -321,6 +321,8 @@ def test_site_is_added_once(client):
     assert (source.json()["kind"], source.json()["url"], source.json()["title"]) == ("web", "https://site.test/ru/events/", "Сайт афиши")
     again = client.post("/sources", json={"link": "https://site.test/ru/events/a"})
     assert again.status_code == 409 and again.json()["detail"] == "Этот сайт уже добавлен"
+    preview = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
+    assert preview.status_code == 409 and preview.json()["detail"] == "Этот сайт уже добавлен"
 
 
 @respx.mock
