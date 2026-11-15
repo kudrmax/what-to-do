@@ -56,17 +56,17 @@ function openOriginal(mentions: () => Promise<Mention[]>) {
 describe("event window original", () => {
   it("says the posts did not load instead of showing an empty tab, and loads them again on request", async () => {
     const loadMentions = openOriginal(() => Promise.reject(new ApiError(404, "Not Found")));
-    fireEvent.click(await screen.findByRole("tab", { name: "Оригинал" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Original" }));
 
-    expect(await screen.findByText("Не получилось загрузить")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Попробовать ещё раз" }));
+    expect(await screen.findByText("Couldn’t load")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(loadMentions).toHaveBeenCalledTimes(2);
   });
 
   it("says the posts are loading while they are on the way", async () => {
     openOriginal(() => new Promise(() => {}));
-    fireEvent.click(await screen.findByRole("tab", { name: "Оригинал" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Original" }));
 
-    expect(screen.getByText("Загружаю пост…")).toBeTruthy();
+    expect(screen.getByText("Loading post…")).toBeTruthy();
   });
 });

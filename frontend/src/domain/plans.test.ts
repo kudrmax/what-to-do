@@ -8,7 +8,7 @@ describe("plansToShow", () => {
     expect(plansToShow(SHOWN_PLANS.calendar, "   ")).toEqual(["none", "maybe", "sure"]);
   });
 
-  it("looks through every mark, «не пойду» included, when searching", () => {
+  it("looks through every mark, “not going” included, when searching", () => {
     expect(plansToShow(SHOWN_PLANS.feed, "Музыкальная")).toEqual([]);
     expect(plansToShow(SHOWN_PLANS.going, "Шуман")).toEqual([]);
   });

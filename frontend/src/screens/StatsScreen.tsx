@@ -18,8 +18,8 @@ const PLAN_ORDER: Plan[] = ["sure", "maybe", "went", "no"];
 const GOING: Plan[] = ["maybe", "sure", "went"];
 const UNMARKED_COLOR = "var(--line-strong)";
 
-const cards = (count: number) => `${formatNumber(count)} ${plural(count, "карточка", "карточки", "карточек")}`;
-const posts = (count: number) => `${formatNumber(count)} ${plural(count, "пост", "поста", "постов")}`;
+const cards = (count: number) => `${formatNumber(count)} ${plural(count, "card", "cards")}`;
+const posts = (count: number) => `${formatNumber(count)} ${plural(count, "post", "posts")}`;
 
 /** Counts of everything the app read and found in the active city, and of how the user marked it. */
 export function StatsScreen() {
@@ -32,7 +32,7 @@ export function StatsScreen() {
       ) : stats.isError ? (
         <LoadError error={stats.error} />
       ) : stats.data?.posts.read === 0 ? (
-        <EmptyState title="Пока нечего считать" text="Статистика появится после первого обновления: когда Claude прочитает посты каналов." />
+        <EmptyState title="Nothing to count yet" text="Stats will appear after the first refresh, once Claude has read the channels’ posts." />
       ) : (
         stats.data && <Dashboard stats={stats.data} />
       )}
@@ -44,46 +44,46 @@ function Dashboard({ stats }: { stats: CityStats }) {
   return (
     <div className="stats">
       <div className="stats__tiles">
-        <StatTile icon="text" label="Постов прочитано" value={stats.posts.read} note={`в ${formatNumber(stats.posts.with_events)} ${plural(stats.posts.with_events, "посте", "постах", "постах")} есть события`} />
-        <StatTile icon="image" label="Фото прочитано" value={stats.photos.read} note={`текст есть на ${formatNumber(stats.photos.with_text)}`} />
-        <StatTile icon="calendar" label="Событий найдено" value={stats.events.cards} note={`${cards(stats.events.merged)} из нескольких постов`} />
-        <StatTile icon="bookmark" label="Отмечено" value={stats.marked} note={`${formatShare(stats.marked, stats.events.cards)} всех карточек`} />
+        <StatTile icon="text" label="Posts read" value={stats.posts.read} note={`events found in ${posts(stats.posts.with_events)}`} />
+        <StatTile icon="image" label="Photos read" value={stats.photos.read} note={`${formatNumber(stats.photos.with_text)} with text`} />
+        <StatTile icon="calendar" label="Events found" value={stats.events.cards} note={`${cards(stats.events.merged)} from several posts`} />
+        <StatTile icon="bookmark" label="Marked" value={stats.marked} note={`${formatShare(stats.marked, stats.events.cards)} of all cards`} />
       </div>
 
-      <Panel title="От поста до планов" hint="Пост может анонсировать несколько событий, а одно событие — прийти из нескольких постов: такие анонсы склеиваются в одну карточку.">
-        <BarList label="От поста до планов" rows={pipeline(stats)} />
+      <Panel title="From post to plans" hint="A post can announce several events, and one event can come from several posts. Such announcements are merged into one card.">
+        <BarList label="From post to plans" rows={pipeline(stats)} />
       </Panel>
 
       <div className="stats__pair">
-        <Panel title="Статусы">
-          <PartsBar label="Статусы карточек" parts={planParts(stats)} />
+        <Panel title="Statuses">
+          <PartsBar label="Card statuses" parts={planParts(stats)} />
         </Panel>
-        <Panel title="Интерес">
+        <Panel title="Interest">
           <InterestChart stats={stats} />
         </Panel>
       </div>
 
-      <Panel title="Посты по неделям" hint="Сколько прочитанных постов опубликовано за неделю и в скольких из них нашлись события.">
+      <Panel title="Posts by week" hint="How many of the posts read were published each week, and how many of them had events.">
         <ColumnChart
-          label="Посты по неделям"
+          label="Posts by week"
           series={[
-            { label: "С событиями", className: "series-accent" },
-            { label: "Без событий", className: "series-rest" },
+            { label: "With events", className: "series-accent" },
+            { label: "Without events", className: "series-rest" },
           ]}
           columns={stats.weeks.map((week) => ({
             key: week.start,
             label: dayAndMonth(week.start),
             values: [week.posts_with_events, week.posts - week.posts_with_events],
-            tip: `Неделя с ${dayAndMonth(week.start)}: ${posts(week.posts)}, с событиями ${formatNumber(week.posts_with_events)}`,
+            tip: `Week of ${dayAndMonth(week.start)}: ${posts(week.posts)}, ${formatNumber(week.posts_with_events)} with events`,
           }))}
         />
       </Panel>
 
       <div className="stats__pair">
-        <Panel title="Теги">
-          <BarList label="Карточки по тегам" rows={stats.tags.map((t) => ({ key: t.tag, label: t.tag, value: t.count, tip: `${t.tag}: ${cards(t.count)}` }))} />
+        <Panel title="Tags">
+          <BarList label="Cards by tag" rows={stats.tags.map((t) => ({ key: t.tag, label: t.tag, value: t.count, tip: `${t.tag}: ${cards(t.count)}` }))} />
         </Panel>
-        <Panel title="Источники">
+        <Panel title="Sources">
           <SourceTable stats={stats} />
         </Panel>
       </div>
@@ -106,11 +106,11 @@ function Panel({ title, hint, children }: { title: string; hint?: string; childr
 function pipeline(stats: CityStats) {
   const going = stats.plans.filter((p) => p.plan && GOING.includes(p.plan)).reduce((sum, p) => sum + p.count, 0);
   return [
-    { key: "posts", label: "Постов прочитано", value: stats.posts.read, tip: `Claude прочитал ${posts(stats.posts.read)}` },
-    { key: "announcements", label: "Анонсов в постах", value: stats.events.announcements, tip: "Каждое событие в каждом посте отдельно" },
-    { key: "cards", label: "Карточек после склейки", value: stats.events.cards, tip: `Дубли склеены: ${formatNumber(stats.events.announcements - stats.events.cards)}` },
-    { key: "marked", label: "Отмечено вами", value: stats.marked, tip: "С интересом или статусом" },
-    { key: "going", label: "Собирались пойти", value: going, tip: "Возможно пойду, точно пойду и сходил" },
+    { key: "posts", label: "Posts read", value: stats.posts.read, tip: `Claude read ${posts(stats.posts.read)}` },
+    { key: "announcements", label: "Announcements in posts", value: stats.events.announcements, tip: "Each event in each post counted separately" },
+    { key: "cards", label: "Cards after merging", value: stats.events.cards, tip: `Duplicates merged: ${formatNumber(stats.events.announcements - stats.events.cards)}` },
+    { key: "marked", label: "Marked by you", value: stats.marked, tip: "With an interest or a status" },
+    { key: "going", label: "Planned to go", value: going, tip: "Maybe going, going for sure and went" },
   ];
 }
 
@@ -118,7 +118,7 @@ function planParts(stats: CityStats): Part[] {
   const count = (plan: Plan | null) => stats.plans.find((p) => (p.plan ?? null) === plan)?.count ?? 0;
   return [
     ...PLAN_ORDER.map((plan) => ({ key: plan, label: PLANS[plan].label, value: count(plan), color: PLAN_COLORS[plan], icon: PLANS[plan].icon })),
-    { key: "none", label: "Без статуса", value: count(null), color: UNMARKED_COLOR },
+    { key: "none", label: "No status", value: count(null), color: UNMARKED_COLOR },
   ];
 }
 
@@ -128,9 +128,9 @@ function InterestChart({ stats }: { stats: CityStats }) {
   return (
     <div className="interest">
       <ColumnChart
-        label="Карточки по интересу"
+        label="Cards by interest"
         height={150}
-        series={[{ label: "Карточки", className: "series-accent" }]}
+        series={[{ label: "Cards", className: "series-accent" }]}
         columns={rated.map((i) => ({
           key: String(i.interest),
           label: (
@@ -140,10 +140,10 @@ function InterestChart({ stats }: { stats: CityStats }) {
             </span>
           ),
           values: [i.count],
-          tip: `${i.interest} из 5: ${cards(i.count)}`,
+          tip: `${i.interest} of 5: ${cards(i.count)}`,
         }))}
       />
-      <p className="interest__note">Без оценки — {cards(unrated)}</p>
+      <p className="interest__note">Not rated: {cards(unrated)}</p>
     </div>
   );
 }
@@ -155,9 +155,9 @@ function SourceTable({ stats }: { stats: CityStats }) {
     <table className="source-stats">
       <thead>
         <tr>
-          <th>Канал</th>
-          <th>Постов</th>
-          <th>Событий</th>
+          <th>Channel</th>
+          <th>Posts</th>
+          <th>Events</th>
         </tr>
       </thead>
       <tbody>

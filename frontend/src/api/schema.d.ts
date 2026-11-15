@@ -37,7 +37,7 @@ export interface paths {
         };
         /**
          * Default Settings
-         * @description What every setting is out of the box; «вернуть как было» takes the value from here.
+         * @description What every setting is out of the box; resetting a setting takes the value from here.
          */
         get: operations["default_settings_settings_defaults_get"];
         put?: never;
@@ -863,7 +863,7 @@ export interface components {
         CityBase: {
             /**
              * Name
-             * @example Белград
+             * @example Belgrade
              */
             name: string;
             /**
@@ -877,7 +877,7 @@ export interface components {
         CityPublic: {
             /**
              * Name
-             * @example Белград
+             * @example Belgrade
              */
             name: string;
             /**
@@ -1643,7 +1643,7 @@ export interface components {
         TagBase: {
             /**
              * Name
-             * @example Танцы
+             * @example Dance
              */
             name: string;
         };
@@ -1666,7 +1666,7 @@ export interface components {
         TagPublic: {
             /**
              * Name
-             * @example Танцы
+             * @example Dance
              */
             name: string;
             /** Id */
@@ -1734,7 +1734,7 @@ export interface components {
         };
         /**
          * UpdateStep
-         * @description One stage of the update as the user sees it, such as "Устанавливаем v1.2.0".
+         * @description One stage of the update as the user sees it, such as "Installing v1.2.0".
          */
         UpdateStep: {
             /** Title */
@@ -2357,7 +2357,7 @@ export interface operations {
                 only_timed?: boolean;
                 /** @description Hide exhibitions, festivals and other multiday events */
                 hide_multiday?: boolean;
-                /** @description Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case and е/ё do not matter, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout */
+                /** @description Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout */
                 search?: string;
             };
             header?: never;

@@ -1,6 +1,6 @@
 # The macOS app
 
-«What To Do» runs in any browser at `http://127.0.0.1:<PORT>`. The optional macOS app wraps the same page in a native window:
+**What To Do** runs in any browser at `http://127.0.0.1:<PORT>`. The optional macOS app wraps the same page in a native window:
 
 - It starts the server on launch, so you don't need the terminal.
 - The window has no separate title bar: the page runs under it. Drag the window by an empty spot of the strip along the top, and double-click there to zoom it.
@@ -26,23 +26,23 @@ On launch, the app checks whether What To Do itself answers at `http://127.0.0.1
 
 `make up` runs in a login shell, which reads `~/.zprofile` but not `~/.zshrc`. If the app can't find `uv`, `claude` or `node`, add them to your `PATH` in `~/.zprofile`.
 
-If the server fails to start, the window shows the error and the last lines of the output, with a **Повторить** button.
+If the server fails to start, the window shows the error and the last lines of the output, with a **Try Again** button.
 
 ## Menu bar mode
 
-Set `MENU_BAR_ICON=1` in `.env` and run `make app` again. The app then lives in the menu bar: closing the window hides it from the Dock, and the menu bar icon has **Открыть** and **Завершить**.
+Set `MENU_BAR_ICON=1` in `.env` and run `make app` again. The app then lives in the menu bar: closing the window hides it from the Dock, and the menu bar icon has **Open** and **Quit**.
 
 ## Updates
 
-The app menu has **Проверить обновления…** right after **Настройки…**. It does the same as checking for updates in the page.
+The app menu has **Check for Updates…** right after **Settings…**. It does the same as checking for updates in the page.
 
-After an update, the app on disk may be newer than the window you have open. A quiet note at the right end of the title bar then says **Перезапустите, чтобы завершить обновление**. Press **Перезапустить**: the new app opens and the old window closes. The server keeps running during the restart, and the new window takes over looking after it, so quitting it later stops the server as usual.
+After an update, the app on disk may be newer than the window you have open. A quiet note at the right end of the title bar then says **Restart to finish updating**. Press **Restart**: the new app opens and the old window closes. The server keeps running during the restart, and the new window takes over looking after it, so quitting it later stops the server as usual.
 
 ## Other features
 
-- **Настройки…** with `⌘,` opens the settings screen.
-- **Увеличить**, **Уменьшить** and **Реальный размер** with `⌘+`, `⌘-` and `⌘0`.
-- **Перезагрузить** with `⌘R`; on the error screen it retries the start.
+- **Settings…** with `⌘,` opens the settings screen.
+- **Zoom In**, **Zoom Out** and **Actual Size** with `⌘+`, `⌘-` and `⌘0`.
+- **Reload** with `⌘R`; on the error screen it retries the start.
 
 ## For developers
 

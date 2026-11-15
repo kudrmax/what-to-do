@@ -79,11 +79,11 @@ PORT_FREE_CHECK = (
     "s.bind((os.environ['UPDATE_STATUS_HOST'], int(os.environ['UPDATE_STATUS_PORT'])))"
 )
 STATUS_HOST = "127.0.0.1"
-CHECK = "Ищем новую версию"
-START = "Запускаем новую версию"
+CHECK = "Checking for a new version"
+START = "Starting the new version"
 ALL_DONE = [
-    ("done", "Скачиваем v1.1.0"),
-    ("done", "Устанавливаем v1.1.0"),
+    ("done", "Downloading v1.1.0"),
+    ("done", "Installing v1.1.0"),
     ("done", START),
 ]
 GITIGNORE = "data/\n.pids/\n.logs/\n"
@@ -281,7 +281,7 @@ def test_unreachable_origin_fails_without_touching_the_copy(copy: Copy) -> None:
     result = copy.run()
 
     assert result.returncode == 1
-    assert "Не получилось связаться с GitHub" in copy.error()
+    assert "Couldn't reach GitHub" in copy.error()
     assert copy.head() == head
     assert copy.calls() == []
     assert copy.state() == "failed"
@@ -295,7 +295,7 @@ def test_uncommitted_changes_refuse_the_update(copy: Copy) -> None:
 
     assert result.returncode == 1
     assert "VERSION" in copy.log()
-    assert "незакоммиченные изменения" in copy.error()
+    assert "uncommitted changes" in copy.error()
     assert copy.calls() == []
     assert copy.state() == "failed"
 
@@ -309,7 +309,7 @@ def test_worktree_refuses_the_update(copy: Copy, tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert (linked / UpdateFiles.STATE).read_text() == "failed"
-    assert "основной копии" in (linked / UpdateFiles.ERROR).read_text()
+    assert "main copy" in (linked / UpdateFiles.ERROR).read_text()
     assert copy.calls() == []
 
 
@@ -436,8 +436,8 @@ def test_a_failed_start_marks_its_stage(copy: Copy) -> None:
     copy.run()
 
     assert copy.progress() == [
-        ("done", "Скачиваем v1.1.0"),
-        ("done", "Устанавливаем v1.1.0"),
+        ("done", "Downloading v1.1.0"),
+        ("done", "Installing v1.1.0"),
         ("failed", START),
     ]
     assert not copy.status_server_listens()
@@ -476,8 +476,8 @@ def test_status_server_answers_while_the_app_is_stopped(copy: Copy) -> None:
         "state": "running",
         "log_tail": "",
         "steps": [
-            {"title": "Скачиваем v1.1.0", "status": "done"},
-            {"title": "Устанавливаем v1.1.0", "status": "done"},
+            {"title": "Downloading v1.1.0", "status": "done"},
+            {"title": "Installing v1.1.0", "status": "done"},
             {"title": START, "status": "current"},
         ],
     }

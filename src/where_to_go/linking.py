@@ -71,7 +71,7 @@ class EventCards:
         if len(mentions) < 2:
             raise ValueError("a card with one source cannot be split")
         if mention.data.is_dateless_follow_up:
-            raise ValueError("В этом посте нет даты, отдельным событием он быть не может")
+            raise ValueError("This post has no date, so it can't be a separate event")
         city_id = self._events.get(event_id).city_id
         with self.atomically():
             new_id = self.create(city_id, mention, locked=True)

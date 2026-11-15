@@ -8,12 +8,12 @@ import "./updates.css";
 export type ChangelogMode = "update" | "whatsnew" | "history";
 
 const TITLES: Record<ChangelogMode, string> = {
-  update: "Вышла новая версия",
-  whatsnew: "Что нового",
-  history: "История изменений",
+  update: "A new version is available",
+  whatsnew: "What’s new",
+  history: "Changelog",
 };
 
-const RELEASE_DAY = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+const RELEASE_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
 const releaseDay = (isoDay: string) => RELEASE_DAY.format(new Date(`${isoDay}T00:00:00`));
 
@@ -23,7 +23,7 @@ export function ChangelogWindow({ mode, entries, onClose, action, note }: { mode
     <Modal label={TITLES[mode]} onClose={onClose}>
       <div className="changelog">
         <h1 className="changelog__title">{TITLES[mode]}</h1>
-        {entries.length === 0 && <p className="changelog__empty">Изменений пока не записано</p>}
+        {entries.length === 0 && <p className="changelog__empty">No changes recorded yet</p>}
         {entries.map((entry) => (
           <article key={entry.version} className="changelog__entry">
             <header className="changelog__heading">

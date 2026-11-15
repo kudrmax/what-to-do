@@ -51,28 +51,28 @@ function setup(stats: CityStats) {
 describe("statistics", () => {
   it("shows the headline numbers, each with its own label", async () => {
     setup(STATS);
-    expect(await screen.findByText("Постов прочитано", { selector: ".stat-tile__label" })).toBeInTheDocument();
+    expect(await screen.findByText("Posts read", { selector: ".stat-tile__label" })).toBeInTheDocument();
     const tiles = document.querySelectorAll(".stat-tile");
     expect([...tiles].map((tile) => tile.querySelector(".stat-tile__value")?.textContent)).toEqual(["206", "224", "258", "117"]);
-    expect(screen.getByText("в 140 постах есть события")).toBeInTheDocument();
+    expect(screen.getByText("events found in 140 posts")).toBeInTheDocument();
   });
 
   it("counts the cards going from posts to plans", async () => {
     setup(STATS);
-    const list = await screen.findByRole("list", { name: "От поста до планов" });
-    const going = within(list).getByText("Собирались пойти").closest("li")!;
+    const list = await screen.findByRole("list", { name: "From post to plans" });
+    const going = within(list).getByText("Planned to go").closest("li")!;
     expect(within(going).getByText("26")).toBeInTheDocument();
   });
 
   it("gives every status its count and share", async () => {
     setup(STATS);
-    const row = (await screen.findByText("Не пойду")).closest("li")!;
+    const row = (await screen.findByText("Not going")).closest("li")!;
     expect(within(row).getByText("91")).toBeInTheDocument();
-    expect(within(row).getByText(/35\s%/)).toBeInTheDocument();
+    expect(within(row).getByText("35%")).toBeInTheDocument();
   });
 
   it("asks for a refresh while nothing is read", async () => {
     setup({ ...STATS, posts: { read: 0, with_events: 0 } });
-    expect(await screen.findByText("Пока нечего считать")).toBeInTheDocument();
+    expect(await screen.findByText("Nothing to count yet")).toBeInTheDocument();
   });
 });

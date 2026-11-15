@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cuts a release of «What To Do» - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes and creates the GitHub Release. Use right after every merge to master (a merge always ships as a release, see CLAUDE.md), and when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release".
+description: Cuts a release of What To Do - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes and creates the GitHub Release. Use right after every merge to master (a merge always ships as a release, see CLAUDE.md), and when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release".
 ---
 
 # Release
@@ -50,26 +50,26 @@ The version is `version` in `pyproject.toml`.
 
 ## 3. Write the entry
 
-In Russian, like the app itself. Format of the [Obsidian changelog](https://obsidian.md/changelog/):
+In English, like the app itself and every text in the repository. Max talks to agents in Russian; only the app and repo texts are English. Format of the [Obsidian changelog](https://obsidian.md/changelog/):
 
 ```markdown
 ## X.Y.Z — YYYY-MM-DD
 
-Одно предложение: о чём этот релиз.
+One sentence: what this release is about.
 
-### Название большой фичи
-Что она даёт пользователю, в нескольких предложениях.
+### Name of a big feature
+What it gives the user, in a few sentences.
 ![](docs/images/changelog/X.Y.Z/feature.png)
 
-### Новое
+### New
 - …
-### Улучшения
+### Improvements
 - …
-### Исправлено
+### Fixed
 - …
 ```
 
-- A big feature gets its own section with its own heading, before **Новое**.
+- A big feature gets its own section with its own heading, before **New**.
 - Write for the user in plain language. Skip internal changes: refactoring, tests, migrations, docs.
 - Do not write empty sections.
 - Group commits by what the user sees, not one line per commit.
@@ -79,7 +79,7 @@ In Russian, like the app itself. Format of the [Obsidian changelog](https://obsi
 
 Take them in the running **dev copy** (`~/projects/what-to-do`) in one pass for all features of the release: `http://localhost:<PORT>`, where `PORT` is in the dev copy's `.env`. If it is not up, start it with `make up` in the main checkout. Never take them in the prod copy: its data is Max's.
 
-The dev copy has its own data folder (`DATA_DIR` in its `.env`). If it is empty, fill it with **Обновить** in the dev copy, with few channels and a small «Последних постов канала»: every post read is a Claude call.
+The dev copy has its own data folder (`DATA_DIR` in its `.env`). If it is empty, fill it with **Refresh** in the dev copy, with few channels and a small **Recent posts per channel**: every post read is a Claude call.
 
 The dev copy must serve the code you just pulled: it reads its version once, at start.
 
@@ -95,7 +95,7 @@ If they differ, restart it with `make down && make up` in the main checkout.
 - On each screenshot highlight where to look with `annotate.js` from this folder: it dims the rest of the page and rings the element in the app's accent colour, with an optional caption in the app's font. Never draw red frames or outlined text. Inject the file into the page, then call it before the screenshot:
 
 ```js
-window.__annotate({ selector: '…', label: 'Подпись, если нужна' })
+window.__annotate({ selector: '…', label: 'Caption, if needed' })
 // take the screenshot
 window.__clearAnnotations()
 ```
@@ -133,6 +133,6 @@ gh release create vX.Y.Z --repo "$GITHUB_REPO" --title X.Y.Z --notes-file "$WORK
 
 Tell Max the release URL (`gh release view vX.Y.Z --repo "$GITHUB_REPO" --json url -q .url`).
 
-Prod is not updated by merging or by this skill. It updates with **Обновить до X.Y.Z** in the app or with `make update` in the prod copy (`~/projects/what-to-do-prod`).
+Prod is not updated by merging or by this skill. It updates with **Update to X.Y.Z** in the app or with `make update` in the prod copy (`~/projects/what-to-do-prod`).
 
 A change to `scripts/update.sh` takes effect one release later: a copy updates with the script it already has.

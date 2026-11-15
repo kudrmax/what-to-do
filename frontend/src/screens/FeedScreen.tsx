@@ -12,7 +12,7 @@ import { Icon } from "../ui/Icon";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
-/** Everything ahead that the user has not marked yet; a marked card moves to «Собираюсь пойти» or leaves. A search finds marked cards too. */
+/** Everything ahead that the user has not marked yet; a marked card moves to "Going" or leaves. A search finds marked cards too. */
 export function FeedScreen() {
   const { city, today } = useActiveCity();
   const filters = useEventFilters();
@@ -24,8 +24,8 @@ export function FeedScreen() {
   const toolbar = city && (
     <FilterBar filters={filters}>
       {from && (
-        <button type="button" className="chip" aria-pressed onClick={() => filters.change((next) => next.delete("from"))} data-tip="Показать с сегодняшнего дня">
-          С {dayAndMonth(from)}
+        <button type="button" className="chip" aria-pressed onClick={() => filters.change((next) => next.delete("from"))} data-tip="Show from today">
+          From {dayAndMonth(from)}
           <Icon name="close" size={14} />
         </button>
       )}
@@ -37,13 +37,13 @@ export function FeedScreen() {
       {!city ? (
         <NoCity />
       ) : sources.data?.length === 0 ? (
-        <EmptyState title="Нет источников" text="Добавьте Telegram-каналы с афишами, потом нажмите «Обновить»." link={{ to: SECTIONS.sources.path, label: "Добавить источники" }} />
+        <EmptyState title="No sources" text="Add Telegram channels that post events, then click Refresh." link={{ to: SECTIONS.sources.path, label: "Add sources" }} />
       ) : feed.isError ? (
         <LoadError error={feed.error} />
       ) : feed.data?.length === 0 && filters.query.search ? (
         <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.plans, query: { start: today ?? undefined, plans: SHOWN_PLANS.going } }} />
       ) : feed.data?.length === 0 ? (
-        <EmptyState title="Всё разобрано" text="Неразмеченных событий впереди нет, или их скрывают фильтры. Размеченные — в «Собираюсь пойти»." />
+        <EmptyState title="All caught up" text="No unmarked events ahead, or filters are hiding them. Marked events are in Going." />
       ) : (
         today && feed.data && <DayFeed occurrences={feed.data} today={today} shownTags={filters.query.tags} />
       )}

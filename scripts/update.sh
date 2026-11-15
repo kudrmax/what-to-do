@@ -50,12 +50,12 @@ main() {
     write_state running
     : > "$ERROR_FILE"
 
-    progress_begin "Ищем новую версию" "Устанавливаем новую версию" \
-        "Запускаем новую версию"
+    progress_begin "Checking for a new version" "Installing the new version" \
+        "Starting the new version"
     refuse_in_worktree
     require_clean_tree
     git fetch --tags --force origin \
-        || fail "Не получилось связаться с GitHub. Проверьте интернет и обновите ещё раз."
+        || fail "Couldn't reach GitHub. Check your internet connection and try updating again."
 
     local tag
     tag=$(latest_release_tag)
@@ -73,20 +73,20 @@ main() {
     local old_commit
     old_commit=$(git rev-parse HEAD)
     echo "Updating to $tag..."
-    step_titles[0]="Скачиваем $tag"
-    step_titles[1]="Устанавливаем $tag"
+    step_titles[0]="Downloading $tag"
+    step_titles[1]="Installing $tag"
     progress_advance
 
-    "$MAKE" --no-print-directory down || fail "Не получилось остановить приложение (make down)."
+    "$MAKE" --no-print-directory down || fail "Couldn't stop the app (make down)."
     start_status_server
-    git checkout --quiet "$tag" || fail "Не получилось переключиться на $tag (git checkout)."
+    git checkout --quiet "$tag" || fail "Couldn't switch to $tag (git checkout)."
     if macos_code_changed "$old_commit" "$tag" && app_of_this_copy_installed; then
-        "$MAKE" --no-print-directory app || fail "Не получилось собрать macOS-приложение (make app)."
+        "$MAKE" --no-print-directory app || fail "Couldn't build the macOS app (make app)."
     fi
     progress_advance
     # The status server keeps answering through the install and build in `make up`, which
     # stops it right before the app takes the port.
-    "$MAKE" --no-print-directory up || fail "Не получилось запустить новую версию (make up)."
+    "$MAKE" --no-print-directory up || fail "Couldn't start the new version (make up)."
     progress_advance
 
     echo "Updated to $tag."
@@ -217,19 +217,19 @@ stop_status_server() {
 
 refuse_in_worktree() {
     if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ]; then
-        fail "make update — для копий dev и prod, не для worktree. Запустите его в основной копии."
+        fail "make update is for the dev and prod copies, not for a worktree. Run it in the main copy."
     fi
 }
 
 require_clean_tree() {
     local changes
     if ! changes=$(git status --porcelain --untracked-files=no); then
-        fail "Эта папка — не git-копия приложения."
+        fail "This folder isn't a git copy of the app."
     fi
     if [ -n "$changes" ]; then
         echo "ERROR: this copy has uncommitted changes:" >&2
         echo "$changes" >&2
-        fail "В этой копии есть незакоммиченные изменения. Закоммитьте или уберите их и обновите ещё раз."
+        fail "This copy has uncommitted changes. Commit or discard them and try updating again."
     fi
 }
 

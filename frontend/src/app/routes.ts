@@ -8,12 +8,12 @@ export interface Section {
 
 /** Every screen of the app: its address, its name in the menu and as a heading, its icon. */
 export const SECTIONS = {
-  feed: { path: "/", title: "Ближайшие", icon: "sun" },
-  calendar: { path: "/calendar", title: "Календарь", icon: "calendar" },
-  plans: { path: "/plans", title: "Собираюсь пойти", icon: "bookmark" },
-  sources: { path: "/sources", title: "Источники", icon: "feed" },
-  stats: { path: "/stats", title: "Статистика", icon: "chart" },
-  settings: { path: "/settings", title: "Настройки", icon: "settings" },
+  feed: { path: "/", title: "Upcoming", icon: "sun" },
+  calendar: { path: "/calendar", title: "Calendar", icon: "calendar" },
+  plans: { path: "/plans", title: "Going", icon: "bookmark" },
+  sources: { path: "/sources", title: "Sources", icon: "feed" },
+  stats: { path: "/stats", title: "Stats", icon: "chart" },
+  settings: { path: "/settings", title: "Settings", icon: "settings" },
 } satisfies Record<string, Section>;
 
 export const EVENT_PATH = "/event/:id";

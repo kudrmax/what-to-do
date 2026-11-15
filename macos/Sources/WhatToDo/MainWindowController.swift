@@ -47,7 +47,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         statusController.onRetry = { [weak self] in self?.onRetry?() }
         webController.onPageLoaded = { [weak self] in self?.onPageLoaded?() }
         webController.onLoadFailed = { [weak self] message in
-            self?.showStatus(.failed(message: "Страница не загрузилась", details: message))
+            self?.showStatus(.failed(message: "The page didn’t load", details: message))
         }
         window.applyStoredLook(from: lookStore)
         webController.observeTheme { [weak window, lookStore] mode in

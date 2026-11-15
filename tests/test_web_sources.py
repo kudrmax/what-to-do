@@ -133,7 +133,7 @@ async def test_probe_believes_an_honest_offset():
 async def test_probe_refuses_page_without_event():
     serve_site({"a": event_page(markup=False)})
     async with httpx.AsyncClient() as client:
-        with pytest.raises(SourceError, match="На странице нет разметки события"):
+        with pytest.raises(SourceError, match="The page has no event markup"):
             await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
 
 
@@ -151,7 +151,7 @@ async def test_probe_refuses_site_without_sitemap():
 async def test_probe_says_when_site_does_not_answer():
     respx.get(page_url("a")).mock(side_effect=httpx.ConnectError("down"))
     async with httpx.AsyncClient() as client:
-        with pytest.raises(SourceError, match="Страница по ссылке не открывается"):
+        with pytest.raises(SourceError, match="The page at this link doesn't open"):
             await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
 
 
@@ -185,7 +185,7 @@ async def test_first_collect_reads_every_page_but_posts_only_horizon(reading):
     container, source, collect, _ = reading
     routes = serve_site({"soon": on("2026-11-25", name="Скоро"), "later": on("2027-01-14", name="Потом"), "category": event_page(markup=False)})
     posts = await collect()
-    assert [p.text.splitlines()[:2] for p in posts] == [["Скоро", "Начало: 2026-11-25 19:00"]]
+    assert [p.text.splitlines()[:2] for p in posts] == [["Скоро", "Start: 2026-11-25 19:00"]]
     assert posts[0].url == page_url("soon") and posts[0].image_urls == ["https://cdn.test/poster.jpg"]
     assert await collect() == []
     assert [r.call_count for r in routes.values()] == [1, 1, 1]
@@ -213,7 +213,7 @@ async def test_upcoming_week_is_rechecked_and_change_rereads_post(reading):
     assert await collect() == []
     assert (routes["soon"].call_count, routes["month"].call_count) == (2, 1)
     [changed] = container.posts.unprocessed([source.id])
-    assert "Начало: 2026-11-19 19:00" in changed.text
+    assert "Start: 2026-11-19 19:00" in changed.text
 
 
 @respx.mock
@@ -289,7 +289,7 @@ async def test_probe_refuses_a_section_too_big_to_read():
     respx.get("https://site.test/robots.txt").respond(200, text="Sitemap: https://site.test/sitemap.xml\n")
     respx.get("https://site.test/sitemap.xml").respond(200, text=sitemap([page_url(str(i)) for i in range(WebSiteProbe.MAX_PAGES + 1)]))
     async with httpx.AsyncClient() as client:
-        with pytest.raises(SourceError, match="слишком много"):
+        with pytest.raises(SourceError, match="too many pages"):
             await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
 
 

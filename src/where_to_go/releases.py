@@ -53,7 +53,7 @@ class AppVersion:
 
 
 class ChangelogSection(BaseModel):
-    """One `###` block of a release: a big feature or a group such as "Новое"."""
+    """One `###` block of a release: a big feature or a group such as "New"."""
 
     title: str
     body_markdown: str

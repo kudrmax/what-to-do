@@ -25,10 +25,10 @@ export function PlansScreen() {
 
   const when = city && (
     <Segmented
-      label="Когда"
+      label="When"
       options={[
-        { id: "ahead", label: "Впереди" },
-        { id: "past", label: "Прошедшие" },
+        { id: "ahead", label: "Upcoming" },
+        { id: "past", label: "Past" },
       ]}
       value={past ? "past" : "ahead"}
       onChange={(id) => setParam("past", id === "past")}
@@ -37,7 +37,7 @@ export function PlansScreen() {
 
   const toolbar = city && (
     <FilterBar filters={filters}>
-      <ToggleChip label="Только «точно пойду»" on={onlySure} onChange={(on) => setParam("sure", on)} />
+      <ToggleChip label="Only “Going for sure”" on={onlySure} onChange={(on) => setParam("sure", on)} />
     </FilterBar>
   );
 
@@ -50,7 +50,7 @@ export function PlansScreen() {
       ) : feed.data?.length === 0 && filters.query.search ? (
         <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.feed, query: { start: today ?? undefined, plans: SHOWN_PLANS.feed } }} />
       ) : feed.data?.length === 0 ? (
-        <EmptyState title={past ? "Прошедших планов нет" : "Планов пока нет"} text="Отметьте событие кнопкой «возможно пойду» или «точно пойду» — оно переедет сюда." />
+        <EmptyState title={past ? "No past plans" : "No plans yet"} text="Mark an event as “Maybe going” or “Going for sure” and it will move here." />
       ) : (
         today && feed.data && <DayFeed occurrences={feed.data} today={today} shownTags={filters.query.tags} newestFirst={past} />
       )}
