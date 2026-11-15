@@ -133,6 +133,10 @@ class EventClock:
         self._local = times_are_local
         self._zone = zone
 
+    @property
+    def is_local(self) -> bool:
+        return self._local
+
     def local(self, value: datetime | date) -> datetime | date:
         if not isinstance(value, datetime):
             return value

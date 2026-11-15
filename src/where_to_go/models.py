@@ -372,7 +372,8 @@ class WebSite(SQLModel, table=True):
 
 
 class WebPage(SQLModel, table=True):
-    """A page of a website source, downloaded once: an event with its facts, or a page that is not one."""
+    """A page of a website source, downloaded once: an event with its facts, or a page that is not one.
+    Its post, once there is one, has the page's id as external_id."""
 
     __tablename__ = "web_pages"
     __table_args__ = (UniqueConstraint("source_id", "url"),)
@@ -387,7 +388,6 @@ class WebPage(SQLModel, table=True):
     image_url: str | None = None
     found_at: datetime
     checked_at: datetime
-    post_id: int | None = Field(default=None, foreign_key="posts.id", ondelete="SET NULL")
 
 
 class PhotoTextBase(SQLModel):

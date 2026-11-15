@@ -196,6 +196,10 @@ class PostRepository:
                 return
         self._change(post_id, text=text, processed_at=None, process_error=None)
 
+    def id_of(self, source_id: int, external_id: int) -> int | None:
+        with self._db.session() as s:
+            return s.exec(select(Post.id).where(Post.source_id == source_id, Post.external_id == external_id)).first()
+
     def known_ids(self, source_id: int) -> set[int]:
         with self._db.session() as s:
             return set(s.exec(select(Post.external_id).where(Post.source_id == source_id)))
