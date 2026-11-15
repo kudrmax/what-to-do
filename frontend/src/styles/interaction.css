@@ -10,7 +10,6 @@
 .marks button,
 .dev-note__button,
 .segmented button,
-.tabs__tab,
 .shell__link,
 .city__button,
 .week__head,
@@ -50,8 +49,7 @@
 .chip:active,
 .marks button:active,
 .dev-note__button:active,
-.segmented button:active,
-.tabs__tab:active {
+.segmented button:active {
   transform: scale(0.96);
 }
 
@@ -59,8 +57,7 @@
 .chip:active:not([aria-pressed="true"]),
 .marks button:active:not([aria-pressed="true"]),
 .dev-note__button:active,
-.segmented button:active:not([aria-pressed="true"]),
-.tabs__tab:active:not([aria-selected="true"]) {
+.segmented button:active:not([aria-pressed="true"], [aria-selected="true"]) {
   background: var(--bg-pressed);
 }
 
@@ -81,8 +78,7 @@
 /* A pressed control that is already on keeps its colour and only darkens. */
 .marks button[aria-pressed="true"]:active,
 .icon-button[aria-pressed="true"]:active,
-.segmented button[aria-pressed="true"]:active,
-.tabs__tab[aria-selected="true"]:active {
+.segmented button:is([aria-pressed="true"], [aria-selected="true"]):active {
   filter: brightness(0.94);
 }
 

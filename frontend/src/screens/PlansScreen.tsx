@@ -8,6 +8,7 @@ import { FilterBar } from "../events/FilterBar";
 import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { ToggleChip } from "../ui/Chips";
+import { Segmented } from "../ui/Segmented";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
@@ -24,14 +25,15 @@ export function PlansScreen() {
 
   const toolbar = city && (
     <FilterBar filters={filters}>
-      <div className="segmented" role="group" aria-label="Когда">
-        <button type="button" aria-pressed={!past} onClick={() => setParam("past", false)}>
-          Впереди
-        </button>
-        <button type="button" aria-pressed={past} onClick={() => setParam("past", true)}>
-          Прошедшие
-        </button>
-      </div>
+      <Segmented
+        label="Когда"
+        options={[
+          { id: "ahead", label: "Впереди" },
+          { id: "past", label: "Прошедшие" },
+        ]}
+        value={past ? "past" : "ahead"}
+        onChange={(id) => setParam("past", id === "past")}
+      />
       <ToggleChip label="Только «точно пойду»" on={onlySure} onChange={(on) => setParam("sure", on)} />
     </FilterBar>
   );

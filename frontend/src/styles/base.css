@@ -420,8 +420,11 @@ a.button:hover {
   gap: 8px;
 }
 
+/* One choice among a few: tabs over views of one thing, or a switch of what a list shows. */
 .segmented {
   display: inline-flex;
+  flex: none;
+  width: fit-content;
   padding: 3px;
   gap: 2px;
   border-radius: 999px;
@@ -429,6 +432,9 @@ a.button:hover {
 }
 
 .segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 26px;
   padding: 0 12px;
   border: none;
@@ -439,12 +445,12 @@ a.button:hover {
   font-weight: 500;
 }
 
-.segmented button:not([aria-pressed="true"]):hover {
+.segmented button:is([aria-pressed="false"], [aria-selected="false"]):hover {
   background: var(--bg-hover);
   color: var(--text);
 }
 
-.segmented button[aria-pressed="true"] {
+.segmented button:is([aria-pressed="true"], [aria-selected="true"]) {
   background: var(--bg);
   color: var(--text);
   box-shadow: 0 1px 2px rgba(32, 32, 32, 0.1);

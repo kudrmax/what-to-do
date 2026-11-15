@@ -11,6 +11,7 @@ import { orderTags } from "../domain/tags";
 import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { Modal } from "../ui/Modal";
+import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { Popover } from "../ui/Popover";
 import { LoadError } from "../ui/Screen";
 import { EventTime } from "./EventTime";
@@ -133,20 +134,13 @@ type Tab = "summary" | "original";
 
 function Description({ event, day, mentions, load, onView }: { event: EventCard; day: string; mentions: Mention[]; load: MentionsLoad; onView: View }) {
   const [tab, setTab] = useState<Tab>("summary");
-  const tabs: { id: Tab; label: string; count?: number }[] = [
+  const tabs: SegmentedOption<Tab>[] = [
     { id: "summary", label: "Кратко" },
     { id: "original", label: "Оригинал", count: mentions.length > 1 ? mentions.length : undefined },
   ];
   return (
     <section className="description">
-      <div className="tabs" role="tablist" aria-label="Описание">
-        {tabs.map((item) => (
-          <button key={item.id} type="button" role="tab" className="tabs__tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)}>
-            {item.label}
-            {item.count && <span className="chip__count">{item.count}</span>}
-          </button>
-        ))}
-      </div>
+      <Segmented label="Описание" options={tabs} value={tab} onChange={setTab} tabs />
       {tab === "summary" ? <Summary event={event} mentions={mentions} onView={onView} /> : <Originals event={event} day={day} mentions={mentions} load={load} onView={onView} />}
     </section>
   );
