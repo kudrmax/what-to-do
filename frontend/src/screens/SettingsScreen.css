@@ -5,6 +5,17 @@
   gap: 8px;
 }
 
+/* In the right column the choices fill it, so they end where the fields above them end. */
+.setting-row__control .settings-chips {
+  flex-wrap: nowrap;
+}
+
+.setting-row__control .settings-chips .chip {
+  flex: 1 1 0;
+  padding: 0 8px;
+  justify-content: center;
+}
+
 .chip--dashed {
   border-style: dashed;
   border-color: var(--line-strong);
