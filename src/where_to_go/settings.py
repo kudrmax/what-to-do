@@ -28,6 +28,12 @@ class AppSettings(BaseModel):
         le=300,
         description="How many latest posts of every channel are read; raising it reads older posts on the next refresh",
     )
+    priority_wish: str = Field(
+        default="",
+        max_length=2000,
+        description="What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; "
+        "empty: nothing is flagged",
+    )
     extraction_prompt: str = Field(
         default=prompts.EXTRACTION,
         min_length=1,
@@ -39,6 +45,11 @@ class AppSettings(BaseModel):
     photo_model: ClaudeModel = Field(default=ClaudeModel.SONNET, description="Transcribes post photos; Haiku misreads tables and collages")
     extraction_model: ClaudeModel = Field(default=ClaudeModel.SONNET, description="Reads posts into events and places")
     matching_model: ClaudeModel = Field(default=ClaudeModel.HAIKU, description="Merges duplicate announcements")
+
+    @field_validator("priority_wish")
+    @classmethod
+    def _trimmed(cls, wish: str) -> str:
+        return wish.strip()
 
     @field_validator("extraction_prompt")
     @classmethod

@@ -83,7 +83,7 @@ class MatchDecision:
     same_as_mention_id: int | None = None
 
 
-_FACTS_FOR_JUDGE = set(EventFacts.model_fields)
+_FACTS_FOR_JUDGE = set(EventFacts.model_fields) - {"is_priority"}
 
 
 class DuplicateJudge:

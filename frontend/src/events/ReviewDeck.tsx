@@ -13,6 +13,7 @@ import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
 import { useOpenEvent } from "./navigation";
 import "./ReviewDeck.css";
+import { PriorityBadge } from "./PriorityBadge";
 
 const INTEREST = [1, 2, 3, 4, 5] as const;
 const INTEREST_WORDS = ["Not interesting at all", "Not very interesting", "So-so", "Interesting", "Very interesting"];
@@ -342,8 +343,9 @@ function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, o
           {event.is_cancelled ? <span className="badge badge--accent review-card__end">Cancelled</span> : price && <span className="review-card__price review-card__end">{price}</span>}
         </div>
         <h2 className="review-card__title">{event.title}</h2>
-        {tags.length > 0 && (
+        {(tags.length > 0 || event.is_priority) && (
           <div className="review-card__tags">
+            {event.is_priority && <PriorityBadge />}
             {tags.slice(0, 4).map((tag) => (
               <span key={tag} className="badge">
                 {tag}

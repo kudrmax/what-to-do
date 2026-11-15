@@ -36,6 +36,14 @@
   --ok-bg: #e8f5ec;
   --ok-text: #1f6b3a;
   --favorite: #e8a317;
+  --priority: #6d4fd8;
+  --priority-soft: #f2eefd;
+  --priority-soft-hover: #e9e2fb;
+  --priority-line: #d6cbf7;
+  --priority-ink: #4a2fae;
+  --priority-border: #a993ee;
+  --priority-glow: #e7e0fb;
+  --priority-tint: #fcfbff;
   --tip-bg: #202020;
   --tip-text: #ffffff;
 

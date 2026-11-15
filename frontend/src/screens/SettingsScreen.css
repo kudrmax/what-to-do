@@ -221,3 +221,9 @@
 .prompt__error {
   margin-right: auto;
 }
+
+.wish__text {
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}

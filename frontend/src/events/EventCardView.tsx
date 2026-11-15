@@ -6,6 +6,7 @@ import { formatPrice } from "../domain/price";
 import { orderTags } from "../domain/tags";
 import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
+import { PriorityBadge } from "./PriorityBadge";
 import { DevNoteButton } from "./DevNoteButton";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
 import { useOpenEvent } from "./navigation";
@@ -30,7 +31,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
 
   return (
     <article
-      className={`card${event.is_cancelled ? " card--cancelled" : ""}`}
+      className={`card${event.is_cancelled ? " card--cancelled" : ""}${event.is_priority ? " card--priority" : ""}`}
       role="link"
       tabIndex={0}
       aria-label={event.title}
@@ -44,6 +45,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       <div className="card__body">
         <div className="card__meta">
           <EventTime event={event} className="card__time" />
+          {event.is_priority && <PriorityBadge />}
           {tag && <span className="badge">{tag}</span>}
           {event.is_cancelled ? <span className="badge badge--accent card__end">Cancelled</span> : price && <span className="card__price card__end">{price}</span>}
         </div>

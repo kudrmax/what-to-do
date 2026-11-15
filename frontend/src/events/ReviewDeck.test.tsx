@@ -28,6 +28,7 @@ function card(id: number, title: string): EventCard {
     plan: null,
     is_going: false,
     is_cancelled: false,
+    is_priority: false,
     conflicts: [],
     source_ids: [1],
     image_url: null,

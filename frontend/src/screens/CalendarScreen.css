@@ -125,6 +125,30 @@
   color: var(--accent-ink);
 }
 
+.week__top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 16px;
+}
+
+.week__priority {
+  display: inline-flex;
+  color: var(--priority);
+}
+
+.week__item--priority:not(.week__item--going) {
+  background: var(--priority-soft);
+}
+
+.week__item--priority:not(.week__item--going):hover {
+  background: var(--priority-soft-hover);
+}
+
+.week__item--priority:not(.week__item--going) .week__title {
+  color: var(--priority-ink);
+}
+
 .week__item--declined .week__time,
 .week__item--declined .week__title {
   color: var(--text-faint);

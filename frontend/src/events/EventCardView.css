@@ -28,6 +28,12 @@
   transition-duration: 80ms;
 }
 
+.card--priority {
+  border-color: var(--priority-border);
+  background: var(--priority-tint);
+  box-shadow: 0 0 0 3px var(--priority-glow), var(--shadow-card);
+}
+
 .card__layout {
   overflow: hidden;
   border-radius: inherit;
