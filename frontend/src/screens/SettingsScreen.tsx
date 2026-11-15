@@ -187,7 +187,7 @@ function TagsSection() {
   return (
     <Section
       title="Tags"
-      hint={`Claude tags events only with these tags. If none fits, it uses “${fallback ?? "…"}”, so those events show which tag is missing. Drag a tag to change the order in which tags appear on cards. A tag with a crossed-out eye is blocked: its events stay out of the feed, but marked ones remain in Going.`}
+      hint={`Claude tags events only with these tags. If none fits, it uses “${fallback ?? "…"}”, so those events show which tag is missing. Drag a tag to change the order in which tags appear on cards. A tag with a crossed-out eye is blocked: its events stay out of the feed, but marked ones remain in Want to go.`}
     >
       <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (

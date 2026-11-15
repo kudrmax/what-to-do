@@ -12,7 +12,7 @@ import { Icon } from "../ui/Icon";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
-/** Everything ahead that the user has not marked yet; a marked card moves to "Going" or leaves. A search finds marked cards too. */
+/** Everything ahead that the user has not marked yet; a marked card moves to "Want to go" or leaves. A search finds marked cards too. */
 export function FeedScreen() {
   const { city, today } = useActiveCity();
   const filters = useEventFilters();
@@ -43,7 +43,7 @@ export function FeedScreen() {
       ) : feed.data?.length === 0 && filters.query.search ? (
         <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.plans, query: { start: today ?? undefined, plans: SHOWN_PLANS.going } }} />
       ) : feed.data?.length === 0 ? (
-        <EmptyState title="All caught up" text="No unmarked events ahead, or filters are hiding them. Marked events are in Going." />
+        <EmptyState title="All caught up" text="No unmarked events ahead, or filters are hiding them. Marked events are in Want to go." />
       ) : (
         today && feed.data && <DayFeed occurrences={feed.data} today={today} shownTags={filters.query.tags} />
       )}

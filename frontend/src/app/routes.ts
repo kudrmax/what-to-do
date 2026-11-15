@@ -10,7 +10,7 @@ export interface Section {
 export const SECTIONS = {
   feed: { path: "/", title: "Upcoming", icon: "sun" },
   calendar: { path: "/calendar", title: "Calendar", icon: "calendar" },
-  plans: { path: "/plans", title: "Going", icon: "bookmark" },
+  plans: { path: "/plans", title: "Want to go", icon: "bookmark" },
   sources: { path: "/sources", title: "Sources", icon: "feed" },
   stats: { path: "/stats", title: "Stats", icon: "chart" },
   settings: { path: "/settings", title: "Settings", icon: "settings" },

@@ -70,7 +70,7 @@ The interface responds to every action: buttons react to presses, windows and me
 - Every element responds to hover, including active filters, marked events in **Calendar**, **Upcoming / Past** and **+ Add city**. They all respond at the same speed.
 - Windows close as smoothly as they open. Menus appear and disappear with a short animation.
 - The **Summary / Original** switch in the event window looks the same as **Upcoming / Past**.
-- In **Going**, the **Upcoming / Past** switch moved to the header, and the filters fit on one line.
+- In **Want to go**, the **Upcoming / Past** switch moved to the header, and the filters fit on one line.
 ![](docs/images/changelog/1.9.0/plans.png)
 - Cards in one row have the same height, and ratings and statuses line up.
 ![](docs/images/changelog/1.9.0/cards.png)
@@ -95,7 +95,7 @@ Fixed visual glitches on the **Sources**, **Calendar** and **Stats** screens and
 Tags can now be hidden from the feed and arranged in your own order.
 
 ### Tag blacklist and order
-In **Settings**, tags became a list. Click the eye next to a tag to put it on the blacklist, and events with it disappear from the feed. Events you have already marked stay in **Going**, even if they have a hidden tag. Drag a tag by the handle on the left to change the order: tags are shown in this order on cards and in the event window, and a card with several tags shows the one that matters most to you.
+In **Settings**, tags became a list. Click the eye next to a tag to put it on the blacklist, and events with it disappear from the feed. Events you have already marked stay in **Want to go**, even if they have a hidden tag. Drag a tag by the handle on the left to change the order: tags are shown in this order on cards and in the event window, and a card with several tags shows the one that matters most to you.
 ![](docs/images/changelog/1.8.0/tags.png)
 
 ## 1.7.1 — 2026-11-12
