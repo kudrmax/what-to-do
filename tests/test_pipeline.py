@@ -607,3 +607,19 @@ async def test_site_facts_win_over_what_claude_read(app):
     [card] = container.events.in_city(1)
     assert (card.start_date, card.start_time.strftime("%H:%M"), card.venue) == (soon, "19:00", "Бар")
     assert card.title == "Кафаны"
+
+
+@respx.mock
+async def test_refresh_counts_sources_and_site_pages_as_it_collects(app):
+    container, _, _ = app
+    soon = (datetime.now(UTC) + timedelta(days=10)).date().isoformat()
+    serve_channels([], [])
+    add_event_site(container)
+    serve_event_site(f"{soon}T19:00:00.000Z")
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    assert (progress.sources_collected, progress.sources_to_collect) == (3, 3)
+    assert (progress.pages_fetched, progress.pages_to_fetch) == (1, 1)
+    assert progress.stage_started_at is not None and progress.stage_started_at >= progress.started_at

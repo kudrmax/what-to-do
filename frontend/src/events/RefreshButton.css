@@ -15,6 +15,11 @@
   color: var(--accent-strong);
 }
 
+.refresh__left {
+  font-weight: 500;
+  opacity: 0.7;
+}
+
 .refresh__spin {
   animation: refresh-spin 1s linear infinite;
 }

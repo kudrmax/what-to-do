@@ -1396,8 +1396,35 @@ export interface components {
             stage: components["schemas"]["Stage"];
             /** Started At */
             started_at: string | null;
+            /**
+             * Stage Started At
+             * @description When the current stage began: how fast it goes tells how long is left
+             */
+            stage_started_at: string | null;
             /** Finished At */
             finished_at: string | null;
+            /**
+             * Sources To Collect
+             * @default 0
+             */
+            sources_to_collect: number;
+            /**
+             * Sources Collected
+             * @description Sources read, with or without an error
+             * @default 0
+             */
+            sources_collected: number;
+            /**
+             * Pages To Fetch
+             * @description Website pages to download in this refresh; known only as each site's list is read
+             * @default 0
+             */
+            pages_to_fetch: number;
+            /**
+             * Pages Fetched
+             * @default 0
+             */
+            pages_fetched: number;
             /**
              * New Posts
              * @description Posts downloaded in this refresh
