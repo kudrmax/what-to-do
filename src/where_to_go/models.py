@@ -365,7 +365,7 @@ class WebSite(SQLModel, table=True):
     __tablename__ = "web_sites"
 
     source_id: int = Field(primary_key=True, foreign_key="sources.id", ondelete="CASCADE")
-    sitemap_url: str
+    sitemap_urls: list[str] = json_field(list[str], default_factory=list, description="The site's sitemaps that list its events")
     prefix: str = Field(description="The site and the section its event pages are in: https://site/ru/events/")
     times_are_local: bool = Field(default=False, description="The site labels its local time as UTC")
     horizon_days: int = 30

@@ -86,6 +86,7 @@ class WebSiteProbe:
     LOOK_AT_MOST = 80
     TIME_VOTES = 2
     HORIZON_DAYS = 30
+    MAX_PAGES = 5000
 
     def __init__(self, client: httpx.AsyncClient, sitemaps: SitemapReader, clock: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
         self._fetcher = PageFetcher(client)
@@ -100,11 +101,12 @@ class WebSiteProbe:
         event = EventMarkup.read(own)
         if event is None:
             raise SourceError("На странице нет разметки события")
-        sitemap_url = await self._sitemaps.locate(site)
         section = Section(site + path)
-        urls = [u for u in await self._sitemaps.urls(sitemap_url) if u in section]
+        sitemaps, urls = await self._section(site, section)
         if not urls:
             raise SourceError("В списке страниц сайта нет других страниц этого раздела")
+        if len(urls) > self.MAX_PAGES:
+            raise SourceError(f"В этом разделе сайта слишком много страниц ({len(urls)}): так его не прочитать")
         examples = await self._examples(urls, self._clock().astimezone(zone).date())
         votes = [EventClock.detect(event, PageText.main(own), zone)]
         votes += [EventClock.detect(e, PageText.main(html), zone) for _, e, html in examples[: self.TIME_VOTES]]
@@ -117,7 +119,18 @@ class WebSiteProbe:
             pages_found=len(urls),
             examples=[self._example(u, e, clock) for u, e, _ in examples],
         )
-        return preview, WebSite(source_id=0, sitemap_url=sitemap_url, prefix=site + path, times_are_local=clock.is_local)
+        return preview, WebSite(source_id=0, sitemap_urls=sitemaps, prefix=site + path, times_are_local=clock.is_local)
+
+    async def _section(self, site: str, section: Section) -> tuple[list[str], list[str]]:
+        """The sitemaps that list pages of the section, and those pages."""
+        sitemaps: list[str] = []
+        urls: dict[str, None] = {}
+        for sitemap_url in await self._sitemaps.locate(site):
+            found = [u for u in await self._sitemaps.urls([sitemap_url]) if u in section]
+            if found:
+                sitemaps.append(sitemap_url)
+                urls.update(dict.fromkeys(found))
+        return sitemaps, list(urls)
 
     async def _examples(self, urls: list[str], today: date) -> list[tuple[str, WebEvent, str]]:
         """A few coming events of the section, soonest first; past events and pages that are not events are skipped."""
@@ -162,7 +175,7 @@ class WebSiteReader:
     async def collect(self, source: Source, zone: ZoneInfo) -> list[CollectedPost]:
         site = self._web.site(source.id)
         section = Section(site.prefix)
-        urls = [u for u in await self._sitemaps.urls(site.sitemap_url) if u in section]
+        urls = [u for u in await self._sitemaps.urls(site.sitemap_urls) if u in section]
         now = self._clock()
         today = now.astimezone(zone).date()
         known = self._web.pages(source.id)

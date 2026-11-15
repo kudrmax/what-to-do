@@ -231,6 +231,12 @@ class RefreshService:
             self._sources.record_error(source.id, str(error))
             self.progress.errors.append(f"{source.title}: {error}")
             return
+        except Exception as error:  # one broken source must not stop the others
+            log.exception("collecting %s failed", source.title)
+            message = f"не получилось прочитать: {error.__class__.__name__}"
+            self._sources.record_error(source.id, message)
+            self.progress.errors.append(f"{source.title}: {message}")
+            return
         for post in found:
             paths = [p for p in [await self._images.save(u) for u in post.image_urls] if p]
             if self._posts.add_new(source.id, post, paths):

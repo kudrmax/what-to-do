@@ -82,7 +82,7 @@ async def test_sitemap_index_and_gzip_are_followed():
     async with httpx.AsyncClient() as client:
         reader = SitemapReader(client)
         located = await reader.locate("https://site.test")
-        assert located == "https://site.test/index.xml"
+        assert located == ["https://site.test/index.xml"]
         assert await reader.urls(located) == ["https://site.test/1", "https://site.test/2", "https://site.test/3"]
 
 
@@ -91,7 +91,7 @@ async def test_sitemap_xml_is_tried_when_robots_names_none():
     respx.get("https://site.test/robots.txt").respond(200, text="User-agent: *\n")
     respx.get("https://site.test/sitemap.xml").respond(200, text=sitemap(["https://site.test/1"]))
     async with httpx.AsyncClient() as client:
-        assert await SitemapReader(client).locate("https://site.test") == "https://site.test/sitemap.xml"
+        assert await SitemapReader(client).locate("https://site.test") == ["https://site.test/sitemap.xml"]
 
 
 @respx.mock
@@ -176,3 +176,51 @@ def test_short_description_is_completed_with_page_text():
 def test_place_repeated_in_every_field_is_said_once():
     event = EventMarkup.read(event_page(location={"name": "Belgrade", "address": {"streetAddress": "Belgrade", "addressLocality": "Belgrade"}}))
     assert "Место: Belgrade\n" in WebEventText.render(event, EventClock(False, BELGRADE), "")
+
+
+@respx.mock
+async def test_one_dead_nested_sitemap_does_not_lose_the_others():
+    respx.get("https://site.test/index.xml").respond(200, text=sitemap_index(["https://site.test/blog.xml", "https://site.test/events.xml"]))
+    respx.get("https://site.test/blog.xml").respond(404)
+    respx.get("https://site.test/events.xml").respond(200, text=sitemap(["https://site.test/ru/events/1"]))
+    async with httpx.AsyncClient() as client:
+        assert await SitemapReader(client).urls(["https://site.test/index.xml"]) == ["https://site.test/ru/events/1"]
+
+
+@respx.mock
+async def test_dead_top_sitemap_is_the_error():
+    respx.get("https://site.test/sitemap.xml").respond(503)
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(SourceError):
+            await SitemapReader(client).urls(["https://site.test/sitemap.xml"])
+
+
+@respx.mock
+async def test_broken_gzip_is_a_source_error_not_a_crash():
+    respx.get("https://site.test/sitemap.xml").respond(200, content=b"\x1f\x8b broken")
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(SourceError):
+            await SitemapReader(client).urls(["https://site.test/sitemap.xml"])
+
+
+@respx.mock
+async def test_every_sitemap_robots_names_is_found():
+    respx.get("https://site.test/robots.txt").respond(200, text="Sitemap: https://site.test/pages.xml\nSitemap: https://site.test/events.xml\n")
+    async with httpx.AsyncClient() as client:
+        assert await SitemapReader(client).locate("https://site.test") == ["https://site.test/pages.xml", "https://site.test/events.xml"]
+
+
+def test_dated_folders_are_not_part_of_the_section():
+    assert SiteAddress.parse("https://x.club/events/2026/11/concert") == ("https://x.club", "/events/")
+
+
+@pytest.mark.parametrize("link", ["https://x.club/slug", "https://x.club/event.php?id=5", "https://x.club/2026/11/slug"])
+def test_link_whose_section_is_the_whole_site_is_refused(link):
+    with pytest.raises(SourceError, match="весь сайт"):
+        SiteAddress.parse(link)
+
+
+@pytest.mark.parametrize("raw", ["2026-11-20+01:00", "20261120"])
+def test_date_without_time_never_gets_a_made_up_time(raw):
+    start = EventMarkup.read(event_page(startDate=raw)).start
+    assert start == date(2026, 11, 20)

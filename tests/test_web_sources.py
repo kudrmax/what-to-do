@@ -27,7 +27,7 @@ async def app(tmp_path):
 
 def add_site(container, city, handle="site.test/ru/events/") -> Source:
     source = container.sources.add(Source(city_id=city.id, kind=SourceKind.WEB, handle=handle, title="Сайт"))
-    container.web.add_site(WebSite(source_id=source.id, sitemap_url="https://site.test/sitemap.xml", prefix="https://site.test/ru/events/"))
+    container.web.add_site(WebSite(source_id=source.id, sitemap_urls=["https://site.test/sitemap.xml"], prefix="https://site.test/ru/events/"))
     return source
 
 
@@ -107,7 +107,7 @@ async def test_probe_finds_section_and_examples():
         preview, site = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("e0"), BELGRADE)
     assert (preview.kind, preview.title, preview.handle, preview.pages_found) == (SourceKind.WEB, "Сайт афиши", "site.test/ru/events/", 5)
     assert [(e.title, e.day, e.time) for e in preview.examples] == [("2026-11-16", date(2026, 11, 16), "19:00"), ("2026-11-17", date(2026, 11, 17), "19:00"), ("2026-11-18", date(2026, 11, 18), "19:00")]
-    assert (site.sitemap_url, site.prefix) == ("https://site.test/sitemap.xml", SECTION)
+    assert (site.sitemap_urls, site.prefix) == (["https://site.test/sitemap.xml"], SECTION)
 
 
 @respx.mock
@@ -156,7 +156,7 @@ async def test_probe_says_when_site_does_not_answer():
 async def reading(app):
     container, city = app
     source = container.sources.add(Source(city_id=city.id, kind=SourceKind.WEB, handle="site.test/ru/events/", title="Сайт"))
-    container.web.add_site(WebSite(source_id=source.id, sitemap_url="https://site.test/sitemap.xml", prefix=SECTION, times_are_local=True))
+    container.web.add_site(WebSite(source_id=source.id, sitemap_urls=["https://site.test/sitemap.xml"], prefix=SECTION, times_are_local=True))
     client = httpx.AsyncClient()
     now = [NOW]
 
@@ -261,3 +261,24 @@ async def test_page_text_changing_around_the_same_event_is_not_read_again(readin
     await collect()
     assert routes["soon"].call_count == 2
     assert container.posts.unprocessed([source.id]) == []
+
+
+@respx.mock
+async def test_probe_keeps_only_sitemaps_with_the_section():
+    respx.get(page_url("a")).respond(200, text=on("2026-11-16"))
+    respx.get("https://site.test/robots.txt").respond(200, text="Sitemap: https://site.test/pages.xml\nSitemap: https://site.test/events.xml\n")
+    respx.get("https://site.test/pages.xml").respond(200, text=sitemap(["https://site.test/about"]))
+    respx.get("https://site.test/events.xml").respond(200, text=sitemap([page_url("a")]))
+    async with httpx.AsyncClient() as client:
+        _, site = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
+    assert site.sitemap_urls == ["https://site.test/events.xml"]
+
+
+@respx.mock
+async def test_probe_refuses_a_section_too_big_to_read():
+    respx.get(page_url("a")).respond(200, text=on("2026-11-16"))
+    respx.get("https://site.test/robots.txt").respond(200, text="Sitemap: https://site.test/sitemap.xml\n")
+    respx.get("https://site.test/sitemap.xml").respond(200, text=sitemap([page_url(str(i)) for i in range(WebSiteProbe.MAX_PAGES + 1)]))
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(SourceError, match="слишком много"):
+            await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)

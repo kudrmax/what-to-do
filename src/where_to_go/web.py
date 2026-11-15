@@ -6,6 +6,7 @@ Nothing here knows a particular site: sites describe their events for search eng
 from __future__ import annotations
 
 import gzip
+import logging
 import json
 import re
 from collections.abc import Iterator
@@ -23,6 +24,9 @@ from where_to_go.telegram import HtmlText, SourceError
 
 _SITEMAP_LINE = re.compile(r"^\s*sitemap\s*:\s*(\S+)", re.IGNORECASE | re.MULTILINE)
 _GZIP_MAGIC = b"\x1f\x8b"
+_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}")
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -211,9 +215,12 @@ class PageMeta:
 
 
 class SiteAddress:
-    @staticmethod
-    def parse(link: str) -> tuple[str, str]:
-        """The site and its section: «https://x.club/ru/events/a» → («https://x.club», «/ru/events/»)."""
+    _DATED = re.compile(r"^\d+$")
+
+    @classmethod
+    def parse(cls, link: str) -> tuple[str, str]:
+        """The site and its section: «https://x.club/ru/events/a» → («https://x.club», «/ru/events/»).
+        Dated folders (/events/2026/11/a) are left out, or the section would end with its month."""
         text = link.strip()
         if "://" not in text and re.match(r"^[\w.-]+\.[a-z]{2,}/", text, re.IGNORECASE):
             text = "https://" + text
@@ -221,48 +228,67 @@ class SiteAddress:
         segments = [s for s in parts.path.split("/") if s]
         if parts.scheme not in ("http", "https") or not parts.netloc or not segments:
             raise SourceError("Это не похоже на ссылку на страницу события")
-        prefix = "/" + "".join(f"{s}/" for s in segments[:-1])
-        return f"{parts.scheme}://{parts.netloc}", prefix
+        folders = segments[:-1]
+        while folders and cls._DATED.match(folders[-1]):
+            folders.pop()
+        if not folders:
+            raise SourceError("По этой ссылке раздел событий не найти: пришлось бы читать весь сайт")
+        return f"{parts.scheme}://{parts.netloc}", "/" + "".join(f"{s}/" for s in folders)
 
 
 class SitemapReader:
     """The list of a site's pages it keeps for search engines."""
 
+    MAX_NESTED = 50
+
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
 
-    async def locate(self, site: str) -> str:
+    async def locate(self, site: str) -> list[str]:
         robots = await self._get(f"{site}/robots.txt")
         if robots is not None:
-            named = _SITEMAP_LINE.findall(robots.decode(errors="replace"))
+            named = list(dict.fromkeys(_SITEMAP_LINE.findall(robots.decode(errors="replace"))))
             if named:
-                return named[0]
+                return named
         if await self._get(f"{site}/sitemap.xml") is not None:
-            return f"{site}/sitemap.xml"
+            return [f"{site}/sitemap.xml"]
         raise SourceError("На сайте нет списка страниц (sitemap)")
 
-    async def urls(self, sitemap_url: str) -> list[str]:
+    async def urls(self, sitemap_urls: list[str]) -> list[str]:
+        """Every page the sitemaps list. A sitemap the site names that cannot be read is an error;
+        a nested one that cannot be read now is skipped, the others still count."""
         found: dict[str, None] = {}
-        await self._collect(sitemap_url, found, seen=set())
+        seen: set[str] = set()
+        for url in sitemap_urls:
+            await self._collect(url, found, seen, nested=False)
         return list(found)
 
-    async def _collect(self, url: str, found: dict[str, None], seen: set[str]) -> None:
-        if url in seen:
+    async def _collect(self, url: str, found: dict[str, None], seen: set[str], nested: bool) -> None:
+        if url in seen or len(seen) > self.MAX_NESTED:
             return
         seen.add(url)
         content = await self._get(url)
-        if content is None:
+        root = self._parse(content)
+        if root is None:
+            if nested:
+                log.warning("nested sitemap %s skipped", url)
+                return
             raise SourceError("Сайт не отдал список страниц (sitemap)")
-        try:
-            root = ElementTree.fromstring(content)
-        except ElementTree.ParseError as error:
-            raise SourceError("Список страниц сайта (sitemap) не читается") from error
         locations = [(el.text or "").strip() for el in root.iter() if el.tag.endswith("loc")]
         if root.tag.endswith("sitemapindex"):
-            for nested in locations:
-                await self._collect(nested, found, seen)
+            for inner in locations:
+                await self._collect(inner, found, seen, nested=True)
         else:
             found.update((loc, None) for loc in locations if loc)
+
+    @staticmethod
+    def _parse(content: bytes | None) -> ElementTree.Element | None:
+        if content is None:
+            return None
+        try:
+            return ElementTree.fromstring(content)
+        except ElementTree.ParseError:
+            return None
 
     async def _get(self, url: str) -> bytes | None:
         try:
@@ -272,7 +298,12 @@ class SitemapReader:
         if response.status_code != 200:
             return None
         content = response.content
-        return gzip.decompress(content) if content.startswith(_GZIP_MAGIC) else content
+        if not content.startswith(_GZIP_MAGIC):
+            return content
+        try:
+            return gzip.decompress(content)
+        except (OSError, EOFError):
+            return None
 
 
 def _first(value: Any) -> Any:
@@ -304,8 +335,8 @@ def _moment(raw: str | None) -> datetime | date | None:
     if not raw:
         return None
     try:
-        if len(raw) == 10:
-            return date.fromisoformat(raw)
+        if "T" not in raw:
+            return date.fromisoformat(raw[:10]) if _DAY.match(raw) else datetime.strptime(raw[:8], "%Y%m%d").date()
         return datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return None

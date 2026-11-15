@@ -527,7 +527,7 @@ async def test_a_card_keeps_where_to_sign_up_as_a_booking(tmp_path):
 
 def add_event_site(container) -> Source:
     source = container.sources.add(Source(city_id=1, kind=SourceKind.WEB, handle="site.test/ru/events/", title="Сайт"))
-    container.web.add_site(WebSite(source_id=source.id, sitemap_url="https://site.test/sitemap.xml", prefix="https://site.test/ru/events/", times_are_local=True))
+    container.web.add_site(WebSite(source_id=source.id, sitemap_urls=["https://site.test/sitemap.xml"], prefix="https://site.test/ru/events/", times_are_local=True))
     return source
 
 
@@ -574,3 +574,17 @@ async def test_web_posts_photos_are_not_transcribed_but_shown(app, tmp_path):
     assert photo_llm.calls == []
     [card] = container.events.in_city(1)
     assert card.image_path is not None
+
+
+@respx.mock
+async def test_unexpected_failure_of_one_source_does_not_stop_the_refresh(app):
+    container, _, _ = app
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+    container.sources.add(Source(city_id=1, kind=SourceKind.WEB, handle="broken.test/ru/events/", title="Сломанный"))
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    assert progress.stage is Stage.DONE
+    assert any(e.startswith("Сломанный: ") for e in progress.errors)
+    assert {e.original_title for e in container.events.in_city(1)} == {"Кафаны"}
