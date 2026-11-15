@@ -36,6 +36,7 @@ from where_to_go.sources import PotentialSources, SourceCatalog
 from where_to_go.statistics import Statistics
 from where_to_go.telegram import TelegramChannelReader
 from where_to_go.web import SitemapReader
+from where_to_go.localities import LocalityJudge, LocalityRepository
 from where_to_go.source_types import SourceTypes, TelegramSourceType, WebSourceType
 from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 
@@ -119,7 +120,11 @@ class Container:
         sitemaps = SitemapReader(http)
         types = SourceTypes(
             TelegramSourceType(reader, posts, settings),
-            WebSourceType(WebSiteProbe(http, sitemaps), WebSiteReader(http, sitemaps, web, posts), web),
+            WebSourceType(
+                WebSiteProbe(http, sitemaps),
+                WebSiteReader(http, sitemaps, web, posts, LocalityJudge(matching_llm, LocalityRepository(db))),
+                web,
+            ),
         )
         catalog = SourceCatalog(sources, events, cards, types)
         potential_sources = PotentialSources(PotentialSourceRepository(db), sources, catalog)

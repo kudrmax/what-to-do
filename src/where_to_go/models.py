@@ -385,10 +385,24 @@ class WebPage(SQLModel, table=True):
     start_day: Day | None = Field(default=None, description="In the city's time; all the horizon needs")
     end_day: Day | None = None
     facts: str | None = Field(default=None, description="What Claude reads for this event")
+    locality: str | None = Field(default=None, description="The town the page names, as it names it")
+    online: bool = False
     fingerprint: str | None = Field(default=None, description="Of the event's own facts: the page around them may change on every visit")
     image_url: str | None = None
     found_at: datetime
     checked_at: datetime
+
+
+class Locality(SQLModel, table=True):
+    """A town a website names, and whether it is the city: so events elsewhere never reach Claude."""
+
+    __tablename__ = "localities"
+    __table_args__ = (UniqueConstraint("city_id", "name"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    city_id: int = Field(foreign_key="cities.id", ondelete="CASCADE", index=True)
+    name: str
+    in_city: bool
 
 
 class PhotoTextBase(SQLModel):

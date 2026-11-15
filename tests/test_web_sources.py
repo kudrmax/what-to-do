@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -5,13 +6,15 @@ import httpx
 import pytest
 import respx
 
-from tests.helpers import event_page, raw_event, sitemap
+from tests.helpers import FakeLlm, event_page, raw_event, sitemap
 
 from where_to_go.container import Container
 from where_to_go.models import CollectedPost, ExtractedEvent, Mention, Source, SourceKind, SourcePublic, WebPage, WebSite
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.telegram import SourceError
 from where_to_go.web import SitemapReader
+from where_to_go.localities import LocalityJudge, LocalityRepository
+from where_to_go.llm import LlmError
 from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 
 NOW = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
@@ -160,15 +163,19 @@ async def reading(app):
     client = httpx.AsyncClient()
     now = [NOW]
 
+    judge = FakeLlm(lambda _, prompt: {"places": [{"name": n, "in_city": n in ("Belgrade", "Београд")} for n in json.loads(prompt)["names"]]})
+    localities = LocalityJudge(judge, LocalityRepository(container.db))
+
     def reader() -> WebSiteReader:
-        return WebSiteReader(client, SitemapReader(client), container.web, container.posts, clock=lambda: now[0])
+        return WebSiteReader(client, SitemapReader(client), container.web, container.posts, localities, clock=lambda: now[0])
 
     async def collect():
-        posts = await reader().collect(container.sources.get(source.id), BELGRADE)
+        posts = await reader().collect(container.sources.get(source.id), city)
         for post in posts:
             container.posts.add_new(source.id, post, [])
         return posts
 
+    collect.judge = judge
     yield container, source, collect, now
     await client.aclose()
 
@@ -306,3 +313,39 @@ async def test_page_that_was_not_an_event_is_looked_at_again_a_week_later(readin
     now[0] = NOW + timedelta(days=8)
     assert [p.text.splitlines()[0] for p in await collect()] == ["Опубликовали"]
     assert routes["draft"].call_count == 2
+
+
+def in_town(town: str) -> dict:
+    return {"@type": "Place", "name": "Клуб", "address": {"addressLocality": town}}
+
+
+@respx.mock
+async def test_events_elsewhere_and_online_never_reach_claude(reading):
+    container, source, collect, _ = reading
+    serve_site({
+        "here": on("2026-11-20", name="Здесь", location=in_town("Belgrade")),
+        "here_cyrillic": on("2026-11-20", name="Здесь кириллицей", location=in_town("Београд")),
+        "novi_sad": on("2026-11-20", name="Нови-Сад", location=in_town("Novi Sad")),
+        "online": on("2026-11-20", name="Онлайн", eventAttendanceMode="https://schema.org/OnlineEventAttendanceMode"),
+        "nowhere": on("2026-11-20", name="Без города", location=None),
+    })
+    titles = sorted(p.text.splitlines()[0] for p in await collect())
+    assert titles == ["Без города", "Здесь", "Здесь кириллицей"]
+
+
+@respx.mock
+async def test_a_town_is_asked_about_once(reading):
+    container, source, collect, now = reading
+    serve_site({"a": on("2026-11-20", name="А", location=in_town("Novi Sad")), "b": on("2026-11-21", name="Б", location=in_town("Novi Sad"))})
+    await collect()
+    now[0] = NOW + timedelta(days=1)
+    await collect()
+    assert len(collect.judge.calls) == 1
+
+
+@respx.mock
+async def test_when_claude_cannot_tell_the_town_the_event_is_kept(reading):
+    container, source, collect, _ = reading
+    collect.judge._answer = lambda *_: (_ for _ in ()).throw(LlmError("нет связи"))
+    serve_site({"a": on("2026-11-20", name="А", location=in_town("Novi Sad"))})
+    assert [p.text.splitlines()[0] for p in await collect()] == ["А"]

@@ -94,7 +94,7 @@ class WebSourceType(SourceType):
         self._probed.pop(self._key(city, link), None)
 
     async def collect(self, source: Source, city: City) -> list[CollectedPost]:
-        return await self._reader.collect(source, ZoneInfo(city.timezone))
+        return await self._reader.collect(source, city)
 
     async def _probed_site(self, city: City, link: str) -> tuple[SitePreview, WebSite]:
         key = self._key(city, link)

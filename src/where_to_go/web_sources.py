@@ -12,7 +12,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from where_to_go.models import CollectedPost, Public, Source, SourceKind, WebPage, WebSite
+from where_to_go.localities import LocalityJudge
+from where_to_go.models import City, CollectedPost, Public, Source, SourceKind, WebPage, WebSite
 from where_to_go.repositories import PostRepository, WebRepository
 from where_to_go.telegram import SourceError
 from where_to_go.web import EventClock, EventMarkup, PageMeta, PageText, SiteAddress, SitemapReader, WebEvent, WebEventText, in_horizon
@@ -165,15 +166,18 @@ class WebSiteReader:
         sitemaps: SitemapReader,
         web: WebRepository,
         posts: PostRepository,
+        localities: LocalityJudge,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._fetcher = PageFetcher(client)
         self._sitemaps = sitemaps
         self._web = web
         self._posts = posts
+        self._localities = localities
         self._clock = clock
 
-    async def collect(self, source: Source, zone: ZoneInfo) -> list[CollectedPost]:
+    async def collect(self, source: Source, city: City) -> list[CollectedPost]:
+        zone = ZoneInfo(city.timezone)
         site = self._web.site(source.id)
         section = Section(site.prefix)
         urls = [u for u in await self._sitemaps.urls(site.sitemap_urls) if u in section]
@@ -186,10 +190,16 @@ class WebSiteReader:
             if html is not None:
                 known[url] = self._remember(source.id, url, html, known.get(url), clock, now)
         have_posts = self._posts.known_ids(source.id)
+        coming = [
+            p
+            for p in known.values()
+            if p.is_event and not p.online and p.id not in have_posts and in_horizon(p.start_day, p.end_day, today, site.horizon_days)
+        ]
+        here = await self._localities.in_city(city, {p.locality for p in coming if p.locality})
         return [
             CollectedPost(external_id=p.id, url=p.url, published_at=p.found_at, text=p.facts, image_urls=[p.image_url] if p.image_url else [])
-            for p in known.values()
-            if p.is_event and p.id not in have_posts and in_horizon(p.start_day, p.end_day, today, site.horizon_days)
+            for p in coming
+            if p.locality is None or here[p.locality]
         ]
 
     def _stale(self, page: WebPage, now: datetime) -> bool:
@@ -213,6 +223,8 @@ class WebSiteReader:
         page.start_day = _day(clock.local(event.start))
         page.end_day = _day(clock.local(event.end)) if event.end else None
         page.facts = facts
+        page.locality = event.locality
+        page.online = event.online
         page.fingerprint = fingerprint
         page.image_url = event.image
         page = self._web.save_page(page)

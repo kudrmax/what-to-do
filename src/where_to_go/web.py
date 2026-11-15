@@ -44,6 +44,7 @@ class WebEvent:
     image: str | None
     price: str | None
     organizer: str | None
+    online: bool = False
 
 
 class PlainText:
@@ -130,6 +131,7 @@ class EventMarkup:
             image=cls._image(item.get("image")),
             price=cls._price(item.get("offers")),
             organizer=_text(organizer.get("name")) if isinstance(organizer, dict) else _text(organizer),
+            online=(_text(item.get("eventAttendanceMode")) or "").endswith("OnlineEventAttendanceMode"),
         )
 
     @staticmethod
