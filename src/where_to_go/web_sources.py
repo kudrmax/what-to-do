@@ -75,10 +75,12 @@ class WebSiteProbe:
     LOOK_AT = 8
     LOOK_AT_MOST = 80
     TIME_VOTES = 2
+    HORIZON_DAYS = 30
 
-    def __init__(self, client: httpx.AsyncClient, sitemaps: SitemapReader) -> None:
+    def __init__(self, client: httpx.AsyncClient, sitemaps: SitemapReader, clock: Callable[[], datetime] = lambda: datetime.now(UTC)) -> None:
         self._fetcher = PageFetcher(client)
         self._sitemaps = sitemaps
+        self._clock = clock
 
     async def probe(self, link: str, zone: ZoneInfo) -> tuple[SitePreview, WebSite]:
         site, path = SiteAddress.parse(link)
@@ -93,7 +95,7 @@ class WebSiteProbe:
         urls = [u for u in await self._sitemaps.urls(sitemap_url) if u in section]
         if not urls:
             raise SourceError("В списке страниц сайта нет других страниц этого раздела")
-        examples = await self._examples(urls)
+        examples = await self._examples(urls, self._clock().astimezone(zone).date())
         votes = [EventClock.detect(event, PageText.main(own), zone)]
         votes += [EventClock.detect(e, PageText.main(html), zone) for _, e, html in examples[: self.TIME_VOTES]]
         clock = EventClock(EventClock.decide(votes), zone)
@@ -107,14 +109,16 @@ class WebSiteProbe:
         )
         return preview, WebSite(source_id=0, sitemap_url=sitemap_url, prefix=site + path, times_are_local=clock.is_local)
 
-    async def _examples(self, urls: list[str]) -> list[tuple[str, WebEvent, str]]:
-        """The first few events of the section; pages that are not events, such as categories, are skipped."""
+    async def _examples(self, urls: list[str], today: date) -> list[tuple[str, WebEvent, str]]:
+        """A few coming events of the section, soonest first; past events and pages that are not events are skipped."""
         found: list[tuple[str, WebEvent, str]] = []
         for start in range(0, min(len(urls), self.LOOK_AT_MOST), self.LOOK_AT):
             looked = await self._fetcher.many(urls[start : start + self.LOOK_AT])
-            found += [(u, e, html) for u, html in looked.items() if html and (e := EventMarkup.read(html))]
+            events = [(u, e, html) for u, html in looked.items() if html and (e := EventMarkup.read(html))]
+            found += [(u, e, html) for u, e, html in events if in_horizon(e.start, e.end, today, self.HORIZON_DAYS)]
             if len(found) >= self.EXAMPLES:
                 break
+        found.sort(key=lambda item: _day(item[1].start))
         return found[: self.EXAMPLES]
 
     @staticmethod

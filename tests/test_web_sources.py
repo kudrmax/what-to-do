@@ -104,7 +104,7 @@ def on(day: str, at: str = "19:00", **fields) -> str:
 async def test_probe_finds_section_and_examples():
     serve_site({f"e{i}": on(f"2026-11-{16 + i}") for i in range(5)})
     async with httpx.AsyncClient() as client:
-        preview, site = await WebSiteProbe(client, SitemapReader(client)).probe(page_url("e0"), BELGRADE)
+        preview, site = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("e0"), BELGRADE)
     assert (preview.kind, preview.title, preview.handle, preview.pages_found) == (SourceKind.WEB, "Сайт афиши", "site.test/ru/events/", 5)
     assert [(e.title, e.day, e.time) for e in preview.examples] == [("2026-11-16", date(2026, 11, 16), "19:00"), ("2026-11-17", date(2026, 11, 17), "19:00"), ("2026-11-18", date(2026, 11, 18), "19:00")]
     assert (site.sitemap_url, site.prefix) == ("https://site.test/sitemap.xml", SECTION)
@@ -114,7 +114,7 @@ async def test_probe_finds_section_and_examples():
 async def test_probe_detects_local_time_labelled_utc():
     serve_site({"a": on("2026-11-16"), "b": on("2026-11-17")})
     async with httpx.AsyncClient() as client:
-        _, site = await WebSiteProbe(client, SitemapReader(client)).probe(page_url("a"), BELGRADE)
+        _, site = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
     assert site.times_are_local is True
 
 
@@ -122,7 +122,7 @@ async def test_probe_detects_local_time_labelled_utc():
 async def test_probe_believes_an_honest_offset():
     serve_site({"a": event_page(startDate="2026-11-16T18:00:00Z", text="Начало в 19:00")})
     async with httpx.AsyncClient() as client:
-        _, site = await WebSiteProbe(client, SitemapReader(client)).probe(page_url("a"), BELGRADE)
+        _, site = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
     assert site.times_are_local is False
 
 
@@ -131,7 +131,7 @@ async def test_probe_refuses_page_without_event():
     serve_site({"a": event_page(markup=False)})
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match="На странице нет разметки события"):
-            await WebSiteProbe(client, SitemapReader(client)).probe(page_url("a"), BELGRADE)
+            await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
 
 
 @respx.mock
@@ -141,7 +141,7 @@ async def test_probe_refuses_site_without_sitemap():
     respx.get("https://site.test/sitemap.xml").respond(404)
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match=r"sitemap"):
-            await WebSiteProbe(client, SitemapReader(client)).probe(page_url("a"), BELGRADE)
+            await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
 
 
 @respx.mock
@@ -149,7 +149,7 @@ async def test_probe_says_when_site_does_not_answer():
     respx.get(page_url("a")).mock(side_effect=httpx.ConnectError("down"))
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match="Сайт не отвечает"):
-            await WebSiteProbe(client, SitemapReader(client)).probe(page_url("a"), BELGRADE)
+            await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
 
 
 @pytest.fixture
@@ -238,5 +238,13 @@ async def test_probe_looks_past_pages_that_are_not_events():
     pages = {f"category/{i}": event_page(markup=False) for i in range(12)} | {f"e{i}": on(f"2026-11-{16 + i}") for i in range(3)}
     serve_site(pages)
     async with httpx.AsyncClient() as client:
-        preview, _ = await WebSiteProbe(client, SitemapReader(client)).probe(page_url("e0"), BELGRADE)
+        preview, _ = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("e0"), BELGRADE)
     assert [e.day for e in preview.examples] == [date(2026, 11, 16), date(2026, 11, 17), date(2026, 11, 18)]
+
+
+@respx.mock
+async def test_probe_shows_coming_events_soonest_first():
+    serve_site({"past": on("2026-11-10", name="Прошло"), "late": on("2026-11-25", name="Позже"), "soon": on("2026-11-16", name="Скоро")})
+    async with httpx.AsyncClient() as client:
+        preview, _ = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("late"), BELGRADE)
+    assert [e.title for e in preview.examples] == ["Скоро", "Позже"]
