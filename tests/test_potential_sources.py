@@ -73,7 +73,7 @@ def test_a_forwarded_post_says_where_it_comes_from():
         '<div class="tgme_widget_message_text">',
     )
     [post] = TelegramPageParser(page).posts()
-    assert post.text == "Переслано из Лекции (https://t.me/lectures_bg/10)\n\nЛекция в пятницу"
+    assert post.text == "Forwarded from Лекции (https://t.me/lectures_bg/10)\n\nЛекция в пятницу"
 
 
 @respx.mock

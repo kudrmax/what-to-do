@@ -1,122 +1,122 @@
-# Веб-источники: сайты с афишей рядом с Telegram-каналами
+# Web sources: event websites next to Telegram channels
 
-## Зачем
+## Why
 
-Макс хочет, чтобы события с сайтов-афиш попадали в приложение так же, как из Telegram-каналов. Первый сайт — polakohedonist.club (афиша Белграда и Нови-Сада). Подключать сайты нужно без кода под каждый: сайт — это запись в источниках, а не класс в коде.
+Max wants events from event websites to reach the app the same way as from Telegram channels. The first website is polakohedonist.club (events in Belgrade and Novi Sad). Websites must be connected without code for each one: a website is a record in the sources, not a class in the code.
 
-## Цели
+## Goals
 
-- Добавить сайт так же просто, как канал: вставить ссылку на любое событие сайта, увидеть, что нашлось, подтвердить.
-- Общий механизм, не знающий о конкретных сайтах. Polako — первый, но не особый случай.
-- В Claude уходит только чистая суть события (как пост из канала), не HTML.
-- Дальше события идут тем же конвейером: Claude, склейка дублей с теми же событиями из Telegram, теги, язык описаний.
+- Adding a website is as simple as adding a channel: paste a link to any event of the site, see what was found, confirm.
+- A general mechanism that knows nothing about specific websites. Polako is the first, but not a special case.
+- Only the clean gist of an event goes to Claude (like a channel post), not HTML.
+- From there, events go through the same pipeline: Claude, merging duplicates with the same events from Telegram, tags, description language.
 
-## Не цели
+## Non-goals
 
-- Сайты без sitemap и без разметки schema.org `Event`. При добавлении такой сайт получает понятный отказ; другие способы — отдельная задача.
-- Обход защиты от ботов (Cloudflare challenge, капчи). Если сайт её включит, у источника появится ошибка, как у сломанного канала.
-- Внутренние API сайтов (у Polako `/api/*` закрыт в robots.txt).
+- Websites without a sitemap and without schema.org `Event` markup. Such a website gets a clear refusal when added; other ways are a separate task.
+- Getting around bot protection (Cloudflare challenge, captchas). If a website turns it on, the source gets an error, like a broken channel.
+- Internal website APIs (Polako's `/api/*` is closed in robots.txt).
 
-## Анти-цели
+## Anti-goals
 
-- Сырой HTML или вся страница в Claude.
-- Код, в котором упоминается polakohedonist.club, его адреса или поля.
-- Тысячи вызовов Claude за обновление: в Claude идут только события в горизонте, каждое один раз.
+- Raw HTML or the whole page sent to Claude.
+- Code that mentions polakohedonist.club, its addresses or fields.
+- Thousands of Claude calls per refresh: only events within the horizon go to Claude, each once.
 
-## Что известно о Polako (разведка 15.11.2026)
+## What is known about Polako (scouting on 15.11.2026)
 
-- Капчи нет, Cloudflare стоит, но обычные запросы отдаются с кодом 200.
-- robots.txt открывает страницы событий и sitemap, закрывает `/api/*`.
-- sitemap.xml: ~3200 адресов, из них по 820 событий на каждый язык (`/ru/events/…`, `/sr/events/…`, `/en/events/…`), плюс страницы категорий `/ru/events/category/…` (без блока `Event`). `lastmod` у всех один и тот же (дата генерации), на него опираться нельзя.
-- Страница афиши `/ru/events` рисуется в браузере: ссылок на события в HTML нет. Лента — только sitemap.
-- Каждая страница события (проверено 9) содержит `<script type="application/ld+json">` с `"@type": "Event"`: `name`, `description` (markdown, ~600–1500 символов), `image`, `startDate`, `endDate`, `location` (`name`, `address.streetAddress`, `address.addressLocality`), иногда `offers` (цена), `organizer` (у Polako это «Event Catalog» — агрегатор).
-- **Время подписано как UTC, но это местное время:** `"startDate": "2026-11-18T19:00:00.000Z"` при событии в 19:00 по Белграду. Eventbrite и Meetup пишут честное смещение (`+01:00`).
-- Другие сайты: блок `Event` есть у Eventbrite и Meetup; sitemap в robots.txt указан у KudaGo, Timepad, Resident Advisor, Luma, нет у tickets.rs. У Eventbrite `description` в блоке — 12 символов.
+- No captcha; Cloudflare is there, but plain requests are served with code 200.
+- robots.txt opens the event pages and the sitemap and closes `/api/*`.
+- sitemap.xml: ~3200 addresses, 820 events per language among them (`/ru/events/…`, `/sr/events/…`, `/en/events/…`), plus category pages `/ru/events/category/…` (without an `Event` block). `lastmod` is the same everywhere (the generation date), so it can't be relied on.
+- The events page `/ru/events` is rendered in the browser: its HTML has no links to events. The only feed is the sitemap.
+- Every event page (9 checked) has a `<script type="application/ld+json">` with `"@type": "Event"`: `name`, `description` (markdown, ~600–1500 characters), `image`, `startDate`, `endDate`, `location` (`name`, `address.streetAddress`, `address.addressLocality`), sometimes `offers` (price), `organizer` (for Polako it is "Event Catalog", an aggregator).
+- **The time is labelled UTC but is local time:** `"startDate": "2026-11-18T19:00:00.000Z"` for an event at 19:00 Belgrade time. Eventbrite and Meetup write an honest offset (`+01:00`).
+- Other websites: Eventbrite and Meetup have an `Event` block; robots.txt names a sitemap at KudaGo, Timepad, Resident Advisor and Luma, but not at tickets.rs. Eventbrite's `description` in the block is 12 characters.
 
-## Подходы
+## Approaches
 
-1. **Общий веб-источник: лента sitemap + шаблон адресов + блок schema.org `Event` → текст-«пост» → существующий конвейер** (выбран). Сайт описывается данными, код один на все сайты; Claude получает ~1 КБ фактов вместо ~270 КБ страницы.
-2. **Блок `Event` прямо в карточку, без Claude.** Дешевле, но теги, язык описаний и склейка дублей пришлось бы делать вторым конвейером. Отвергнут: Claude всё равно нужен для описаний и склейки.
-3. **Отдельный разборщик под каждый сайт в коде.** Отвергнут Максом: каждый новый сайт — новый код.
+1. **A general web source: sitemap feed + address template + schema.org `Event` block → a text "post" → the existing pipeline** (chosen). A website is described by data, and one piece of code serves all websites; Claude gets ~1 KB of facts instead of a ~270 KB page.
+2. **The `Event` block straight into a card, without Claude.** Cheaper, but tags, description language and merging duplicates would need a second pipeline. Rejected: Claude is needed for descriptions and merging anyway.
+3. **A separate parser per website in the code.** Rejected by Max: every new website means new code.
 
-## Как это работает для Макса
+## How it works for Max
 
-1. «Источники» → поле добавления принимает и `t.me/канал`, и ссылку на страницу события сайта.
-2. Для ссылки сайта приложение за несколько секунд проверяет сайт и показывает предпросмотр: название сайта, сколько страниц событий нашлось, три примера (название и дата отдельными строками). Кнопки «Отмена» и «Добавить».
-3. Если сайт не подходит — понятная ошибка вместо предпросмотра: «На сайте нет списка страниц (sitemap)», «На странице нет разметки события», «Сайт не отвечает» и т.п.
-4. Добавленный сайт стоит в списке источников рядом с каналами, со своей иконкой (глобус вместо значка Telegram), ссылкой на сайт и теми же действиями: переименовать, отметить, удалить. «Обновить» забирает события и с него.
+1. **Sources** → the add field accepts both `t.me/channel` and a link to an event page of a website.
+2. For a website link, the app checks the site in a few seconds and shows a preview: the site name, how many event pages were found, three examples (title and date on separate lines). **Cancel** and **Add** buttons.
+3. If the website doesn't fit, a clear error instead of the preview: "The site has no page list (sitemap)", "The page has no event markup", "The site doesn't respond" and so on.
+4. An added website stands in the source list next to the channels, with its own icon (a globe instead of the Telegram icon), a link to the site and the same actions: rename, star, delete. **Refresh** takes events from it too.
 
-## Алгоритм (общий, без знания о сайте)
+## Algorithm (general, knows nothing about the site)
 
-### При добавлении (`WebSiteProbe`)
+### When adding (`WebSiteProbe`)
 
-1. Из ссылки берётся сайт (`https://host`) и **префикс раздела**: путь ссылки без последнего сегмента (`/ru/events/iskusstvo-…` → `/ru/events/`). Префикс автоматически отсекает другие языки и другие разделы.
-2. Скачивается страница по ссылке; в ней должен быть блок `Event`. Нет — отказ «на странице нет разметки события».
-3. Ищется sitemap: строки `Sitemap:` в `/robots.txt`, иначе `/sitemap.xml`. Поддерживаются sitemap index (вложенные sitemap) и gzip. Нет — отказ.
-4. Из sitemap берутся адреса с префиксом. Ноль — отказ.
-5. **Время:** определяется, честное ли смещение в `startDate`. Правило: если время в блоке со смещением `Z`/`+00:00`, а в видимом тексте страницы встречается то же «ЧЧ:ММ» без пересчёта и не встречается пересчитанное в часовой пояс города — время считается местным (`times_are_local = true`). Проверяется на открытой странице и на 2 примерах.
-6. Предпросмотр показывает «Найдено N страниц событий» (число адресов с префиксом) и три примера из открытых страниц. Сколько из них попадёт в 30 дней, без загрузки всех страниц неизвестно, поэтому это число в предпросмотре не показывается — оно появится у источника после первого обновления.
+1. The link gives the site (`https://host`) and the **section prefix**: the link's path without its last segment (`/ru/events/iskusstvo-…` → `/ru/events/`). The prefix automatically cuts off other languages and other sections.
+2. The page at the link is downloaded; it must have an `Event` block. If not, the refusal "the page has no event markup".
+3. The sitemap is looked up: `Sitemap:` lines in `/robots.txt`, otherwise `/sitemap.xml`. Sitemap indexes (nested sitemaps) and gzip are supported. If none, a refusal.
+4. Addresses with the prefix are taken from the sitemap. Zero means a refusal.
+5. **Time:** decide whether the offset in `startDate` is honest. Rule: if the time in the block has a `Z`/`+00:00` offset, and the visible text of the page has the same "HH:MM" as written and not the time converted to the city's time zone, the time is considered local (`times_are_local = true`). Checked on the opened page and on 2 examples.
+6. The preview shows "Found N event pages" (the number of addresses with the prefix) and three examples from the opened pages. How many of them fall within 30 days is unknown without downloading every page, so the preview doesn't show that number: it appears on the source after the first refresh.
 
-Сохраняется источник: `kind = web`, `handle` = сайт + префикс (`polakohedonist.club/ru/events/`), `title` = `og:site_name` или имя хоста, плюс настройки веб-источника (sitemap, префикс, `times_are_local`, горизонт в днях = 30).
+The saved source: `kind = web`, `handle` = site + prefix (`polakohedonist.club/ru/events/`), `title` = `og:site_name` or the host name, plus the web source settings (sitemap, prefix, `times_are_local`, horizon in days = 30).
 
-### При обновлении (`WebSiteReader`)
+### When refreshing (`WebSiteReader`)
 
-1. Скачать sitemap, отобрать адреса с префиксом.
-2. **Новые адреса** (которых нет в таблице страниц источника) скачать, достать блок `Event`, запомнить в таблице страниц: адрес, дата начала, когда проверено. Страница без блока запоминается как «не событие» и больше не скачивается.
-3. **Перепроверка:** страницы уже известных событий с датой в ближайшие 7 дней скачиваются заново (переносы и отмены). Изменился текст фактов — пост обновляется и читается Claude заново.
-4. Страница с датой в горизонте (сегодня … +30 дней), ещё не ставшая постом, становится постом. Страницы дальше горизонта ждут: когда дата войдёт в горизонт, пост появится без повторной загрузки страницы.
-5. Адреса, пропавшие из sitemap, не трогаются (карточки уже созданы; удалённое событие просто перестаёт обновляться).
-6. Загрузки страниц — не больше 4 одновременно, с честным User-Agent приложения; ошибка отдельной страницы не валит источник, ошибка sitemap — ошибка источника (как у канала).
+1. Download the sitemap and pick the addresses with the prefix.
+2. **New addresses** (not yet in the source's page table) are downloaded, their `Event` block extracted and remembered in the page table: address, start date, when checked. A page without a block is remembered as "not an event" and never downloaded again.
+3. **Recheck:** pages of known events dated within the next 7 days are downloaded again (reschedules and cancellations). If the text of the facts changed, the post is updated and read by Claude again.
+4. A page dated within the horizon (today … +30 days) that is not a post yet becomes a post. Pages beyond the horizon wait: when the date enters the horizon, the post appears without downloading the page again.
+5. Addresses that disappeared from the sitemap are left alone (the cards already exist; a deleted event just stops being updated).
+6. Page downloads: at most 4 at once, with the app's honest User-Agent; an error on one page doesn't fail the source, a sitemap error is a source error (as with a channel).
 
-Первый запуск у Polako: ~820 загрузок страниц (без Claude, несколько минут), в Claude ~450–500 событий; дальше — десятки новых в день.
+First run on Polako: ~820 page downloads (no Claude, a few minutes), ~450–500 events to Claude; after that, dozens of new ones a day.
 
-### Что становится «постом»
+### What becomes a "post"
 
-Текст из полей блока, в одном виде для всех сайтов:
+Text from the block's fields, in one form for all websites:
 
 ```
-Искусство быть нелепым
-Начало: 2026-11-18 19:00
-Конец: 2026-11-18 21:00
-Место: Restoran Tri, Светогорска, 46, Belgrade
-Цена: 0 RSD                      (если есть offers)
-Организатор: Event Catalog       (если есть)
+The Art of Being Awkward
+Start: 2026-11-18 19:00
+End: 2026-11-18 21:00
+Place: Restoran Tri, Svetogorska, 46, Belgrade
+Price: 0 RSD                      (if there are offers)
+Organizer: Event Catalog          (if present)
 
 <description>
 ```
 
-- `url` поста — адрес страницы; `published_at` — когда страница впервые найдена; картинка — `image` (сохраняется локально, как у каналов).
-- Если `description` короче ~200 символов (как у Eventbrite), к нему добавляется видимый текст основной части страницы (`<main>`/`<article>`, иначе `<body>`), очищенный тем же способом, что посты Telegram, и обрезанный до разумной длины.
-- Время пишется уже переведённым в часовой пояс города с учётом `times_are_local`.
+- The post's `url` is the page address; `published_at` is when the page was first found; the picture is `image` (saved locally, as for channels).
+- If `description` is shorter than ~200 characters (as at Eventbrite), the visible text of the page's main part (`<main>`/`<article>`, otherwise `<body>`) is added to it, cleaned the same way as Telegram posts and cut to a reasonable length.
+- The time is written already converted to the city's time zone, taking `times_are_local` into account.
 
-## Изменения в существующем коде
+## Changes to existing code
 
-- `SourceKind.WEB`; `SourcePublic.url` зависит от вида (канал → t.me, сайт → адрес раздела).
-- Сейчас `TelegramChannelReader` зашит в `RefreshService` и `SourceCatalog`. Вводится интерфейс «читатель источника» (новые посты для источника; заголовок/проверка при добавлении) с двумя реализациями; выбор по `source.kind`.
-- `Post.external_id` — целое; у веб-постов это id строки в новой таблице страниц, так что схема `posts` не меняется.
-- Новые таблицы: настройки веб-источника (sitemap, префикс, `times_are_local`, горизонт) и страницы веб-источника (адрес, дата начала, признак «не событие», когда проверено, отпечаток фактов, id поста). Создаются `create_all`, миграция не нужна.
-- `PostRepository.to_read`: для веб-источников «последние `recent`» не применяются — читаются непрочитанные посты.
-- Промпты извлечения и склейки по умолчанию говорят «Telegram channel posts»; их нужно обобщить до «posts from Telegram channels and event pages of websites» (см. решения после проверки). Правило «канал сам организует событие» (`is_organizer`) для сайтов-агрегаторов даёт false.
-- Расшифровка фото Claude (`PhotoTranscriber`) для веб-постов не нужна: факты уже текстом. Картинка только сохраняется для карточки.
-- «Потенциальные источники» работают как есть: ссылки на t.me в описаниях событий попадут туда.
-- API: `POST /sources` принимает ссылку сайта; новая ручка предпросмотра `POST /sources/preview` (ссылка → вид, название, число найденных страниц, примеры или понятная ошибка), чтобы фронтенд показал предпросмотр до добавления.
-- Фронтенд: поле добавления принимает обе ссылки; для сайта — предпросмотр перед добавлением; иконка вида источника в списке.
+- `SourceKind.WEB`; `SourcePublic.url` depends on the kind (channel → t.me, website → section address).
+- Today `TelegramChannelReader` is hard-wired into `RefreshService` and `SourceCatalog`. A "source reader" interface is introduced (new posts of a source; title/check when adding) with two implementations, picked by `source.kind`.
+- `Post.external_id` is an integer; for web posts it is the row id in the new page table, so the `posts` schema doesn't change.
+- New tables: web source settings (sitemap, prefix, `times_are_local`, horizon) and web source pages (address, start date, "not an event" flag, when checked, facts fingerprint, post id). Created by `create_all`, no migration needed.
+- `PostRepository.to_read`: for web sources the "last `recent`" rule doesn't apply; unread posts are read.
+- The default extraction and matching prompts say "Telegram channel posts"; they need to be generalized to "posts from Telegram channels and event pages of websites" (see the decisions after review). The rule "the channel organizes the event itself" (`is_organizer`) gives false for aggregator websites.
+- Claude's photo transcription (`PhotoTranscriber`) isn't needed for web posts: the facts are already text. The picture is only saved for the card.
+- **Potential sources** work as is: t.me links in event descriptions get there.
+- API: `POST /sources` accepts a website link; a new preview endpoint `POST /sources/preview` (link → kind, title, number of pages found, examples or a clear error), so the frontend can show a preview before adding.
+- Frontend: the add field accepts both links; a preview before adding a website; a source kind icon in the list.
 
-## Решения после проверки дизайна (мои, Макс может поправить)
+## Decisions after the design review (mine, Max may correct them)
 
-- **Проверка времени ничего не показала** (в тексте страницы нет «ЧЧ:ММ» или примеры противоречат друг другу): верить смещению, как его пишет сайт (`times_are_local = false`). Это поведение по стандарту; у Polako проверка однозначна — в тексте страницы «в 19:00» при `19:00Z`.
-- **Промпты.** Обновляются значения по умолчанию в `prompts.py`. У Макса промпты в настройках не менялись (в таблице `settings` их нет), значит, правка дойдёт до него сама. Если промпт изменён пользователем, он не трогается. `ReadingRules` не поднимаются: по их же правилу правка промпта действует на новые посты и не перечитывает старые. Поле `channel` в запросе к Claude остаётся с тем же именем (в нём название источника — канала или сайта), чтобы чтение Telegram-постов не менялось.
-- **Многодневные события.** Событие в горизонте, если его период [`startDate`, `endDate` или `startDate`] пересекается с [сегодня, сегодня + 30 дней]: идущая выставка попадает. Страница без `startDate` — не событие.
-- **Изменённая страница и ручная склейка.** Как у Telegram: пост, чьи события Макс склеивал или разделял вручную, не перечитывается — ручное решение важнее. Остальные изменённые страницы перечитываются.
+- **The time check showed nothing** (the page text has no "HH:MM", or the examples contradict each other): trust the offset as the site writes it (`times_are_local = false`). This is the standard behavior; for Polako the check is unambiguous: the page text says "at 19:00" for `19:00Z`.
+- **Prompts.** The defaults in `prompts.py` are updated. Max hasn't changed his prompts in the settings (they aren't in the `settings` table), so the change reaches him by itself. A prompt changed by the user is not touched. `ReadingRules` are not bumped: by their own rule, a prompt change applies to new posts and doesn't reread old ones. The `channel` field in the request to Claude keeps its name (it holds the source name, channel or website), so reading Telegram posts doesn't change.
+- **Multi-day events.** An event is within the horizon if its period [`startDate`, `endDate` or `startDate`] overlaps [today, today + 30 days]: a running exhibition makes it. A page without `startDate` is not an event.
+- **A changed page and manual merging.** As with Telegram: a post whose events Max merged or split by hand is not reread, since the manual decision matters more. Other changed pages are reread.
 
-## Решения, оставленные исполнителю
+## Decisions left to the implementer
 
-- Точные имена классов и раскладка по модулям (предложение: `web.py` — общий веб-слой: sitemap, разметка `Event`, текст страницы; `web_sources.py` — чтение веб-источника и проверка при добавлении).
-- Формат хранения настроек веб-источника (отдельная таблица или колонки) — при условии, что существующие таблицы меняются только добавлением колонок с default.
-- Вид предпросмотра в UI — в стиле существующего экрана источников; без перечислений через «·» (правило Макса).
+- Exact class names and module layout (suggestion: `web.py` for the general web layer: sitemap, `Event` markup, page text; `web_sources.py` for reading a web source and checking it when adding).
+- How web source settings are stored (a separate table or columns), provided existing tables change only by adding columns with a default.
+- The look of the preview in the UI: in the style of the existing sources screen; no lists separated by "·" (Max's rule).
 
-## Проверка
+## Verification
 
-- Тесты на общий веб-слой на сохранённых страницах Polako, Eventbrite, Meetup (фикстуры в `tests/`), включая sitemap index и gzip, страницу без блока, неверное `Z`.
-- Прогон на копии данных (не на рабочих данных Макса): добавить Polako, обновить, увидеть карточки в ленте, склейку с событием, уже пришедшим из Telegram, верное время (19:00, а не 20:00).
-- Глазами в приложении: добавление с предпросмотром, ошибка для неподходящего сайта, сайт в списке источников, карточка с кнопкой «оригинал», ведущей на страницу сайта.
+- Tests of the general web layer on saved pages from Polako, Eventbrite and Meetup (fixtures in `tests/`), including sitemap index and gzip, a page without a block, a wrong `Z`.
+- A run on a copy of the data (not Max's working data): add Polako, refresh, see the cards in the feed, merging with an event that already came from Telegram, the right time (19:00, not 20:00).
+- With your own eyes in the app: adding with a preview, an error for an unsuitable website, the website in the source list, a card with an "original" button leading to the website's page.

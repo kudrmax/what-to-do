@@ -33,6 +33,10 @@ from where_to_go.telegram import SourceError
 log = logging.getLogger(__name__)
 
 
+def _count(number: int, noun: str) -> str:
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
 class Stage(StrEnum):
     IDLE = "idle"
     COLLECTING = "collecting"
@@ -213,7 +217,7 @@ class RefreshService:
             self.progress.stage = Stage.DONE
         except Exception as error:
             log.exception("refresh failed")
-            self.progress.errors.append(f"Обновление прервалось: {error}")
+            self.progress.errors.append(f"Refresh stopped: {error}")
             self.progress.stage = Stage.FAILED
         finally:
             self.progress.finished_at = datetime.now(UTC)
@@ -221,7 +225,7 @@ class RefreshService:
     async def run(self) -> None:
         city = self._cities.active()
         if city is None:
-            raise RuntimeError("не выбран активный город")
+            raise RuntimeError("no active city selected")
         sources = {s.id: s for s in self._sources.in_city(city.id)}
 
         self.progress.enter(Stage.COLLECTING)
@@ -251,7 +255,7 @@ class RefreshService:
             self.progress.announcements_to_merge = len(unassigned)
             self.progress.events_touched = len(await self._linker.link(city.id, unassigned, self._merged))
         except LlmError as error:
-            self.progress.errors.append(f"Не получилось склеить события: {error}")
+            self.progress.errors.append(f"Couldn't merge events: {error}")
         self._sources.recount_events(self._events)
 
     def _merged(self, count: int) -> None:
@@ -272,7 +276,7 @@ class RefreshService:
             return
         except Exception as error:  # one broken source must not stop the others
             log.exception("collecting %s failed", source.title)
-            message = f"не получилось прочитать: {error.__class__.__name__}"
+            message = f"couldn't read it: {error.__class__.__name__}"
             self._sources.record_error(source.id, message)
             self.progress.errors.append(f"{source.title}: {message}")
             return
@@ -287,7 +291,7 @@ class RefreshService:
         try:
             await self._photos.transcribe(batch)
         except LlmError as error:
-            self.progress.errors.append(f"Claude не прочитал {len(batch)} фото, их посты разберутся в следующий раз: {error}")
+            self.progress.errors.append(f"Claude couldn't read {_count(len(batch), 'photo')}; their posts will be read next time: {error}")
             return
         self.progress.photos_read += len(batch)
 
@@ -295,7 +299,7 @@ class RefreshService:
         try:
             await self._post_reader.read(batch, sources, context)
         except LlmError as error:
-            self.progress.errors.append(f"Claude не разобрал часть новых постов и страниц ({len(batch)}): {error}")
+            self.progress.errors.append(f"Claude couldn't read some of the new posts and pages ({len(batch)}): {error}")
             return
         self.progress.posts_read += len(batch)
 

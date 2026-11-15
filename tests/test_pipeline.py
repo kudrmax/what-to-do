@@ -84,7 +84,7 @@ async def test_unreachable_channel_is_recorded_on_the_source(app):
     container.refresh.start()
     progress = await container.refresh.wait()
     kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
-    assert "закрыт" in kafana.last_error
+    assert "private" in kafana.last_error
     assert progress.stage is Stage.DONE
 
 
@@ -140,7 +140,7 @@ async def test_posts_claude_failed_to_read_are_retried_next_refresh(tmp_path):
 
     container.refresh.start()
     first = await container.refresh.wait()
-    assert first.stage is Stage.DONE and any("не разобрал" in e for e in first.errors)
+    assert first.stage is Stage.DONE and any("couldn't read some of the new posts and pages (1):" in e for e in first.errors)
     assert container.events.in_city(1) == []
 
     container.refresh.start()
@@ -158,7 +158,7 @@ async def test_mentions_left_unmerged_by_a_failure_are_merged_next_refresh(tmp_p
 
     container.refresh.start()
     first = await container.refresh.wait()
-    assert any("склеить" in e for e in first.errors)
+    assert any("merge" in e for e in first.errors)
     assert container.events.in_city(1) == []
     assert len(container.mentions.unassigned([1, 2])) == 2
 
@@ -174,7 +174,7 @@ async def test_refresh_without_city_fails_visibly(tmp_path):
     container = Container.build(tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
     container.refresh.start()
     progress = await container.refresh.wait()
-    assert progress.stage is Stage.FAILED and "город" in progress.errors[0]
+    assert progress.stage is Stage.FAILED and "city" in progress.errors[0]
     await container.close()
 
 
@@ -302,7 +302,7 @@ async def test_a_dateless_follow_up_cannot_be_split_off(tmp_path):
 
     [card] = container.events.in_city(1)
     follow_up = next(m for m in container.mentions.of_event(card.id) if m.data.is_dateless_follow_up)
-    with pytest.raises(ValueError, match="нет даты"):
+    with pytest.raises(ValueError, match="no date"):
         container.cards.split(card.id, follow_up.id)
     await container.close()
 
@@ -553,8 +553,8 @@ async def test_web_source_events_reach_the_feed_and_merge_with_telegram(app):
     [card] = container.events.in_city(1)
     assert len(card.source_ids) == 2
     assert card.start_time.strftime("%H:%M") == "19:00"
-    site_prompt = next(prompt for _, prompt in extraction_by_site.calls if "Начало:" in prompt)
-    assert f"Начало: {soon} 19:00" in site_prompt and "<html" not in site_prompt
+    site_prompt = next(prompt for _, prompt in extraction_by_site.calls if "Start:" in prompt)
+    assert f"Start: {soon} 19:00" in site_prompt and "<html" not in site_prompt
 
 
 @respx.mock

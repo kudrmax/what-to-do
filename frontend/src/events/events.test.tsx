@@ -73,9 +73,9 @@ describe("event card", () => {
 
   it("marks without opening, and a second click on the same mark clears it", async () => {
     const { mark } = setup(<EventCardView event={card({ interest: 4 })} day="2026-11-13" />);
-    fireEvent.click(screen.getByRole("button", { name: "Точно пойду" }));
+    fireEvent.click(screen.getByRole("button", { name: "Going for sure" }));
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(7, { interest: 4, plan: "sure" }));
-    fireEvent.click(screen.getByRole("button", { name: "Интересно" }));
+    fireEvent.click(screen.getByRole("button", { name: "Interesting" }));
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(7, { interest: null, plan: null }));
     expect(screen.getByTestId("where").textContent).toBe("/");
   });
@@ -88,7 +88,7 @@ describe("event card", () => {
 
   it("shows the price as words and the tag the list is filtered by", () => {
     setup(<EventCardView event={card()} day="2026-11-13" shownTags={["Встреча"]} />);
-    expect(screen.getByText("Бесплатно")).toBeInTheDocument();
+    expect(screen.getByText("Free")).toBeInTheDocument();
     expect(screen.getByText("Встреча")).toBeInTheDocument();
     expect(screen.queryByText("Игры и квизы")).not.toBeInTheDocument();
   });
@@ -99,11 +99,11 @@ describe("event time", () => {
     const { rerender } = render(<EventTime event={card()} />);
     expect(screen.getByText("20:00")).toBeInTheDocument();
     rerender(<EventTime event={card({ start_time: null })} />);
-    expect(screen.getByRole("img", { name: "Время уточняется" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Time to be confirmed" })).toBeInTheDocument();
     rerender(<EventTime event={card({ kind: "multiday", start_date: "2026-11-01", end_date: "2026-11-30" })} />);
-    expect(screen.getByText("1–30 ноября")).toBeInTheDocument();
+    expect(screen.getByText("1–30 November")).toBeInTheDocument();
     rerender(<EventTime event={card({ kind: "recurring", rrule: "FREQ=WEEKLY;BYDAY=TU" })} />);
-    expect(document.querySelector('[data-tip="Каждый вторник"]')).not.toBeNull();
+    expect(document.querySelector('[data-tip="Every Tuesday"]')).not.toBeNull();
   });
 });
 
@@ -141,12 +141,12 @@ describe("search", () => {
 
   it("puts the words in the address once typing pauses, and clears them", async () => {
     setup(<Probe />);
-    const field = screen.getByRole("searchbox", { name: "Поиск по событиям" });
+    const field = screen.getByRole("searchbox", { name: "Search events" });
     fireEvent.change(field, { target: { value: "импро иг" } });
     expect(screen.getByTestId("search").textContent).toBe("");
     await waitFor(() => expect(screen.getByTestId("search").textContent).toBe("импро иг"));
     expect(screen.getByTestId("where").textContent).toBe("/?search=%D0%B8%D0%BC%D0%BF%D1%80%D0%BE+%D0%B8%D0%B3");
-    fireEvent.click(screen.getByRole("button", { name: "Очистить поиск" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
     expect(field).toHaveValue("");
     expect(screen.getByTestId("where").textContent).toBe("/");
   });

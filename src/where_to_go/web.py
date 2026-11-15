@@ -165,7 +165,7 @@ class EventMarkup:
         if offer.get("price") not in (None, ""):
             return f"{offer['price']} {currency}".strip()
         if offer.get("lowPrice") not in (None, ""):
-            return f"от {offer['lowPrice']} {currency}".strip()
+            return f"from {offer['lowPrice']} {currency}".strip()
         return None
 
 
@@ -229,11 +229,11 @@ class WebEventText:
         place = ", ".join(dict.fromkeys(p for p in (event.place, event.address, event.locality) if p))
         lines = [
             event.name,
-            f"Начало: {_when(clock.local(event.start))}",
-            f"Конец: {_when(clock.local(event.end))}" if event.end else None,
-            f"Место: {place}" if place else None,
-            f"Цена: {event.price}" if event.price else None,
-            f"Организатор: {event.organizer}" if event.organizer else None,
+            f"Start: {_when(clock.local(event.start))}",
+            f"End: {_when(clock.local(event.end))}" if event.end else None,
+            f"Place: {place}" if place else None,
+            f"Price: {event.price}" if event.price else None,
+            f"Organizer: {event.organizer}" if event.organizer else None,
         ]
         body = event.description
         if len(body) < cls.SHORT_DESCRIPTION and page_text:
@@ -270,12 +270,12 @@ class SiteAddress:
         parts = urlsplit(text)
         segments = [s for s in parts.path.split("/") if s]
         if parts.scheme not in ("http", "https") or not parts.netloc or not segments:
-            raise SourceError("Это не похоже на ссылку на страницу события")
+            raise SourceError("This doesn't look like a link to an event page")
         folders = segments[:-1]
         while folders and cls._DATED.match(folders[-1]):
             folders.pop()
         if not folders:
-            raise SourceError("По этой ссылке раздел событий не найти: пришлось бы читать весь сайт")
+            raise SourceError("Can't find an events section at this link: the whole site would have to be read")
         return f"{parts.scheme}://{parts.netloc}", "/" + "".join(f"{s}/" for s in folders)
 
 
@@ -295,7 +295,7 @@ class SitemapReader:
                 return named
         if await self._get(f"{site}/sitemap.xml") is not None:
             return [f"{site}/sitemap.xml"]
-        raise SourceError("На сайте нет списка страниц (sitemap)")
+        raise SourceError("The site has no page list (sitemap)")
 
     async def urls(self, sitemap_urls: list[str]) -> list[str]:
         """Every page the sitemaps list. A sitemap the site names that cannot be read is an error;
@@ -316,7 +316,7 @@ class SitemapReader:
             if nested:
                 log.warning("nested sitemap %s skipped", url)
                 return
-            raise SourceError("Сайт не отдал список страниц (sitemap)")
+            raise SourceError("The site didn't return its page list (sitemap)")
         locations = [(el.text or "").strip() for el in root.iter() if el.tag.endswith("loc")]
         if root.tag.endswith("sitemapindex"):
             for inner in locations:

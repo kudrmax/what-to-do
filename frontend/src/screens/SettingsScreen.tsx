@@ -34,7 +34,7 @@ function CitiesSection() {
   const [adding, setAdding] = useState(false);
   const empty = cities.data?.length === 0;
   return (
-    <Section title="Город" hint="Лента, календарь и каналы показываются для выбранного города. Каналы другого города не пропадают — переключитесь обратно, и они вернутся.">
+    <Section title="City" hint="The feed, calendar and channels are shown for the selected city. Another city’s channels aren’t lost: switch back and they return.">
       <div className="settings-chips">
         {cities.data?.map((city) => (
           <button key={city.id} type="button" className="chip" aria-pressed={city.id === settings.data?.active_city_id} onClick={() => change.mutate({ active_city_id: city.id })}>
@@ -43,7 +43,7 @@ function CitiesSection() {
         ))}
         {!adding && !empty && (
           <button type="button" className="chip chip--dashed" onClick={() => setAdding(true)}>
-            + Добавить город
+            + Add city
           </button>
         )}
       </div>
@@ -65,11 +65,11 @@ function AddCityForm({ onDone, canCancel }: { onDone: () => void; canCancel: boo
   return (
     <form className="settings-form" onSubmit={submit}>
       <label className="settings-form__field settings-form__field--wide">
-        <span className="label">Город</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Белград" autoFocus required />
+        <span className="label">City</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="For example, Belgrade" autoFocus required />
       </label>
       <label className="settings-form__field">
-        <span className="label">Часовой пояс</span>
+        <span className="label">Time zone</span>
         <input className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)} list="zones" required />
         <datalist id="zones">
           {ZONES.map((zone) => (
@@ -79,18 +79,18 @@ function AddCityForm({ onDone, canCancel }: { onDone: () => void; canCancel: boo
       </label>
       {canCancel && (
         <button type="button" className="button button--quiet" onClick={onDone}>
-          Отмена
+          Cancel
         </button>
       )}
       <button type="submit" className="button" disabled={add.isPending || !name.trim()}>
-        Добавить
+        Add
       </button>
       {add.error && <p className="error-text settings-form__error">{errorText(add.error)}</p>}
     </form>
   );
 }
 
-const WISH_EXAMPLE = "Хочу в первую очередь найти мероприятия, которые заточены на общение и знакомства. Ищу друзей";
+const WISH_EXAMPLE = "Above all I want events made for meeting people and talking. I am looking for friends";
 
 function PrioritySection({ wish }: { wish: string }) {
   const change = useChangeSettings();
@@ -119,9 +119,9 @@ function PrioritySection({ wish }: { wish: string }) {
 
 function ReadingSection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Чтение постов">
-      <SettingRow name="recent_posts" type="number" value={settings.recent_posts} label="Последних постов канала" hint="Столько свежих постов каждого канала читается. Если увеличить, при следующем обновлении дочитаются более старые." />
-      <SettingRow name="description_language" type="text" value={settings.description_language} label="Язык описаний" hint="На этом языке Claude пишет названия и описания событий." />
+    <Section title="Reading posts">
+      <SettingRow name="recent_posts" type="number" value={settings.recent_posts} label="Recent posts per channel" hint="How many of each channel’s latest posts are read. Increase it and older posts will be read on the next refresh." />
+      <SettingRow name="description_language" type="text" value={settings.description_language} label="Description language" hint="Claude writes event titles and descriptions in this language." />
     </Section>
   );
 }
@@ -132,17 +132,17 @@ type ModelSetting = "photo_model" | "extraction_model" | "matching_model";
 type ClaudeModel = Settings[ModelSetting];
 
 const MODELS: { id: ClaudeModel; name: string; tip: string }[] = [
-  { id: "claude-haiku-5-5", name: "Haiku", tip: "Быстрее и дешевле всех" },
-  { id: "claude-sonnet-5-5", name: "Sonnet", tip: "Точнее Haiku, дороже" },
-  { id: "claude-opus-5-5", name: "Opus", tip: "Самая сильная и самая дорогая" },
+  { id: "claude-haiku-5-5", name: "Haiku", tip: "Fastest and cheapest" },
+  { id: "claude-sonnet-5-5", name: "Sonnet", tip: "More accurate than Haiku, costs more" },
+  { id: "claude-opus-5-5", name: "Opus", tip: "Most capable and most expensive" },
 ];
 
 function ModelsSection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Модели Claude" hint="Новая модель действует со следующего обновления.">
-      <ModelRow name="photo_model" value={settings.photo_model} label="Расшифровка фото" hint="Переписывает текст с афиш и картинок постов. Haiku путает таблицы и коллажи." />
-      <ModelRow name="extraction_model" value={settings.extraction_model} label="Разбор постов и страниц" hint="Превращает посты каналов и страницы сайтов в события и места." />
-      <ModelRow name="matching_model" value={settings.matching_model} label="Склейка повторов" hint="Решает, что два анонса — одно событие." />
+    <Section title="Claude models" hint="A new model takes effect from the next refresh.">
+      <ModelRow name="photo_model" value={settings.photo_model} label="Photo reading" hint="Copies the text from posters and post images. Haiku mixes up tables and collages." />
+      <ModelRow name="extraction_model" value={settings.extraction_model} label="Post and page reading" hint="Turns channel posts and website pages into events and venues." />
+      <ModelRow name="matching_model" value={settings.matching_model} label="Duplicate merging" hint="Decides when two announcements are the same event." />
     </Section>
   );
 }
@@ -214,10 +214,10 @@ function TagsSection() {
   };
   return (
     <Section
-      title="Теги"
-      hint={`Claude ставит событиям только эти теги. Если ни один не подходит — «${fallback ?? "…"}»: по таким событиям видно, какого тега не хватает. Перетащите тег, чтобы поменять порядок: в нём теги показываются на карточках. Тег со скрытым глазом — в чёрном списке: такие события не попадают в ленту, но размеченные остаются в «Собираюсь пойти».`}
+      title="Tags"
+      hint={`Claude tags events only with these tags. If none fits, it uses “${fallback ?? "…"}”, so those events show which tag is missing. Drag a tag to change the order in which tags appear on cards. A tag with a crossed-out eye is blocked: its events stay out of the feed, but marked ones remain in Want to go.`}
     >
-      <ul className="tag-list" aria-label="Теги">
+      <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (
           <TagRow
             key={tag.id}
@@ -241,7 +241,7 @@ function TagsSection() {
           add.mutate(name.trim(), { onSuccess: () => setName("") });
         }}
       >
-        <input className="input tag-add__input" aria-label="Новый тег" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ Новый тег" />
+        <input className="input tag-add__input" aria-label="New tag" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ New tag" />
       </form>
       {(add.error || reorder.error) && <p className="error-text">{errorText(add.error ?? reorder.error)}</p>}
     </Section>
@@ -276,13 +276,13 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
       onDrop={(e) => e.preventDefault()}
     >
       {tag.is_fallback ? (
-        <span className="tag-row__handle tag-row__handle--fixed" data-tip="Этот тег всегда последний" />
+        <span className="tag-row__handle tag-row__handle--fixed" data-tip="This tag is always last" />
       ) : (
         <button
           type="button"
           className="tag-row__handle"
-          aria-label={`Переставить «${tag.name}»: стрелки вверх и вниз`}
-          data-tip="Перетащите, чтобы поменять порядок"
+          aria-label={`Move “${tag.name}” with the up and down arrows`}
+          data-tip="Drag to reorder"
           onKeyDown={(e) => {
             if (e.key === "ArrowUp" || e.key === "ArrowDown") {
               e.preventDefault();
@@ -295,14 +295,14 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
       )}
       <span className="tag-row__name">
         {tag.is_fallback ? (
-          <span data-tip="Этот тег не переименовывается">{tag.name}</span>
+          <span data-tip="This tag can’t be renamed">{tag.name}</span>
         ) : (
-          <InlineEdit value={tag.name} label={`Новое имя тега «${tag.name}»`} onSave={(name) => rename.mutate({ id: tag.id, name })} />
+          <InlineEdit value={tag.name} label={`New name for “${tag.name}”`} onSave={(name) => rename.mutate({ id: tag.id, name })} />
         )}
       </span>
       <IconButton
         icon={tag.hidden ? "eyeOff" : "eye"}
-        label={tag.hidden ? "В чёрном списке: события с тегом скрыты из ленты. Вернуть в ленту" : "Скрывать события с этим тегом из ленты"}
+        label={tag.hidden ? "Blocked: events with this tag are hidden from the feed. Show them again" : "Hide events with this tag from the feed"}
         aria-pressed={tag.hidden}
         className="tag-row__visibility"
         onClick={() => hide.mutate({ id: tag.id, hidden: !tag.hidden })}
@@ -314,10 +314,10 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
 
 function PromptsSection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Промпты для Claude" hint="Новый текст действует для постов, которые придут после следующего обновления. Уже разобранные посты заново не читаются.">
-      <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Разбор постов и страниц" hint="Как превращать посты и страницы сайтов в события. Подстановки: {city} — город, {language} — язык описаний, {tags} — список тегов, {fallback} — тег «не распознано»." />
-      <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Расшифровка фото" hint="Как переписывать текст с афиш и картинок постов. Посты потом читаются вместе с этим текстом." />
-      <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Склейка повторов" hint="Как решать, что два анонса — одно и то же событие." />
+    <Section title="Claude prompts" hint="New text applies to posts that arrive after the next refresh. Posts already read aren’t read again.">
+      <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Post and page reading" hint="How to turn posts and website pages into events. Placeholders: {city} is the city, {language} the description language, {tags} the tag list, {fallback} the fallback tag." />
+      <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Photo reading" hint="How to copy the text from posters and post images. Posts are then read together with this text." />
+      <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Duplicate merging" hint="How to decide when two announcements are the same event." />
     </Section>
   );
 }
@@ -338,10 +338,10 @@ function PromptEditor({ name, value, title, hint }: { name: "extraction_prompt" 
       <div className="prompt__actions">
         {change.error && <span className="error-text prompt__error">{errorText(change.error)}</span>}
         <button type="button" className="button button--quiet button--small" disabled={!initial || draft === initial} onClick={() => initial && save(initial)}>
-          Вернуть как было
+          Restore default
         </button>
         <button type="button" className="button button--small" disabled={draft === value || !draft.trim() || change.isPending} onClick={() => save(draft)}>
-          Сохранить
+          Save
         </button>
       </div>
     </div>

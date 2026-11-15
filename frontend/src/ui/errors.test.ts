@@ -4,7 +4,7 @@ import { ApiError } from "../api/client";
 import { errorText } from "./errors";
 
 it("tells a backend refusal from a lost connection", () => {
-  expect(errorText(new ApiError(409, "Сначала добавьте город"))).toBe("Сначала добавьте город");
-  expect(errorText(new TypeError("Failed to fetch"))).toContain("Нет связи с приложением");
+  expect(errorText(new ApiError(409, "Add a city first"))).toBe("Add a city first");
+  expect(errorText(new TypeError("Failed to fetch"))).toContain("Can’t reach the app");
   expect(errorText(null)).toBeNull();
 });

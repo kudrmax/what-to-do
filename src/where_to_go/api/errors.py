@@ -8,15 +8,15 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 _MESSAGES = {
-    "greater_than_equal": "Значение должно быть не меньше {ge}",
-    "less_than_equal": "Значение должно быть не больше {le}",
-    "greater_than": "Значение должно быть больше {gt}",
-    "less_than": "Значение должно быть меньше {lt}",
-    "string_too_short": "Поле не может быть пустым",
-    "missing": "Не заполнено обязательное поле",
-    "int_parsing": "Нужно целое число",
-    "int_from_float": "Нужно целое число",
-    "enum": "Недопустимое значение",
+    "greater_than_equal": "Must be at least {ge}",
+    "less_than_equal": "Must be at most {le}",
+    "greater_than": "Must be greater than {gt}",
+    "less_than": "Must be less than {lt}",
+    "string_too_short": "Can't be empty",
+    "missing": "This field is required",
+    "int_parsing": "Must be a whole number",
+    "int_from_float": "Must be a whole number",
+    "enum": "Invalid value",
 }
 
 
@@ -25,7 +25,7 @@ def _message(error: dict[str, Any]) -> str:
         return str(error["ctx"]["error"])
     template = _MESSAGES.get(error["type"])
     if template is None:
-        return "Недопустимое значение"
+        return "Invalid value"
     return template.format(**{k: _plain(v) for k, v in (error.get("ctx") or {}).items()})
 
 

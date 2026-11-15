@@ -11,8 +11,8 @@ import "./PotentialSources.css";
 const ORIGINS_SHOWN = 3;
 
 const VIA = {
-  forward: { icon: "forward", tip: "Пост переслан из этого канала" },
-  link: { icon: "link", tip: "Пост или страница сайта ссылается на этот канал" },
+  forward: { icon: "forward", tip: "Post forwarded from this channel" },
+  link: { icon: "link", tip: "A post or website page links to this channel" },
 } as const;
 
 export function PotentialSources() {
@@ -23,8 +23,8 @@ export function PotentialSources() {
   return (
     <div className="potential">
       <Section
-        title="Потенциальные источники"
-        hint="Каналы, из которых ваши источники пересылают посты или на которые ссылаются. Откройте канал и решите: добавить в источники или убрать как неинтересный. Убранные больше не появятся."
+        title="Potential sources"
+        hint="Channels your sources forward posts from or link to. Open a channel and decide whether to add it to your sources or dismiss it as not interesting. Dismissed channels won’t appear again."
       >
         {waiting.length ? (
           <ul className="potential__list">
@@ -33,12 +33,12 @@ export function PotentialSources() {
             ))}
           </ul>
         ) : (
-          <p className="muted">{processed.length ? "Новых каналов нет." : "Пока ничего. Они находятся при обновлении, когда Claude читает посты."}</p>
+          <p className="muted">{processed.length ? "No new channels." : "Nothing yet. They turn up during a refresh, when Claude reads posts."}</p>
         )}
         {processed.length > 0 && (
           <details className="potential__processed">
             <summary className="potential__summary">
-              <span>Неинтересные</span>
+              <span>Dismissed</span>
               <span className="potential__count">{processed.length}</span>
             </summary>
             <ul className="potential__list">
@@ -67,30 +67,30 @@ function PotentialRow({ potential }: { potential: PotentialSource }) {
           <span>@{potential.handle}</span>
           <Icon name="external" size={14} />
         </a>
-        <ul className="potential__origins" aria-label="Откуда">
+        <ul className="potential__origins" aria-label="Found in">
           {origins.map((origin) => (
             <Origin key={origin.post_url} origin={origin} />
           ))}
         </ul>
         {hidden > 0 && (
           <button type="button" className="potential__more" onClick={() => setExpanded(true)}>
-            Ещё {hidden} {plural(hidden, "пост", "поста", "постов")}
+            {hidden} more {plural(hidden, "post", "posts")}
           </button>
         )}
-        {adopt.error && <p className="error-text">Не получилось добавить: {errorText(adopt.error)}</p>}
+        {adopt.error && <p className="error-text">Couldn’t add: {errorText(adopt.error)}</p>}
       </div>
       <div className="potential__actions">
         {potential.processed ? (
           <button type="button" className="button button--small button--quiet" disabled={busy} onClick={() => mark.mutate({ id: potential.id, processed: false })}>
-            Вернуть
+            Restore
           </button>
         ) : (
           <>
             <button type="button" className="button button--small" disabled={busy} onClick={() => adopt.mutate(potential.id)}>
-              {adopt.isPending ? "Добавляю…" : "В источники"}
+              {adopt.isPending ? "Adding…" : "Add to sources"}
             </button>
             <button type="button" className="button button--small button--quiet" disabled={busy} onClick={() => mark.mutate({ id: potential.id, processed: true })}>
-              Неинтересно
+              Not interesting
             </button>
           </>
         )}

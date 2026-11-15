@@ -1,33 +1,33 @@
 # What To Do
 
-Локальное приложение: собирает анонсы мероприятий из публичных Telegram-каналов, Claude превращает посты в карточки событий и склеивает дубли.
+A local app: it collects event announcements from public Telegram channels, and Claude turns the posts into event cards and merges duplicates.
 
-## Запуск
+## Running
 
 ```bash
 cd frontend && npm install && npm run build && cd ..
 uv run where-to-go --ui frontend/dist
 ```
 
-Приложение откроется на http://127.0.0.1:18765, данные хранятся в `~/Library/Application Support/where-to-go`.
+The app opens at http://127.0.0.1:18765; data is stored in `~/Library/Application Support/where-to-go`.
 
-## Фронтенд
+## Frontend
 
-React + TypeScript (Vite) в `frontend/`. Типы API генерируются из схемы бэкенда: `npm run api:types`.
-Для разработки: бэкенд `uv run where-to-go` и `npm run dev` в `frontend/` (http://localhost:5180, запросы к API идут через прокси).
+React + TypeScript (Vite) in `frontend/`. API types are generated from the backend schema: `npm run api:types`.
+For development: run the backend with `uv run where-to-go` and `npm run dev` in `frontend/` (http://localhost:5180, API requests go through a proxy).
 
-## Бэкенд
+## Backend
 
 ```bash
 uv sync
-uv run where-to-go            # API на http://127.0.0.1:18765, описание ручек на /docs, данные в ~/Library/Application Support/where-to-go
+uv run where-to-go            # API at http://127.0.0.1:18765, endpoint docs at /docs, data in ~/Library/Application Support/where-to-go
 uv run pytest
 ```
 
-Claude вызывается через `claude-agent-sdk`, то есть через вход в Claude Code: нужен установленный и залогиненный `claude`.
+Claude is called through `claude-agent-sdk`, that is, through the Claude Code login: `claude` must be installed and logged in.
 
-Каждая сущность описана один раз в `models.py` (SQLModel): базовый класс с полями и их описаниями для Claude, от него — таблица и публичная модель API. Настройки, включая промпты Claude, — `settings.py` (значения по умолчанию в `prompts.py`).
+Each entity is described once in `models.py` (SQLModel): a base class with the fields and their descriptions for Claude, and from it the table and the public API model. Settings, including Claude's prompts, live in `settings.py` (defaults in `prompts.py`).
 
-Пайплайн: `telegram` (сбор постов с t.me/s/<канал>) → `extraction` (Claude: пост → события и места) → `linking` + `matching` (склейка дублей, переносы и отмены) → `resolution` (поля карточки из всех источников, конфликты) → `feed` (лента по дням) → `api`.
+Pipeline: `telegram` (collects posts from t.me/s/<channel>) → `extraction` (Claude: post → events and places) → `linking` + `matching` (merging duplicates, reschedules and cancellations) → `resolution` (card fields from all sources, conflicts) → `feed` (feed by day) → `api`.
 
-Данные первой версии (цены строкой, таблицы без моделей) переносятся без вызовов Claude: `uv run python scripts/migrate_first_schema.py <старая папка> <новая папка>`.
+Data of the first version (prices as strings, tables without models) is migrated without Claude calls: `uv run python scripts/migrate_first_schema.py <old folder> <new folder>`.

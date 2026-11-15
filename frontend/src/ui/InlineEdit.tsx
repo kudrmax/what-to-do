@@ -6,7 +6,7 @@ export function InlineEdit({ value, label, onSave, className = "" }: { value: st
   const [draft, setDraft] = useState(value);
   if (!editing) {
     return (
-      <button type="button" className={`inline-edit ${className}`} data-tip="Переименовать" onClick={() => (setDraft(value), setEditing(true))}>
+      <button type="button" className={`inline-edit ${className}`} data-tip="Rename" onClick={() => (setDraft(value), setEditing(true))}>
         {value}
       </button>
     );

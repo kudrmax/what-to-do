@@ -35,8 +35,8 @@ export function EventWindow() {
   const day = params.get("day") ?? event.data?.start_date ?? "";
 
   return (
-    <Modal label={event.data?.title ?? "Событие"} onClose={close}>
-      {event.data ? <EventDetails event={event.data} day={day} /> : <p className="details__missing">{event.isError ? "Этого события больше нет." : "Загружаю…"}</p>}
+    <Modal label={event.data?.title ?? "Event"} onClose={close}>
+      {event.data ? <EventDetails event={event.data} day={day} /> : <p className="details__missing">{event.isError ? "This event no longer exists." : "Loading…"}</p>}
     </Modal>
   );
 }
@@ -71,7 +71,7 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
   const api = useApi();
   const tags = orderTags(event.tags, useTags().data);
   const price = formatPrice(event.price, event.currency);
-  const when = describeRecurrence(event.rrule) ?? (event.kind === "multiday" ? "Можно прийти в любой день" : longDate(day));
+  const when = describeRecurrence(event.rrule) ?? (event.kind === "multiday" ? "Come any day" : longDate(day));
   return (
     <header className="details__head">
       <div className="details__badges">
@@ -81,7 +81,7 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
             {tag}
           </span>
         ))}
-        {event.is_cancelled && <span className="badge badge--accent">Отменено</span>}
+        {event.is_cancelled && <span className="badge badge--accent">Cancelled</span>}
       </div>
       <h2 className={`details__title${event.is_cancelled ? " details__title--cancelled" : ""}`}>{event.title}</h2>
 
@@ -92,7 +92,7 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
           <span className="fact__sub">{when}</span>
         </div>
         {event.place && (
-          <a className="fact fact--link" href={event.map_url ?? undefined} target="_blank" rel="noreferrer" data-tip="Открыть на карте">
+          <a className="fact fact--link" href={event.map_url ?? undefined} target="_blank" rel="noreferrer" data-tip="Show on map">
             <Icon name="pin" className="fact__icon" />
             <span className="fact__main">{event.venue ?? event.address}</span>
             {event.venue && event.address && <span className="fact__sub">{event.address}</span>}
@@ -110,8 +110,8 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
         <p key={conflict.field} className="note" role="note">
           <Icon name="alert" />
           {conflict.field === "start_time"
-            ? `Источники расходятся во времени: ${conflict.values.join(" или ")}`
-            : `Источники расходятся в дате: ${conflict.values.map(dayAndMonth).join(" или ")}`}
+            ? `Sources disagree on the time: ${conflict.values.join(" or ")}`
+            : `Sources disagree on the date: ${conflict.values.map(dayAndMonth).join(" or ")}`}
         </p>
       ))}
 
@@ -119,13 +119,13 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
         {event.booking ? (
           <a className="button" href={event.booking.url} target="_blank" rel="noreferrer">
             <Icon name="external" size={16} />
-            {event.booking.kind === "tickets" ? "Купить билет" : "Записаться"}
+            {event.booking.kind === "tickets" ? "Buy ticket" : "Sign up"}
           </a>
         ) : (
           <OpenPostButton mentions={mentions} />
         )}
         <a className="button button--quiet" href={api.calendarFileUrl(event.id)} download>
-          <Icon name="calendarAdd" size={16} />В календарь
+          <Icon name="calendarAdd" size={16} />Add to Calendar
         </a>
       </div>
     </header>
@@ -137,12 +137,12 @@ type Tab = "summary" | "original";
 function Description({ event, day, mentions, load, onView }: { event: EventCard; day: string; mentions: Mention[]; load: MentionsLoad; onView: View }) {
   const [tab, setTab] = useState<Tab>("summary");
   const tabs: SegmentedOption<Tab>[] = [
-    { id: "summary", label: "Кратко" },
-    { id: "original", label: "Оригинал", count: mentions.length > 1 ? mentions.length : undefined },
+    { id: "summary", label: "Summary" },
+    { id: "original", label: "Original", count: mentions.length > 1 ? mentions.length : undefined },
   ];
   return (
     <section className="description">
-      <Segmented label="Описание" options={tabs} value={tab} onChange={setTab} tabs />
+      <Segmented label="Description" options={tabs} value={tab} onChange={setTab} tabs />
       {tab === "summary" ? <Summary event={event} mentions={mentions} onView={onView} /> : <Originals event={event} day={day} mentions={mentions} load={load} onView={onView} />}
     </section>
   );
@@ -155,7 +155,7 @@ function Summary({ event, mentions, onView }: { event: EventCard; mentions: Ment
     <>
       {poster && (
         <div className="thumbs">
-          <Thumb url={poster} label="Открыть афишу крупно" onClick={() => onView([{ url: poster, text }], 0)} />
+          <Thumb url={poster} label="Enlarge poster" onClick={() => onView([{ url: poster, text }], 0)} />
         </div>
       )}
       <p className="details__description">{event.description}</p>
@@ -172,7 +172,7 @@ function Originals({ event, day, mentions, load, onView }: { event: EventCard; d
   return (
     <>
       {several && (
-        <div className="post-choice" role="tablist" aria-label="Источники события">
+        <div className="post-choice" role="tablist" aria-label="Sources of this event">
           {mentions.map((mention) => (
             <button key={mention.id} type="button" role="tab" className="chip" aria-pressed={mention.id === shown.id} aria-selected={mention.id === shown.id} onClick={() => setChosen(mention.id)}>
               {mention.source_title}
@@ -185,7 +185,7 @@ function Originals({ event, day, mentions, load, onView }: { event: EventCard; d
       {shown.photos.length > 0 && (
         <div className="thumbs">
           {shown.photos.map((photo, index) => (
-            <Thumb key={photo.url} url={photo.url} label={`Фото ${index + 1} из ${shown.photos.length}`} onClick={() => onView(shown.photos, index)} />
+            <Thumb key={photo.url} url={photo.url} label={`Photo ${index + 1} of ${shown.photos.length}`} onClick={() => onView(shown.photos, index)} />
           ))}
         </div>
       )}
@@ -196,31 +196,31 @@ function Originals({ event, day, mentions, load, onView }: { event: EventCard; d
 
 function OriginalsMissing({ load }: { load: MentionsLoad }) {
   if (load.error) return <LoadError error={load.error} onRetry={load.retry} />;
-  return <p className="details__description details__description--muted">{load.loading ? "Загружаю оригинал…" : "У события не осталось источников."}</p>;
+  return <p className="details__description details__description--muted">{load.loading ? "Loading original…" : "This event has no sources left."}</p>;
 }
 
-const POSTED = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-const POSTED_DAY = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" });
+const POSTED = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+const POSTED_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
 
 function PostLine({ event, day, mention, named, canSplit }: { event: EventCard; day: string; mention: Mention; named: boolean; canSplit: boolean }) {
   const split = useSplit();
   const open = useOpenEvent();
   const posted = POSTED.format(new Date(mention.published_at));
-  const openLabel = mention.source_kind === "web" ? "Открыть страницу на сайте" : "Открыть пост в Telegram";
+  const openLabel = mention.source_kind === "web" ? "Open page on website" : "Open post in Telegram";
   return (
     <div className="post-line">
       {named && <span className="post-line__name">{mention.source_title}</span>}
-      {mention.data.from_organizer && <span className="badge badge--accent">организатор</span>}
-      <span className="post-line__when">{named ? posted : mention.source_kind === "web" ? `Найдено на сайте ${posted}` : `Пост от ${posted}`}</span>
+      {mention.data.from_organizer && <span className="badge badge--accent">organizer</span>}
+      <span className="post-line__when">{named ? posted : mention.source_kind === "web" ? `Found on the website on ${posted}` : `Posted ${posted}`}</span>
       <span className="post-line__actions">
         <a className="icon-button" href={mention.post_url} target="_blank" rel="noreferrer" aria-label={openLabel} data-tip={openLabel}>
           <Icon name="external" size={17} />
         </a>
         {canSplit &&
           (mention.data.start_date === null ? (
-            <IconButton icon="split" label="В посте нет даты, отдельным событием он быть не может" aria-disabled />
+            <IconButton icon="split" label="The post has no date, so it can’t be a separate event" aria-disabled />
           ) : (
-            <IconButton icon="split" label="Вынести в отдельное событие" onClick={() => split.mutate({ id: event.id, mentionId: mention.id }, { onSuccess: (created) => open(created.id, day, true) })} />
+            <IconButton icon="split" label="Split into a separate event" onClick={() => split.mutate({ id: event.id, mentionId: mention.id }, { onSuccess: (created) => open(created.id, day, true) })} />
           ))}
         <MergeMenu event={event} day={day} />
       </span>
@@ -239,7 +239,7 @@ function Thumb({ url, label, onClick }: { url: string; label: string; onClick: (
   );
 }
 
-/** «Это то же событие, что и…»: choose a card of the same day, then confirm. */
+/** "Same event as…": choose a card of the same day, then confirm. */
 function MergeMenu({ event, day }: { event: EventCard; day: string }) {
   const sameDay = useFeed({ start: day, end: day });
   const merge = useMerge();
@@ -247,10 +247,10 @@ function MergeMenu({ event, day }: { event: EventCard; day: string }) {
   const others = (sameDay.data ?? []).filter((item) => item.event.id !== event.id);
   if (others.length === 0) return null;
   return (
-    <Popover className="post-line__merge" trigger={(open, toggle) => <IconButton icon="merge" label="Склеить с другим событием этого дня" aria-pressed={open} onClick={toggle} />}>
+    <Popover className="post-line__merge" trigger={(open, toggle) => <IconButton icon="merge" label="Merge with another event on this day" aria-pressed={open} onClick={toggle} />}>
       {(close) => (
         <div className="merge">
-          <p className="label merge__question">Это то же событие, что и…</p>
+          <p className="label merge__question">Same event as…</p>
           {others.map(({ event: other }) => (
             <label key={other.id} className="popover__item">
               <input type="radio" name="merge-target" checked={target === other.id} onChange={() => setTarget(other.id)} />
@@ -260,7 +260,7 @@ function MergeMenu({ event, day }: { event: EventCard; day: string }) {
           ))}
           <div className="popover__footer merge__buttons">
             <button type="button" className="button button--small button--quiet" onClick={close}>
-              Отмена
+              Cancel
             </button>
             <button
               type="button"
@@ -268,7 +268,7 @@ function MergeMenu({ event, day }: { event: EventCard; day: string }) {
               disabled={target === null || merge.isPending}
               onClick={() => target !== null && merge.mutate({ id: event.id, otherId: target }, { onSuccess: close })}
             >
-              Склеить
+              Merge
             </button>
           </div>
         </div>

@@ -118,7 +118,7 @@ ContainerDep = Annotated[Container, Depends(_container)]
 def _active_city(c: ContainerDep) -> City:
     city = c.cities.active()
     if city is None:
-        raise HTTPException(409, "Сначала добавьте город")
+        raise HTTPException(409, "Add a city first")
     return city
 
 
@@ -126,14 +126,14 @@ def _source(source_id: int, c: ContainerDep) -> Source:
     try:
         return c.sources.get(source_id)
     except KeyError:
-        raise HTTPException(404, "Нет такого источника") from None
+        raise HTTPException(404, "Source not found") from None
 
 
 def _event(event_id: int, c: ContainerDep) -> Event:
     try:
         return c.events.get(event_id)
     except KeyError:
-        raise HTTPException(404, "Нет такого события") from None
+        raise HTTPException(404, "Event not found") from None
 
 
 CityDep = Annotated[City, Depends(_active_city)]
@@ -172,12 +172,12 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         """Changes the settings that are sent. Switching the active city switches the feed and the sources."""
         change = body.model_dump(exclude_unset=True, exclude_none=True)
         if "active_city_id" in change and c.cities.get(change["active_city_id"]) is None:
-            raise HTTPException(404, "Нет такого города")
+            raise HTTPException(404, "City not found")
         return c.settings.update(**change)
 
     @app.get("/settings/defaults", response_model=AppSettings, tags=[ApiTag.SETTINGS])
     def default_settings():
-        """What every setting is out of the box; «вернуть как было» takes the value from here."""
+        """What every setting is out of the box; resetting a setting takes the value from here."""
         return AppSettings()
 
     @app.get("/cities", response_model=list[CityPublic], tags=[ApiTag.SETTINGS])
@@ -191,7 +191,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         try:
             ZoneInfo(body.timezone)
         except (ZoneInfoNotFoundError, ValueError):
-            raise HTTPException(422, "Неизвестный часовой пояс") from None
+            raise HTTPException(422, "Unknown time zone") from None
         return c.cities.add(body.name.strip(), body.timezone)
 
     # ---------- sources ----------
@@ -257,7 +257,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         try:
             return await c.potential_sources.adopt(city, potential_id)
         except KeyError:
-            raise HTTPException(404, "Нет такого потенциального источника") from None
+            raise HTTPException(404, "Potential source not found") from None
         except SourceError as error:
             raise HTTPException(422, str(error)) from None
 
@@ -267,7 +267,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         try:
             c.potential_sources.mark(potential_id, body.processed)
         except KeyError:
-            raise HTTPException(404, "Нет такого потенциального источника") from None
+            raise HTTPException(404, "Potential source not found") from None
 
     # ---------- tags ----------
 
@@ -287,7 +287,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         try:
             return c.tags.rename(tag_id, body.name.strip())
         except KeyError:
-            raise HTTPException(404, "Нет такого тега") from None
+            raise HTTPException(404, "Tag not found") from None
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
 
@@ -305,7 +305,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         try:
             return c.tags.set_hidden(tag_id, body.hidden)
         except KeyError:
-            raise HTTPException(404, "Нет такого тега") from None
+            raise HTTPException(404, "Tag not found") from None
 
     # ---------- events ----------
 
@@ -325,7 +325,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             str,
             Query(
                 description="Words to find in the title, description, venue, address and tags. Each word may be any part "
-                "of a word, case and е/ё do not matter, one typo is forgiven; when nothing is found, the words are "
+                "of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are "
                 "tried as typed in the other keyboard layout"
             ),
         ] = "",
@@ -406,7 +406,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         try:
             return c.events.get(c.cards.split(event.id, body.mention_id))
         except KeyError:
-            raise HTTPException(404, "У карточки нет такого источника") from None
+            raise HTTPException(404, "This event has no such source") from None
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
 

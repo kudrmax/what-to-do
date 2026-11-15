@@ -47,7 +47,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
           <EventTime event={event} className="card__time" />
           {event.is_priority && <PriorityBadge />}
           {tag && <span className="badge">{tag}</span>}
-          {event.is_cancelled ? <span className="badge badge--accent card__end">Отменено</span> : price && <span className="card__price card__end">{price}</span>}
+          {event.is_cancelled ? <span className="badge badge--accent card__end">Cancelled</span> : price && <span className="card__price card__end">{price}</span>}
         </div>
         <h3 className="card__title">{event.title}</h3>
         <p className="card__text">{event.description}</p>

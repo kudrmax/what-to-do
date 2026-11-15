@@ -23,7 +23,7 @@ export function Modal({ label, onClose, children, className = "" }: { label: str
   return createPortal(
     <div className={`modal${closing ? " modal--closing" : ""}`} onMouseDown={(event) => event.target === event.currentTarget && startClose()} onAnimationEnd={onAnimationEnd}>
       <div className={`modal__window ${className}`} role="dialog" aria-modal="true" aria-label={label}>
-        <IconButton icon="close" label="Закрыть" className="modal__close" onClick={startClose} />
+        <IconButton icon="close" label="Close" className="modal__close" onClick={startClose} />
         {children}
       </div>
     </div>,

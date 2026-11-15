@@ -207,7 +207,7 @@ extension WebViewController: WKUIDelegate {
         initiatedByFrame frame: WKFrameInfo,
         completionHandler: @escaping (Bool) -> Void
     ) {
-        presentAlert(message, buttons: ["OK", "Отменить"]) { completionHandler($0 == .alertFirstButtonReturn) }
+        presentAlert(message, buttons: ["OK", "Cancel"]) { completionHandler($0 == .alertFirstButtonReturn) }
     }
 
     private func presentAlert(_ message: String, buttons: [String], completion: @escaping (NSApplication.ModalResponse) -> Void) {

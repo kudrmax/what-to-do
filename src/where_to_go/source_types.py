@@ -40,7 +40,7 @@ class SourceType(ABC):
 
 class TelegramSourceType(SourceType):
     kind = SourceKind.TELEGRAM
-    already_added = "Этот канал уже добавлен"
+    already_added = "This channel is already added"
 
     def __init__(self, reader: TelegramChannelReader, posts: PostRepository, settings: SettingsRepository) -> None:
         self._reader = reader
@@ -65,7 +65,7 @@ class WebSourceType(SourceType):
     """A site is probed once for its preview; adding it soon after keeps what the preview found."""
 
     kind = SourceKind.WEB
-    already_added = "Этот сайт уже добавлен"
+    already_added = "This site is already added"
     PREVIEW_KEPT = timedelta(minutes=10)
 
     def __init__(

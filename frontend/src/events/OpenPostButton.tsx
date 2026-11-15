@@ -17,13 +17,13 @@ export function OpenPostButton({ mentions }: { mentions: Mention[] }) {
     <div className="open-post">
       <a className={`button open-post__main${others.length ? " open-post__main--split" : ""}`} href={main.post_url} target="_blank" rel="noreferrer" data-tip={main.source_title}>
         <Icon name="external" size={16} />
-        {main.source_kind === "web" ? "Открыть на сайте" : "Открыть пост"}
+        {main.source_kind === "web" ? "Open on website" : "Open post"}
       </a>
       {others.length > 0 && (
         <Popover
           className="open-post__more"
           trigger={(open, toggle) => (
-            <button type="button" className="button open-post__toggle" aria-label="Выбрать источник" aria-expanded={open} onClick={toggle}>
+            <button type="button" className="button open-post__toggle" aria-label="Choose source" aria-expanded={open} onClick={toggle}>
               <Icon name="chevronDown" size={16} />
             </button>
           )}
@@ -36,7 +36,7 @@ export function OpenPostButton({ mentions }: { mentions: Mention[] }) {
                     <span className="open-post__name">{mention.source_title}</span>
                     <span className="open-post__when">{ago(mention.published_at)}</span>
                   </span>
-                  {mention.data.from_organizer && <span className="badge badge--accent">организатор</span>}
+                  {mention.data.from_organizer && <span className="badge badge--accent">organizer</span>}
                 </a>
               ))}
             </div>

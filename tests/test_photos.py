@@ -142,7 +142,7 @@ async def test_a_post_whose_photo_claude_could_not_read_waits_for_the_next_refre
     container.refresh.start()
     progress = await container.refresh.wait()
 
-    assert progress.stage is Stage.DONE and "фото" in progress.errors[0]
+    assert progress.stage is Stage.DONE and "photo" in progress.errors[0]
     assert extraction.calls == [] and container.events.in_city(1) == []
 
     container.refresh.start()

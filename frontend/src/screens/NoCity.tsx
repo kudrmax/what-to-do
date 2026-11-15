@@ -2,5 +2,5 @@ import { SECTIONS } from "../app/routes";
 import { EmptyState } from "../ui/Screen";
 
 export function NoCity() {
-  return <EmptyState title="Здесь пока пусто" text="Добавьте город, потом Telegram-каналы с афишами — события появятся после обновления." link={{ to: SECTIONS.settings.path, label: "Добавить город" }} />;
+  return <EmptyState title="Nothing here yet" text="Add a city, then Telegram channels that post events. Events will appear after a refresh." link={{ to: SECTIONS.settings.path, label: "Add city" }} />;
 }

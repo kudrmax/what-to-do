@@ -43,11 +43,11 @@ export function CalendarScreen() {
       title={title}
       action={
         <div className="week-nav">
-          <IconButton icon="chevronLeft" label="Предыдущая неделя" onClick={() => goTo(addDays(monday, -7))} />
+          <IconButton icon="chevronLeft" label="Previous week" onClick={() => goTo(addDays(monday, -7))} />
           <button type="button" className="button button--quiet button--small" onClick={() => goTo(weekStart(today))}>
-            Сегодня
+            Today
           </button>
-          <IconButton icon="chevronRight" label="Следующая неделя" onClick={() => goTo(addDays(monday, 7))} />
+          <IconButton icon="chevronRight" label="Next week" onClick={() => goTo(addDays(monday, 7))} />
         </div>
       }
       toolbar={<FilterBar filters={filters} />}
@@ -61,7 +61,7 @@ export function CalendarScreen() {
           {groupByDay(feed.data ?? [], days).map(([day, items]) => (
             <div key={day} className={`week__day${day < today ? " week__day--past" : ""}`}>
               <div className="week__band">
-                <Link to={feedFromHref(day)} className="week__head" data-tip={`Ближайшие с ${dayAndMonth(day)}`}>
+                <Link to={feedFromHref(day)} className="week__head" data-tip={`Upcoming from ${dayAndMonth(day)}`}>
                   <span className="week__weekday">{weekdayShort(day)}</span>
                   <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
                 </Link>

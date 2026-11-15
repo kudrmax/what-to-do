@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.11.1"
+  "version": "1.12.0"
  },
  "paths": {
   "/settings": {
@@ -74,7 +74,7 @@
      "settings"
     ],
     "summary": "Default Settings",
-    "description": "What every setting is out of the box; «вернуть как было» takes the value from here.",
+    "description": "What every setting is out of the box; resetting a setting takes the value from here.",
     "operationId": "default_settings_settings_defaults_get",
     "responses": {
      "200": {
@@ -871,11 +871,11 @@
       "required": false,
       "schema": {
        "type": "string",
-       "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case and е/ё do not matter, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout",
+       "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout",
        "default": "",
        "title": "Search"
       },
-      "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case and е/ё do not matter, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout"
+      "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout"
      }
     ],
     "responses": {
@@ -1783,7 +1783,7 @@
       "minLength": 1,
       "title": "Name",
       "examples": [
-       "Белград"
+       "Belgrade"
       ]
      },
      "timezone": {
@@ -1809,7 +1809,7 @@
       "minLength": 1,
       "title": "Name",
       "examples": [
-       "Белград"
+       "Belgrade"
       ]
      },
      "timezone": {
@@ -3475,7 +3475,7 @@
       "minLength": 1,
       "title": "Name",
       "examples": [
-       "Танцы"
+       "Dance"
       ]
      }
     },
@@ -3527,7 +3527,7 @@
       "minLength": 1,
       "title": "Name",
       "examples": [
-       "Танцы"
+       "Dance"
       ]
      },
      "id": {
@@ -3682,7 +3682,7 @@
      "status"
     ],
     "title": "UpdateStep",
-    "description": "One stage of the update as the user sees it, such as \"Устанавливаем v1.2.0\"."
+    "description": "One stage of the update as the user sees it, such as \"Installing v1.2.0\"."
    },
    "UpdateStepStatus": {
     "type": "string",

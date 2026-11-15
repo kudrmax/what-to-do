@@ -3,10 +3,10 @@ import type { IconName } from "../ui/Icon";
 
 /** Each plan's name, as a button tooltip and in sentences, and its icon. */
 export const PLANS: Record<Plan, { label: string; icon: IconName }> = {
-  maybe: { label: "Возможно пойду", icon: "maybe" },
-  sure: { label: "Точно пойду", icon: "check" },
-  no: { label: "Не пойду", icon: "cross" },
-  went: { label: "Сходил", icon: "flag" },
+  maybe: { label: "Maybe going", icon: "maybe" },
+  sure: { label: "Going for sure", icon: "check" },
+  no: { label: "Not going", icon: "cross" },
+  went: { label: "Went", icon: "flag" },
 };
 
 export const PLAN_ORDER = Object.keys(PLANS) as Plan[];

@@ -58,8 +58,8 @@ export function SearchField({ value, onChange }: { value: string; onChange: (tex
         ref={input}
         type="search"
         className="search-field__input"
-        placeholder="Поиск"
-        aria-label="Поиск по событиям"
+        placeholder="Search"
+        aria-label="Search events"
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
@@ -70,7 +70,7 @@ export function SearchField({ value, onChange }: { value: string; onChange: (tex
         }}
       />
       {text ? (
-        <button type="button" className="search-field__clear" aria-label="Очистить поиск" onClick={clear}>
+        <button type="button" className="search-field__clear" aria-label="Clear search" onClick={clear}>
           <Icon name="close" size={14} />
         </button>
       ) : (

@@ -132,6 +132,6 @@ export function useUpdates(): Updates {
   return updates;
 }
 
-export const CHECKING_TEXT = "Ищем новую версию…";
-export const CHECK_FAILED_TEXT = "Не получилось проверить обновления. Попробуйте позже.";
-export const latestVersionText = (version: string) => `У вас последняя версия, ${version}`;
+export const CHECKING_TEXT = "Looking for a new version…";
+export const CHECK_FAILED_TEXT = "Couldn’t check for updates. Try again later.";
+export const latestVersionText = (version: string) => `You’re on the latest version, ${version}`;

@@ -33,27 +33,27 @@ const at = (seconds: number) => new Date(Date.parse(START) + seconds * 1000);
 
 describe("refresh label", () => {
   it("counts sources while collecting", () => {
-    expect(refreshLabel(status({ sources_to_collect: 11, sources_collected: 4 }))).toBe("Собираю источники: 4 из 11");
+    expect(refreshLabel(status({ sources_to_collect: 11, sources_collected: 4 }))).toBe("Collecting sources: 4 of 11");
   });
 
   it("counts site pages once a site is being downloaded", () => {
     expect(refreshLabel(status({ sources_to_collect: 11, sources_collected: 10, pages_to_fetch: 820, pages_fetched: 120 }))).toBe(
-      "Качаю страницы сайтов: 120 из 820",
+      "Downloading site pages: 120 of 820",
     );
   });
 
   it("counts photos and posts as before", () => {
-    expect(refreshLabel(status({ stage: "reading", posts_to_read: 40, posts_read: 8 }))).toBe("Читаю посты и страницы: 8 из 40");
+    expect(refreshLabel(status({ stage: "reading", posts_to_read: 40, posts_read: 8 }))).toBe("Reading posts and pages: 8 of 40");
   });
 });
 
 describe("time left", () => {
   it("follows the pace of the current stage", () => {
-    expect(timeLeft(status({ pages_to_fetch: 820, pages_fetched: 120 }), at(60))).toBe("ещё ~6 мин");
+    expect(timeLeft(status({ pages_to_fetch: 820, pages_fetched: 120 }), at(60))).toBe("~6 min left");
   });
 
   it("says less than a minute near the end", () => {
-    expect(timeLeft(status({ pages_to_fetch: 100, pages_fetched: 90 }), at(60))).toBe("меньше минуты");
+    expect(timeLeft(status({ pages_to_fetch: 100, pages_fetched: 90 }), at(60))).toBe("less than a minute");
   });
 
   it("does not guess before the pace is known", () => {
@@ -64,6 +64,6 @@ describe("time left", () => {
 
 describe("merging", () => {
   it("counts announcements while merging them", () => {
-    expect(refreshLabel(status({ stage: "merging", announcements_to_merge: 60, announcements_merged: 15 }))).toBe("Склеиваю повторы: 15 из 60");
+    expect(refreshLabel(status({ stage: "merging", announcements_to_merge: 60, announcements_merged: 15 }))).toBe("Merging duplicates: 15 of 60");
   });
 });

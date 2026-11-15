@@ -1,0 +1,571 @@
+/* ---------- review: one card at a time ---------- */
+
+.review {
+  --review-width: 500px;
+  --review-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  height: calc(100dvh - 190px);
+  min-height: 500px;
+}
+
+.review__progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(var(--review-width), 100%);
+}
+
+.review__progress[hidden],
+.review__controls[hidden] {
+  display: none;
+}
+
+.review__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+
+.review__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 320ms var(--review-ease);
+}
+
+.review__left {
+  font-size: var(--label-size);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.review__left strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.review__deck {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: min(var(--review-width), 100%);
+  margin-bottom: 26px;
+}
+
+.review__done {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  animation: review-fade-in 240ms ease-out;
+}
+
+.review__done .empty {
+  width: 100%;
+}
+
+/* ---------- the card ---------- */
+
+.review-card {
+  position: absolute;
+  inset: 0;
+  z-index: calc(10 - var(--depth));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line-card);
+  border-radius: 20px;
+  background: var(--bg);
+  box-shadow: var(--shadow-pop);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transform: translate(var(--x), var(--y)) rotate(var(--r));
+  transition: transform 300ms cubic-bezier(0.2, 1.3, 0.4, 1);
+  will-change: transform;
+}
+
+.review-card--dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+/* Cards under the top one peek out below it, smaller with each step down. */
+.review-card--under {
+  pointer-events: none;
+  box-shadow: var(--shadow-card);
+  transform: translateY(calc(var(--depth) * 14px)) scale(calc(1 - var(--depth) * 0.045));
+  transform-origin: 50% 100%;
+  transition: transform 300ms var(--review-ease);
+}
+
+.review-card--under > * {
+  opacity: calc(1 - var(--depth) * 0.35);
+  transition: opacity 300ms var(--review-ease);
+}
+
+.review-card--leaving {
+  z-index: 20;
+  pointer-events: none;
+  animation: 340ms ease-in forwards;
+}
+
+.review-card--to-left {
+  animation-name: review-leave-left;
+}
+
+.review-card--to-right {
+  animation-name: review-leave-right;
+}
+
+.review-card--to-up {
+  animation-name: review-leave-up;
+}
+
+.review-card--to-down {
+  animation-name: review-leave-down;
+  animation-duration: 260ms;
+}
+
+.review-card--from-left {
+  animation: review-back-left 360ms var(--review-ease);
+}
+
+.review-card--from-right {
+  animation: review-back-right 360ms var(--review-ease);
+}
+
+.review-card--from-up {
+  animation: review-back-up 360ms var(--review-ease);
+}
+
+.review-card--from-down {
+  animation: review-back-down 300ms var(--review-ease);
+}
+
+@keyframes review-leave-left {
+  to {
+    transform: translate(calc(var(--x) - 130%), calc(var(--y) + 60px)) rotate(-24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes review-leave-right {
+  to {
+    transform: translate(calc(var(--x) + 130%), calc(var(--y) + 60px)) rotate(24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes review-leave-up {
+  to {
+    transform: translate(var(--x), calc(var(--y) - 120%)) rotate(var(--r));
+    opacity: 0;
+  }
+}
+
+@keyframes review-leave-down {
+  to {
+    transform: translateY(40px) scale(0.92);
+    opacity: 0;
+  }
+}
+
+@keyframes review-back-left {
+  from {
+    transform: translate(-130%, 60px) rotate(-24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes review-back-right {
+  from {
+    transform: translate(130%, 60px) rotate(24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes review-back-up {
+  from {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+}
+
+@keyframes review-back-down {
+  from {
+    transform: translateY(40px) scale(0.92);
+    opacity: 0;
+  }
+}
+
+@keyframes review-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+/* The text takes what it needs and the poster fills the rest, so a tall window shows a bigger poster. */
+.review-card__photo {
+  flex: 1 1 0;
+  min-height: 96px;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-card__photo .photo__image {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.review-card__body > * {
+  flex-shrink: 0;
+}
+
+.review-card__body {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 22px 20px;
+}
+
+.review-card__when {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.review-card__day {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.review-card__day--soon {
+  color: var(--accent-strong);
+}
+
+.review-card__weekday {
+  font-size: var(--label-size);
+  color: var(--text-muted);
+}
+
+.review-card__time {
+  align-self: center;
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--bg-muted);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-card__end {
+  margin-left: auto;
+  align-self: center;
+}
+
+.review-card__price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.review-card__title {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.review-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.review-card__text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow: hidden;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.review-card__place {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--label-size);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.review-card__place svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.review-card__interest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 4px;
+  cursor: default;
+}
+
+.review-card__interest-label {
+  flex: none;
+  width: 64px;
+  font-size: var(--label-size);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.review-card__interest button {
+  flex: 1;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.review-card__interest button:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.review-card__interest button:active {
+  background: var(--bg-pressed);
+  transform: scale(0.96);
+}
+
+.review-card__interest button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ---------- the stamp a swipe puts on the card ---------- */
+
+.review-stamp {
+  position: absolute;
+  top: 26px;
+  padding: 6px 14px;
+  border: 3px solid currentColor;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.review-stamp--no {
+  right: 22px;
+  color: var(--decline);
+  transform: rotate(12deg);
+}
+
+.review-stamp--maybe {
+  left: 22px;
+  color: var(--accent);
+  transform: rotate(-12deg);
+}
+
+.review-stamp--sure {
+  left: 50%;
+  top: auto;
+  bottom: 96px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  transform: translateX(-50%) rotate(-6deg);
+}
+
+/* ---------- buttons under the deck ---------- */
+
+.review__controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+}
+
+.review-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 92px;
+}
+
+.review-action__caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.review-action__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-control);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-card-hover);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    transform 160ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.review-action--large .review-action__button {
+  width: 64px;
+  height: 64px;
+}
+
+.review-action__slot {
+  display: flex;
+  align-items: center;
+  height: 64px;
+}
+
+.review-action--middle .review-action__button {
+  width: 52px;
+  height: 52px;
+}
+
+.review-action--small .review-action__button {
+  width: 42px;
+  height: 42px;
+}
+
+.review-action__button:hover:not(:disabled),
+.review-action__button--hot {
+  transform: scale(1.08);
+}
+
+.review-action__button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.review-action__button:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+}
+
+.review-action__button--plain:hover:not(:disabled) {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+
+.review-action__button--no {
+  color: var(--decline);
+}
+
+.review-action__button--no:hover:not(:disabled),
+.review-action__button--no.review-action__button--hot {
+  border-color: var(--decline);
+  background: var(--decline);
+  color: var(--on-decline);
+}
+
+.review-action__button--maybe {
+  color: var(--accent);
+}
+
+.review-action__button--maybe:hover:not(:disabled),
+.review-action__button--maybe.review-action__button--hot {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.review-action__button--sure {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.review-action__button--sure:hover:not(:disabled),
+.review-action__button--sure.review-action__button--hot {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+.review-action__label {
+  font-size: var(--caption-size);
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.review-action__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--line-control);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 1100px) {
+  .review {
+    height: calc(100dvh - 170px);
+  }
+}
+
+/* A short window keeps the poster and the answers and gives up description lines. */
+@media (max-height: 820px) {
+  .review-card__text {
+    -webkit-line-clamp: 2;
+  }
+
+  .review-card__title {
+    font-size: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-card,
+  .review-card--under,
+  .review-card--leaving,
+  .review-card[class*="review-card--from-"] {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+  }
+}

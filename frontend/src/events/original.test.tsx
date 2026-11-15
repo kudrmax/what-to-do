@@ -12,7 +12,7 @@ describe("post text", () => {
   it("keeps the post's words and turns each stored link into a link mark", () => {
     render(<PostText text={DIGEST} highlighted={[]} />);
     expect(screen.getByText("19:00 Alex Solely")).toBeTruthy();
-    expect(screen.getByLabelText("Ссылка: https://t.me/a/2").getAttribute("href")).toBe("https://t.me/a/2");
+    expect(screen.getByLabelText("Link: https://t.me/a/2").getAttribute("href")).toBe("https://t.me/a/2");
     expect(screen.queryByText(/\(https/)).toBeNull();
   });
 
@@ -28,7 +28,7 @@ describe("post text", () => {
 
   it("says when a post has only photos", () => {
     render(<PostText text="  " highlighted={[]} />);
-    expect(screen.getByText("В посте только фото, без текста.")).toBeTruthy();
+    expect(screen.getByText("The post has only photos, no text.")).toBeTruthy();
   });
 });
 
@@ -49,12 +49,12 @@ function viewer(onClose = vi.fn()) {
 describe("photo viewer", () => {
   it("shows each photo with the text Claude read on it", () => {
     viewer();
-    expect(screen.getByText("Фото 1 из 3")).toBeTruthy();
+    expect(screen.getByText("Photo 1 of 3")).toBeTruthy();
     expect(screen.getByText(/ВС, 22.11/)).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Следующее фото"));
-    expect(screen.getByText("Текст с этого фото ещё не прочитан.")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Next photo"));
+    expect(screen.getByText("The text in this photo hasn’t been read yet.")).toBeTruthy();
     fireEvent.keyDown(window, { key: "ArrowRight" });
-    expect(screen.getByText("На фото нет текста.")).toBeTruthy();
+    expect(screen.getByText("There’s no text in this photo.")).toBeTruthy();
   });
 
   it("closes on Esc without letting the event window close too", async () => {

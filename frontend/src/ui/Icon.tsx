@@ -80,6 +80,13 @@ const PATHS = {
     </>
   ),
   cross: <path d="M6 6l12 12M18 6L6 18" />,
+  undo: (
+    <>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </>
+  ),
+  arrowDown: <path d="M12 5v14M5 12l7 7 7-7" />,
   flag: <path d="M5 21V4h12l-2 4 2 4H5" />,
   image: (
     <>
@@ -210,11 +217,11 @@ export function Icon({ name, size = 18, strokeWidth = 2, className }: IconProps)
   );
 }
 
-/** «Время уточняется»: a dashed clock instead of words. */
+/** "Time to be confirmed": a dashed clock instead of words. */
 export function UnknownTimeIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" role="img" aria-label="Время уточняется">
-      <title>Время уточняется</title>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" role="img" aria-label="Time to be confirmed">
+      <title>Time to be confirmed</title>
       <circle cx="12" cy="12" r="9" strokeDasharray="3 3" />
       <path d="M12 7v5l3 2" />
     </svg>

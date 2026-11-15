@@ -39,7 +39,7 @@ final class ServerLauncherTests: XCTestCase {
         let outcome = await launcher.start()
 
         guard case let .failed(message, tail) = outcome else { return XCTFail("expected failure, got \(outcome)") }
-        XCTAssertTrue(message.contains("код выхода 2"))
+        XCTAssertTrue(message.contains("exit code 2"))
         XCTAssertTrue(tail.hasSuffix("line 50"))
         XCTAssertFalse(tail.contains("line 1\n"))
     }
@@ -181,7 +181,7 @@ final class ServerLauncherTests: XCTestCase {
 
         let outcome = await launcher.start()
 
-        XCTAssertEqual(outcome, .failed(message: "Сервер не запустился (код выхода 1)", outputTail: "Building\nboom"))
+        XCTAssertEqual(outcome, .failed(message: "The server didn’t start (exit code 1)", outputTail: "Building\nboom"))
     }
 
     private func makeLauncher(probe: FakeProbe, runner: FakeRunner, adoptRunningServers: Bool = false) -> ServerLauncher {

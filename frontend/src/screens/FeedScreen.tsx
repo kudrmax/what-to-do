@@ -8,14 +8,18 @@ import { FilterBar } from "../events/FilterBar";
 import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { RefreshButton } from "../events/RefreshButton";
+import { ReviewDeck } from "../events/ReviewDeck";
+import { useFeedView } from "../events/useFeedView";
 import { Icon } from "../ui/Icon";
+import { Segmented } from "../ui/Segmented";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
-/** Everything ahead that the user has not marked yet; a marked card moves to «Собираюсь пойти» or leaves. A search finds marked cards too. */
+/** Everything ahead that the user has not marked yet; a marked card moves to "Want to go" or leaves. A search finds marked cards too. */
 export function FeedScreen() {
   const { city, today } = useActiveCity();
   const filters = useEventFilters();
+  const { view, setView } = useFeedView(filters);
   const from = filters.params.get("from");
   const start = from ?? today ?? undefined;
   const sources = useSources(city !== null);
@@ -24,26 +28,44 @@ export function FeedScreen() {
   const toolbar = city && (
     <FilterBar filters={filters}>
       {from && (
-        <button type="button" className="chip" aria-pressed onClick={() => filters.change((next) => next.delete("from"))} data-tip="Показать с сегодняшнего дня">
-          С {dayAndMonth(from)}
+        <button type="button" className="chip" aria-pressed onClick={() => filters.change((next) => next.delete("from"))} data-tip="Show from today">
+          From {dayAndMonth(from)}
           <Icon name="close" size={14} />
         </button>
       )}
     </FilterBar>
   );
 
+  const actions = city && (
+    <div className="screen__actions">
+      <Segmented
+        tabs
+        label="View"
+        options={[
+          { id: "list", label: "List" },
+          { id: "review", label: "Review" },
+        ]}
+        value={view}
+        onChange={setView}
+      />
+      <RefreshButton />
+    </div>
+  );
+
   return (
-    <Screen title={SECTIONS.feed.title} action={city && <RefreshButton />} toolbar={toolbar}>
+    <Screen title={SECTIONS.feed.title} action={actions} toolbar={toolbar}>
       {!city ? (
         <NoCity />
       ) : sources.data?.length === 0 ? (
-        <EmptyState title="Нет источников" text="Добавьте Telegram-каналы с афишами, потом нажмите «Обновить»." link={{ to: SECTIONS.sources.path, label: "Добавить источники" }} />
+        <EmptyState title="No sources" text="Add Telegram channels that post events, then click Refresh." link={{ to: SECTIONS.sources.path, label: "Add sources" }} />
       ) : feed.isError ? (
         <LoadError error={feed.error} />
+      ) : view === "review" ? (
+        today && feed.data && <ReviewDeck occurrences={feed.data} today={today} />
       ) : feed.data?.length === 0 && filters.query.search ? (
         <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.plans, query: { start: today ?? undefined, plans: SHOWN_PLANS.going } }} />
       ) : feed.data?.length === 0 ? (
-        <EmptyState title="Всё разобрано" text="Неразмеченных событий впереди нет, или их скрывают фильтры. Размеченные — в «Собираюсь пойти»." />
+        <EmptyState title="All caught up" text="No unmarked events ahead, or filters are hiding them. Marked events are in Want to go." />
       ) : (
         today && feed.data && <DayFeed occurrences={feed.data} today={today} shownTags={filters.query.tags} />
       )}
