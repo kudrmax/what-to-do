@@ -47,6 +47,18 @@
   min-width: 0;
 }
 
+/* The macOS app's title bar lies over the page: the screen scrolls under an opaque strip, not through it. */
+.shell__main::before {
+  content: "";
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: block;
+  height: var(--titlebar-h);
+  margin-bottom: calc(-1 * var(--titlebar-h));
+  background: var(--bg);
+}
+
 .city {
   margin-bottom: 14px;
 }
