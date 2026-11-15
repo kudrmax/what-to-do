@@ -26,7 +26,7 @@ def test_polako_page_gives_its_event():
     assert event.address == "Светогорска, 46"
     assert event.organizer == "Event Catalog"
     assert event.image.startswith("https://polako.ams3.digitaloceanspaces.com/")
-    assert event.description.startswith("# «ИСКУССТВО БЫТЬ НЕЛЕПЫМ»")
+    assert event.description.startswith("«ИСКУССТВО БЫТЬ НЕЛЕПЫМ» от ČemoDan Theatre (https://www.instagram.com/")
 
 
 @pytest.mark.parametrize("wrap", ["graph", "list", "type_list", "subtype"])
@@ -224,3 +224,19 @@ def test_link_whose_section_is_the_whole_site_is_refused(link):
 def test_date_without_time_never_gets_a_made_up_time(raw):
     start = EventMarkup.read(event_page(startDate=raw)).start
     assert start == date(2026, 11, 20)
+
+
+def test_event_inside_a_page_main_entity_is_found():
+    page = {"@context": "https://schema.org", "@type": "WebPage", "mainEntity": event_markup(name="Внутри страницы")}
+    assert EventMarkup.read(event_page(page)).name == "Внутри страницы"
+
+
+def test_markdown_description_reads_as_plain_text():
+    description = "# Заголовок\n\nТекст **жирный** и *курсив*, [Новости](https://t.me/news).\n\n- пункт"
+    event = EventMarkup.read(event_page(description=description))
+    assert event.description == "Заголовок\n\nТекст жирный и курсив, Новости (https://t.me/news).\n\n- пункт"
+
+
+def test_html_description_reads_as_plain_text():
+    event = EventMarkup.read(event_page(description="<p>Первый <b>абзац</b></p><p>Второй <a href='https://x.test'>ссылка</a></p>"))
+    assert event.description == "Первый абзац\n\nВторой ссылка (https://x.test)"

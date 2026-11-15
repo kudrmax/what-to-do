@@ -78,6 +78,8 @@ def judge_same_titles() -> FakeLlm:
 
     def answer(_: str, prompt: str) -> dict[str, Any]:
         data = json.loads(prompt)
+        if "names" in data:  # which towns are the city: all of them
+            return {"places": [{"name": name, "in_city": True} for name in data["names"]]}
         decisions, seen = [], {}
         cards = {c["original_title"]: c["id"] for c in data["existing_cards"]}
         for item in data["new_announcements"]:

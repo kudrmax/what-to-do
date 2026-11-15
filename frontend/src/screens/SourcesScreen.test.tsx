@@ -86,7 +86,8 @@ describe("adding a source", () => {
     const { addSource, submit } = setupForm(SITE_PREVIEW);
     submit("https://polakohedonist.club/ru/events/a");
     const card = await screen.findByRole("region", { name: "Polako Hedonist" });
-    expect(within(card).getByText("Найдено 820 страниц событий")).toBeTruthy();
+    expect(within(card).getByText("На сайте 820 событий")).toBeTruthy();
+    expect(within(card).getByText("В приложение попадут события вашего города на ближайшие 30 дней")).toBeTruthy();
     expect(within(card).getByText("Искусство быть нелепым")).toBeTruthy();
     expect(within(card).getAllByText("среда, 18 ноября")).toHaveLength(2);
     expect(within(card).getByText("19:00")).toBeTruthy();

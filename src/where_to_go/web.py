@@ -44,6 +44,32 @@ class WebEvent:
     image: str | None
     price: str | None
     organizer: str | None
+    online: bool = False
+
+
+class PlainText:
+    """A description as sites write it — HTML or Markdown — as plain text, the way Telegram posts are kept."""
+
+    _TAG = re.compile(r"<[a-z][^>]*>", re.IGNORECASE)
+    _RULES = (
+        (re.compile(r"!\[[^\]]*\]\([^)]*\)"), ""),
+        (re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)"), r"\1 (\2)"),
+        (re.compile(r"^#{1,6}\s*", re.MULTILINE), ""),
+        (re.compile(r"(\*\*|__)(.+?)\1"), r"\2"),
+        (re.compile(r"(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])"), r"\1"),
+        (re.compile(r"[ \t]+$", re.MULTILINE), ""),
+    )
+
+    @classmethod
+    def of(cls, raw: str) -> str:
+        text = raw
+        if cls._TAG.search(text):
+            body = HTMLParser(f"<body>{text}</body>").body
+            text = HtmlText.extract(body) if body is not None else text
+            text = re.sub(r"\n(?!\n)", "\n\n", text) if "\n\n" not in text else text
+        for pattern, replacement in cls._RULES:
+            text = pattern.sub(replacement, text)
+        return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 class EventMarkup:
@@ -69,8 +95,9 @@ class EventMarkup:
                 yield from cls._items(item)
         elif isinstance(data, dict):
             yield data
-            if "@graph" in data:
-                yield from cls._items(data["@graph"])
+            for nested in ("@graph", "mainEntity"):
+                if nested in data:
+                    yield from cls._items(data[nested])
 
     @staticmethod
     def _is_event(item: dict[str, Any]) -> bool:
@@ -100,10 +127,11 @@ class EventMarkup:
             place=_text(location.get("name")),
             address=_text(address.get("streetAddress")),
             locality=_text(address.get("addressLocality")),
-            description=_text(item.get("description")) or "",
+            description=PlainText.of(_text(item.get("description")) or ""),
             image=cls._image(item.get("image")),
             price=cls._price(item.get("offers")),
             organizer=_text(organizer.get("name")) if isinstance(organizer, dict) else _text(organizer),
+            online=(_text(item.get("eventAttendanceMode")) or "").endswith("OnlineEventAttendanceMode"),
         )
 
     @staticmethod

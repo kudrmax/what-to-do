@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -5,14 +6,16 @@ import httpx
 import pytest
 import respx
 
-from tests.helpers import event_page, raw_event, sitemap
+from tests.helpers import FakeLlm, event_page, raw_event, sitemap
 
 from where_to_go.container import Container
 from where_to_go.models import CollectedPost, ExtractedEvent, Mention, Source, SourceKind, SourcePublic, WebPage, WebSite
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.telegram import SourceError
 from where_to_go.web import SitemapReader
-from where_to_go.web_sources import WebSiteProbe, WebSiteReader
+from where_to_go.localities import LocalityJudge, LocalityRepository
+from where_to_go.llm import LlmError
+from where_to_go.web_sources import PageFetcher, WebSiteProbe, WebSiteReader
 
 NOW = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -160,15 +163,19 @@ async def reading(app):
     client = httpx.AsyncClient()
     now = [NOW]
 
+    judge = FakeLlm(lambda _, prompt: {"places": [{"name": n, "in_city": n in ("Belgrade", "Београд")} for n in json.loads(prompt)["names"]]})
+    localities = LocalityJudge(judge, LocalityRepository(container.db))
+
     def reader() -> WebSiteReader:
-        return WebSiteReader(client, SitemapReader(client), container.web, container.posts, clock=lambda: now[0])
+        return WebSiteReader(client, SitemapReader(client), container.web, container.posts, localities, clock=lambda: now[0])
 
     async def collect():
-        posts = await reader().collect(container.sources.get(source.id), BELGRADE)
+        posts = await reader().collect(container.sources.get(source.id), city)
         for post in posts:
             container.posts.add_new(source.id, post, [])
         return posts
 
+    collect.judge = judge
     yield container, source, collect, now
     await client.aclose()
 
@@ -196,12 +203,13 @@ async def test_page_entering_horizon_becomes_post_without_download(reading):
 
 @respx.mock
 async def test_upcoming_week_is_rechecked_and_change_rereads_post(reading):
-    container, source, collect, _ = reading
+    container, source, collect, now = reading
     routes = serve_site({"soon": on("2026-11-18", name="Скоро"), "month": on("2026-12-01", name="Через две недели")})
     await collect()
     for post in container.posts.unprocessed([source.id]):
         container.posts.mark_processed(post.id, ReadingRules.POSTS)
     routes["soon"].respond(200, text=on("2026-11-19", name="Скоро"))
+    now[0] = NOW + timedelta(days=1)
     assert await collect() == []
     assert (routes["soon"].call_count, routes["month"].call_count) == (2, 1)
     [changed] = container.posts.unprocessed([source.id])
@@ -252,12 +260,13 @@ async def test_probe_shows_coming_events_soonest_first():
 
 @respx.mock
 async def test_page_text_changing_around_the_same_event_is_not_read_again(reading):
-    container, source, collect, _ = reading
+    container, source, collect, now = reading
     routes = serve_site({"soon": event_page(name="Скоро", startDate="2026-11-18T19:00:00.000Z", description="Коротко.", text="Новое: статья 1")})
     await collect()
     for post in container.posts.unprocessed([source.id]):
         container.posts.mark_processed(post.id, ReadingRules.POSTS)
     routes["soon"].respond(200, text=event_page(name="Скоро", startDate="2026-11-18T19:00:00.000Z", description="Коротко.", text="Новое: статья 2"))
+    now[0] = NOW + timedelta(days=1)
     await collect()
     assert routes["soon"].call_count == 2
     assert container.posts.unprocessed([source.id]) == []
@@ -282,3 +291,112 @@ async def test_probe_refuses_a_section_too_big_to_read():
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match="слишком много"):
             await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
+
+
+@respx.mock
+async def test_www_and_bare_host_are_one_site():
+    respx.get("https://www.site.test/ru/events/a").respond(200, text=on("2026-11-16"))
+    respx.get("https://www.site.test/robots.txt").respond(200, text="Sitemap: https://site.test/sitemap.xml\n")
+    respx.get("https://site.test/sitemap.xml").respond(200, text=sitemap([page_url("a")]))
+    respx.get(page_url("a")).respond(200, text=on("2026-11-16"))
+    async with httpx.AsyncClient() as client:
+        preview, _ = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe("https://www.site.test/ru/events/a", BELGRADE)
+    assert preview.handle == "site.test/ru/events/"
+
+
+@respx.mock
+async def test_page_that_was_not_an_event_is_looked_at_again_a_week_later(reading):
+    container, source, collect, now = reading
+    routes = serve_site({"draft": event_page(markup=False)})
+    await collect()
+    routes["draft"].respond(200, text=on("2026-11-30", name="Опубликовали"))
+    now[0] = NOW + timedelta(days=3)
+    assert await collect() == []
+    now[0] = NOW + timedelta(days=8)
+    assert [p.text.splitlines()[0] for p in await collect()] == ["Опубликовали"]
+    assert routes["draft"].call_count == 2
+
+
+def in_town(town: str) -> dict:
+    return {"@type": "Place", "name": "Клуб", "address": {"addressLocality": town}}
+
+
+@respx.mock
+async def test_events_elsewhere_and_online_never_reach_claude(reading):
+    container, source, collect, _ = reading
+    serve_site({
+        "here": on("2026-11-20", name="Здесь", location=in_town("Belgrade")),
+        "here_cyrillic": on("2026-11-20", name="Здесь кириллицей", location=in_town("Београд")),
+        "novi_sad": on("2026-11-20", name="Нови-Сад", location=in_town("Novi Sad")),
+        "online": on("2026-11-20", name="Онлайн", eventAttendanceMode="https://schema.org/OnlineEventAttendanceMode"),
+        "nowhere": on("2026-11-20", name="Без города", location=None),
+    })
+    titles = sorted(p.text.splitlines()[0] for p in await collect())
+    assert titles == ["Без города", "Здесь", "Здесь кириллицей"]
+
+
+@respx.mock
+async def test_a_town_is_asked_about_once(reading):
+    container, source, collect, now = reading
+    serve_site({"a": on("2026-11-20", name="А", location=in_town("Novi Sad")), "b": on("2026-11-21", name="Б", location=in_town("Novi Sad"))})
+    await collect()
+    now[0] = NOW + timedelta(days=1)
+    await collect()
+    assert len(collect.judge.calls) == 1
+
+
+@respx.mock
+async def test_when_claude_cannot_tell_the_town_the_event_is_kept(reading):
+    container, source, collect, _ = reading
+    collect.judge._answer = lambda *_: (_ for _ in ()).throw(LlmError("нет связи"))
+    serve_site({"a": on("2026-11-20", name="А", location=in_town("Novi Sad"))})
+    assert [p.text.splitlines()[0] for p in await collect()] == ["А"]
+
+
+def test_pages_stored_by_1_10_0_open_with_the_new_columns(tmp_path):
+    from where_to_go.db import Database
+
+    Database(tmp_path / "db.sqlite3").close()
+    import sqlite3
+
+    with sqlite3.connect(tmp_path / "db.sqlite3") as raw:
+        for column in ("online", "locality"):
+            raw.execute(f"ALTER TABLE web_pages DROP COLUMN {column}")
+    Database(tmp_path / "db.sqlite3").close()
+
+
+@respx.mock
+async def test_a_site_that_asks_to_slow_down_is_waited_for():
+    waits: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        waits.append(seconds)
+
+    route = respx.get(page_url("a")).mock(side_effect=[httpx.Response(429, headers={"Retry-After": "3"}), httpx.Response(429), httpx.Response(200, text="ok")])
+    async with httpx.AsyncClient() as client:
+        assert await PageFetcher(client, sleep=sleep).html(page_url("a")) == "ok"
+    assert route.call_count == 3
+    assert waits[:2] == [3.0, PageFetcher.FIRST_WAIT * 2]
+
+
+@respx.mock
+async def test_a_site_that_keeps_refusing_is_given_up_on_for_now():
+    async def sleep(_: float) -> None:
+        pass
+
+    respx.get(page_url("a")).respond(429)
+    async with httpx.AsyncClient() as client:
+        assert await PageFetcher(client, sleep=sleep).html(page_url("a")) is None
+
+
+@respx.mock
+async def test_coming_event_is_rechecked_at_most_once_a_day(reading):
+    container, source, collect, now = reading
+    routes = serve_site({"soon": on("2026-11-18", name="Скоро")})
+    await collect()
+    now[0] = NOW + timedelta(hours=5)
+    await collect()
+    assert routes["soon"].call_count == 1
+    now[0] = NOW + timedelta(hours=25)
+    await collect()
+    assert routes["soon"].call_count == 2

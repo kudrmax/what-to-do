@@ -36,6 +36,8 @@ from where_to_go.sources import PotentialSources, SourceCatalog
 from where_to_go.statistics import Statistics
 from where_to_go.telegram import TelegramChannelReader
 from where_to_go.web import SitemapReader
+from where_to_go.localities import LocalityJudge, LocalityRepository
+from where_to_go.source_types import SourceTypes, TelegramSourceType, WebSourceType
 from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 
 PROVISIONAL_TAGS = [
@@ -116,7 +118,15 @@ class Container:
         linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards)
         photo_texts = PhotoTextRepository(db)
         sitemaps = SitemapReader(http)
-        catalog = SourceCatalog(sources, events, cards, reader, WebSiteProbe(http, sitemaps), web)
+        types = SourceTypes(
+            TelegramSourceType(reader, posts, settings),
+            WebSourceType(
+                WebSiteProbe(http, sitemaps),
+                WebSiteReader(http, sitemaps, web, posts, LocalityJudge(matching_llm, LocalityRepository(db))),
+                web,
+            ),
+        )
+        catalog = SourceCatalog(sources, events, cards, types)
         potential_sources = PotentialSources(PotentialSourceRepository(db), sources, catalog)
         photos = PhotoTranscriber(photo_llm, images, photo_texts, lambda: settings.load().photo_prompt)
         post_mentions = PostMentions(mentions, cards)
@@ -139,8 +149,7 @@ class Container:
             posts=posts,
             mentions=mentions,
             events=events,
-            reader=reader,
-            web_reader=WebSiteReader(http, sitemaps, web, posts),
+            types=types,
             images=images,
             photos=photos,
             post_reader=post_reader,
