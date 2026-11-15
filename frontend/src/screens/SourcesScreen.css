@@ -174,9 +174,22 @@
 }
 
 .site-preview__found {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.site-preview__count {
   margin: 0;
   font-size: 14px;
+  font-weight: 500;
   color: var(--text-2);
+}
+
+.site-preview__scope {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .site-preview__examples {

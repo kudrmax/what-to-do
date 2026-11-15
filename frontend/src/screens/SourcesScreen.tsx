@@ -95,9 +95,12 @@ function SitePreviewCard({ site, adding, onAdd, onCancel }: { site: SitePreview;
           </a>
         </div>
       </header>
-      <p className="site-preview__found">
-        {plural(found, "Найдена", "Найдено", "Найдено")} {found} {plural(found, "страница", "страницы", "страниц")} событий
-      </p>
+      <div className="site-preview__found">
+        <p className="site-preview__count">
+          На сайте {found} {plural(found, "событие", "события", "событий")}
+        </p>
+        <p className="site-preview__scope">В приложение попадут события вашего города на ближайшие 30 дней</p>
+      </div>
       {site.examples.length > 0 && (
         <ul className="site-preview__examples" aria-label="Например">
           {site.examples.map((example) => (
