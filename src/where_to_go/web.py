@@ -10,8 +10,9 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
 
@@ -121,6 +122,74 @@ class EventMarkup:
         return None
 
 
+class EventClock:
+    """Turns a page's start and end into the city's wall clock.
+
+    Some sites label their local time as UTC («19:00Z» for an event at 19:00 in Belgrade): for them the hours
+    are taken as written. Whether a site does so is decided once, when it is added, from what its pages show.
+    """
+
+    def __init__(self, times_are_local: bool, zone: ZoneInfo) -> None:
+        self._local = times_are_local
+        self._zone = zone
+
+    def local(self, value: datetime | date) -> datetime | date:
+        if not isinstance(value, datetime):
+            return value
+        if self._local or value.tzinfo is None:
+            return value.replace(tzinfo=None)
+        return value.astimezone(self._zone).replace(tzinfo=None)
+
+    @staticmethod
+    def detect(event: WebEvent, page_text: str, zone: ZoneInfo) -> bool | None:
+        """True: the page shows the hours written in a UTC-labelled start; False: it shows them converted to the
+        city's time; None: nothing to tell by (a real offset, no time, or the page shows both or neither)."""
+        start = event.start
+        if not isinstance(start, datetime) or start.utcoffset() != timedelta(0):
+            return None
+        written, converted = start.strftime("%H:%M"), start.astimezone(zone).strftime("%H:%M")
+        if written == converted:
+            return None
+        shows_written, shows_converted = _mentions(page_text, written), _mentions(page_text, converted)
+        if shows_written != shows_converted:
+            return shows_written
+        return None
+
+    @staticmethod
+    def decide(votes: list[bool | None]) -> bool:
+        """Local only when some page says so and none says otherwise: by default the offset is believed."""
+        return True in votes and False not in votes
+
+
+def in_horizon(start: datetime | date, end: datetime | date | None, today: date, days: int) -> bool:
+    """Whether the event runs at any moment between today and `days` days later."""
+    first, last = _day(start), _day(end or start)
+    return first <= today + timedelta(days=days) and last >= today
+
+
+class WebEventText:
+    """The facts of an event page as plain text: what Claude reads instead of the page."""
+
+    SHORT_DESCRIPTION = 200
+    PAGE_TEXT_LIMIT = 3000
+
+    @classmethod
+    def render(cls, event: WebEvent, clock: EventClock, page_text: str) -> str:
+        place = ", ".join(p for p in (event.place, event.address, event.locality) if p)
+        lines = [
+            event.name,
+            f"Начало: {_when(clock.local(event.start))}",
+            f"Конец: {_when(clock.local(event.end))}" if event.end else None,
+            f"Место: {place}" if place else None,
+            f"Цена: {event.price}" if event.price else None,
+            f"Организатор: {event.organizer}" if event.organizer else None,
+        ]
+        body = event.description
+        if len(body) < cls.SHORT_DESCRIPTION and page_text:
+            body = f"{body}\n\n{page_text[: cls.PAGE_TEXT_LIMIT]}".strip()
+        return "\n".join(line for line in lines if line is not None) + "\n\n" + body
+
+
 class PageText:
     @staticmethod
     def main(html: str) -> str:
@@ -212,6 +281,19 @@ def _text(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
     return value.strip() or None
+
+
+def _mentions(text: str, hours: str) -> bool:
+    hour, minute = hours.split(":")
+    return re.search(rf"(?<!\d)0?{int(hour)}:{minute}(?!\d)", text) is not None
+
+
+def _day(value: datetime | date) -> date:
+    return value.date() if isinstance(value, datetime) else value
+
+
+def _when(value: datetime | date) -> str:
+    return value.strftime("%Y-%m-%d %H:%M") if isinstance(value, datetime) else value.isoformat()
 
 
 def _moment(raw: str | None) -> datetime | date | None:

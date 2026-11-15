@@ -1,5 +1,6 @@
 import gzip
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import httpx
@@ -8,7 +9,7 @@ import respx
 
 from tests.helpers import event_markup, event_page, sitemap, sitemap_index
 from where_to_go.telegram import SourceError
-from where_to_go.web import EventMarkup, PageMeta, PageText, SiteAddress, SitemapReader
+from where_to_go.web import EventClock, EventMarkup, PageMeta, PageText, SiteAddress, SitemapReader, WebEventText, in_horizon
 
 FIXTURES = Path(__file__).parent / "fixtures" / "web"
 
@@ -100,3 +101,73 @@ async def test_site_without_sitemap_is_refused():
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match=r"На сайте нет списка страниц \(sitemap\)"):
             await SitemapReader(client).locate("https://site.test")
+
+
+BELGRADE = ZoneInfo("Europe/Belgrade")
+
+
+def test_polako_utc_label_is_local_time():
+    html = fixture("polako_event.html")
+    event = EventMarkup.read(html)
+    assert EventClock.detect(event, PageText.main(html), BELGRADE) is True
+    assert EventClock(True, BELGRADE).local(event.start) == datetime(2026, 11, 18, 19, 0)
+
+
+def test_honest_utc_is_detected_and_converted():
+    event = EventMarkup.read(event_page(startDate="2026-11-20T18:00:00Z"))
+    assert EventClock.detect(event, "Начало в 19:00", BELGRADE) is False
+    assert EventClock(False, BELGRADE).local(event.start) == datetime(2026, 11, 20, 19, 0)
+
+
+def test_honest_offset_is_converted():
+    start = datetime(2026, 11, 26, 18, 0, tzinfo=timezone(timedelta(hours=1)))
+    assert EventClock(False, BELGRADE).local(start) == datetime(2026, 11, 26, 18, 0)
+
+
+def test_time_with_real_offset_needs_no_check():
+    event = EventMarkup.read(event_page(startDate="2026-11-20T19:00:00+01:00"))
+    assert EventClock.detect(event, "19:00", BELGRADE) is None
+
+
+def test_date_stays_a_date():
+    assert EventClock(True, BELGRADE).local(date(2026, 11, 20)) == date(2026, 11, 20)
+
+
+def test_unclear_votes_trust_the_offset():
+    assert EventClock.decide([None, None]) is False
+    assert EventClock.decide([True, False]) is False
+    assert EventClock.decide([True, None]) is True
+
+
+def test_running_exhibition_is_in_horizon():
+    today = date(2026, 11, 15)
+    assert in_horizon(date(2026, 11, 1), date(2026, 11, 30), today, 30)
+    assert in_horizon(datetime(2026, 12, 15, 19, 0), None, today, 30)
+    assert not in_horizon(date(2026, 12, 20), None, today, 30)
+    assert not in_horizon(datetime(2026, 11, 14, 19, 0), None, today, 30)
+
+
+def test_text_for_claude_has_facts_not_html():
+    text = WebEventText.render(EventMarkup.read(fixture("polako_event.html")), EventClock(True, BELGRADE), "")
+    assert text.splitlines()[:6] == [
+        "Искусство быть нелепым",
+        "Начало: 2026-11-18 19:00",
+        "Конец: 2026-11-18 21:00",
+        "Место: Restoran Tri, Светогорска, 46, Belgrade",
+        "Организатор: Event Catalog",
+        "",
+    ]
+    assert "<" not in text
+    assert "Курс клоунады для взрослых" in text
+
+
+def test_lines_without_value_are_left_out():
+    event = EventMarkup.read(event_page(startDate="2026-11-20", location=None, offers={"price": 0, "priceCurrency": "RSD"}))
+    assert WebEventText.render(event, EventClock(False, BELGRADE), "").splitlines()[:3] == ["Концерт", "Начало: 2026-11-20", "Цена: 0 RSD"]
+
+
+def test_short_description_is_completed_with_page_text():
+    event = EventMarkup.read(event_page(description="Коротко."))
+    text = WebEventText.render(event, EventClock(False, BELGRADE), "Полный текст страницы " * 300)
+    assert "Коротко." in text and "Полный текст страницы" in text
+    assert len(text) < 3400
