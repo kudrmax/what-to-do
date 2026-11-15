@@ -75,6 +75,12 @@ export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; 
   const [arriving, setArriving] = useState<{ id: number; from: Exit } | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const serial = useRef(0);
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
+
+  /** Marks are saved one after another, so a quick undo never lands before the answer it takes back. */
+  const save = (id: number, mark: Mark, onError?: () => void) => {
+    saving.current = saving.current.then(() => setMark.mutateAsync({ id, mark })).catch(() => onError?.());
+  };
 
   const queue = useMemo(() => reviewQueue(occurrences, answeredIds, returnedIds), [occurrences, answeredIds, returnedIds]);
   const top = queue[0];
@@ -96,15 +102,10 @@ export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; 
     setArriving(null);
     const mark = given.kind === "plan" ? { ...before, plan: given.plan } : given.kind === "interest" ? { ...before, interest: given.value } : null;
     if (mark) {
-      setMark.mutate(
-        { id: event.id, mark },
-        {
-          onError: () => {
-            setAnsweredIds(without(event.id));
-            setHistory((past) => past.filter((entry) => entry.item.event.id !== event.id));
-          },
-        },
-      );
+      save(event.id, mark, () => {
+        setAnsweredIds(without(event.id));
+        setHistory((past) => past.filter((entry) => entry.item.event.id !== event.id));
+      });
     }
   };
 
@@ -117,7 +118,7 @@ export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; 
     setReturnedIds((ids) => new Set(ids).add(event.id));
     setLeaving((cards) => cards.filter((card) => card.item.event.id !== event.id));
     setArriving({ id: event.id, from: exitOf(last.answer) });
-    if (last.answer.kind !== "skip") setMark.mutate({ id: event.id, mark: last.before });
+    if (last.answer.kind !== "skip") save(event.id, last.before);
   };
 
   const run = (command: ReviewCommand) => {
