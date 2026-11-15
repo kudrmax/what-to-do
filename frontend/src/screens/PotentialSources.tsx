@@ -12,7 +12,7 @@ const ORIGINS_SHOWN = 3;
 
 const VIA = {
   forward: { icon: "forward", tip: "Post forwarded from this channel" },
-  link: { icon: "link", tip: "Post links to this channel" },
+  link: { icon: "link", tip: "A post or website page links to this channel" },
 } as const;
 
 export function PotentialSources() {

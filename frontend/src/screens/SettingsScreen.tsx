@@ -113,7 +113,7 @@ function ModelsSection({ settings }: { settings: Settings }) {
   return (
     <Section title="Claude models" hint="A new model takes effect from the next refresh.">
       <ModelRow name="photo_model" value={settings.photo_model} label="Photo reading" hint="Copies the text from posters and post images. Haiku mixes up tables and collages." />
-      <ModelRow name="extraction_model" value={settings.extraction_model} label="Post reading" hint="Turns posts into events and venues." />
+      <ModelRow name="extraction_model" value={settings.extraction_model} label="Post and page reading" hint="Turns channel posts and website pages into events and venues." />
       <ModelRow name="matching_model" value={settings.matching_model} label="Duplicate merging" hint="Decides when two announcements are the same event." />
     </Section>
   );
@@ -287,7 +287,7 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
 function PromptsSection({ settings }: { settings: Settings }) {
   return (
     <Section title="Claude prompts" hint="New text applies to posts that arrive after the next refresh. Posts already read aren’t read again.">
-      <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Post reading" hint="How to turn posts into events. Placeholders: {city} is the city, {language} the description language, {tags} the tag list, {fallback} the fallback tag." />
+      <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Post and page reading" hint="How to turn posts and website pages into events. Placeholders: {city} is the city, {language} the description language, {tags} the tag list, {fallback} the fallback tag." />
       <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Photo reading" hint="How to copy the text from posters and post images. Posts are then read together with this text." />
       <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Duplicate merging" hint="How to decide when two announcements are the same event." />
     </Section>

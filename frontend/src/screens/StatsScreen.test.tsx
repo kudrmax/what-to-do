@@ -51,15 +51,15 @@ function setup(stats: CityStats) {
 describe("statistics", () => {
   it("shows the headline numbers, each with its own label", async () => {
     setup(STATS);
-    expect(await screen.findByText("Posts read", { selector: ".stat-tile__label" })).toBeInTheDocument();
+    expect(await screen.findByText("Posts and pages read", { selector: ".stat-tile__label" })).toBeInTheDocument();
     const tiles = document.querySelectorAll(".stat-tile");
     expect([...tiles].map((tile) => tile.querySelector(".stat-tile__value")?.textContent)).toEqual(["206", "224", "258", "117"]);
-    expect(screen.getByText("events found in 140 posts")).toBeInTheDocument();
+    expect(screen.getByText("140 of them have events")).toBeInTheDocument();
   });
 
   it("counts the cards going from posts to plans", async () => {
     setup(STATS);
-    const list = await screen.findByRole("list", { name: "From post to plans" });
+    const list = await screen.findByRole("list", { name: "From announcement to plans" });
     const going = within(list).getByText("Planned to go").closest("li")!;
     expect(within(going).getByText("26")).toBeInTheDocument();
   });

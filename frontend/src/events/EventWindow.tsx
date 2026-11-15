@@ -170,7 +170,7 @@ function Originals({ event, day, mentions, load, onView }: { event: EventCard; d
   return (
     <>
       {several && (
-        <div className="post-choice" role="tablist" aria-label="Posts about this event">
+        <div className="post-choice" role="tablist" aria-label="Sources of this event">
           {mentions.map((mention) => (
             <button key={mention.id} type="button" role="tab" className="chip" aria-pressed={mention.id === shown.id} aria-selected={mention.id === shown.id} onClick={() => setChosen(mention.id)}>
               {mention.source_title}
@@ -194,7 +194,7 @@ function Originals({ event, day, mentions, load, onView }: { event: EventCard; d
 
 function OriginalsMissing({ load }: { load: MentionsLoad }) {
   if (load.error) return <LoadError error={load.error} onRetry={load.retry} />;
-  return <p className="details__description details__description--muted">{load.loading ? "Loading post…" : "This event has no posts left."}</p>;
+  return <p className="details__description details__description--muted">{load.loading ? "Loading original…" : "This event has no sources left."}</p>;
 }
 
 const POSTED = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });

@@ -67,6 +67,6 @@ describe("event window original", () => {
     openOriginal(() => new Promise(() => {}));
     fireEvent.click(await screen.findByRole("tab", { name: "Original" }));
 
-    expect(screen.getByText("Loading post…")).toBeTruthy();
+    expect(screen.getByText("Loading original…")).toBeTruthy();
   });
 });

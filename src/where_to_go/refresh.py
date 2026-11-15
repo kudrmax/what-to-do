@@ -60,6 +60,8 @@ class RefreshProgress(Public):
     sources_collected: int = Field(default=0, description="Sources read, with or without an error")
     pages_to_fetch: int = Field(default=0, description="Website pages to download in this refresh; known only as each site's list is read")
     pages_fetched: int = 0
+    announcements_to_merge: int = Field(default=0, description="Announcements of this refresh to place on cards")
+    announcements_merged: int = 0
     new_posts: int = Field(default=0, description="Posts downloaded in this refresh")
     photos_to_read: int = Field(default=0, description="Photos Claude transcribes in this refresh")
     photos_read: int = 0
@@ -248,10 +250,15 @@ class RefreshService:
 
         self.progress.enter(Stage.MERGING)
         try:
-            self.progress.events_touched = len(await self._linker.link(city.id, self._mentions.unassigned(sources)))
+            unassigned = self._mentions.unassigned(sources)
+            self.progress.announcements_to_merge = len(unassigned)
+            self.progress.events_touched = len(await self._linker.link(city.id, unassigned, self._merged))
         except LlmError as error:
             self.progress.errors.append(f"Couldn't merge events: {error}")
         self._sources.recount_events(self._events)
+
+    def _merged(self, count: int) -> None:
+        self.progress.announcements_merged += count
 
     async def _collect(self, source: Source, city: City) -> None:
         try:
@@ -291,7 +298,7 @@ class RefreshService:
         try:
             await self._post_reader.read(batch, sources, context)
         except LlmError as error:
-            self.progress.errors.append(f"Claude couldn't read {_count(len(batch), 'post')}: {error}")
+            self.progress.errors.append(f"Claude couldn't read some of the new posts and pages ({len(batch)}): {error}")
             return
         self.progress.posts_read += len(batch)
 

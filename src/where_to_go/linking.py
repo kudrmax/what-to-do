@@ -104,12 +104,15 @@ class EventLinker:
         self._judge = judge
         self._cards = cards
 
-    async def link(self, city_id: int, mentions: list[Mention]) -> set[int]:
+    async def link(self, city_id: int, mentions: list[Mention], on_linked: Callable[[int], None] = lambda _: None) -> set[int]:
+        """`on_linked` hears how many announcements each finished chunk placed."""
         touched: set[int] = set()
         # Dateless follow-ups go last, when the cards they are about already exist.
         ordered = sorted(mentions, key=lambda m: (m.data.start_date or date.max, m.published_at))
         for start in range(0, len(ordered), self.CHUNK):
-            touched |= await self._link_chunk(city_id, ordered[start : start + self.CHUNK])
+            chunk = ordered[start : start + self.CHUNK]
+            touched |= await self._link_chunk(city_id, chunk)
+            on_linked(len(chunk))
         return touched
 
     async def _link_chunk(self, city_id: int, chunk: list[Mention]) -> set[int]:

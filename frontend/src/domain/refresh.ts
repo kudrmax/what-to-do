@@ -19,16 +19,18 @@ function count(status: RefreshStatus): Count | null {
       return { done: status.photos_read, total: status.photos_to_read };
     case "reading":
       return { done: status.posts_read, total: status.posts_to_read };
+    case "merging":
+      return { done: status.announcements_merged, total: status.announcements_to_merge };
     default:
       return null;
   }
 }
 
 const STAGE_NAME: Record<RefreshStatus["stage"], string> = {
-  idle: "Collecting posts",
-  collecting: "Collecting posts",
+  idle: "Collecting sources",
+  collecting: "Collecting sources",
   photos: "Reading photos",
-  reading: "Reading posts",
+  reading: "Reading posts and pages",
   merging: "Merging duplicates",
   done: "Done",
   failed: "Something went wrong",

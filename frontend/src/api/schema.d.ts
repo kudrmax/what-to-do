@@ -1426,6 +1426,17 @@ export interface components {
              */
             pages_fetched: number;
             /**
+             * Announcements To Merge
+             * @description Announcements of this refresh to place on cards
+             * @default 0
+             */
+            announcements_to_merge: number;
+            /**
+             * Announcements Merged
+             * @default 0
+             */
+            announcements_merged: number;
+            /**
              * New Posts
              * @description Posts downloaded in this refresh
              * @default 0

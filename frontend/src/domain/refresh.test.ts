@@ -15,6 +15,8 @@ function status(fields: Partial<RefreshStatus>): RefreshStatus {
     sources_collected: 0,
     pages_to_fetch: 0,
     pages_fetched: 0,
+    announcements_to_merge: 0,
+    announcements_merged: 0,
     new_posts: 0,
     photos_to_read: 0,
     photos_read: 0,
@@ -31,7 +33,7 @@ const at = (seconds: number) => new Date(Date.parse(START) + seconds * 1000);
 
 describe("refresh label", () => {
   it("counts sources while collecting", () => {
-    expect(refreshLabel(status({ sources_to_collect: 11, sources_collected: 4 }))).toBe("Collecting posts: 4 of 11");
+    expect(refreshLabel(status({ sources_to_collect: 11, sources_collected: 4 }))).toBe("Collecting sources: 4 of 11");
   });
 
   it("counts site pages once a site is being downloaded", () => {
@@ -41,7 +43,7 @@ describe("refresh label", () => {
   });
 
   it("counts photos and posts as before", () => {
-    expect(refreshLabel(status({ stage: "reading", posts_to_read: 40, posts_read: 8 }))).toBe("Reading posts: 8 of 40");
+    expect(refreshLabel(status({ stage: "reading", posts_to_read: 40, posts_read: 8 }))).toBe("Reading posts and pages: 8 of 40");
   });
 });
 
@@ -56,6 +58,12 @@ describe("time left", () => {
 
   it("does not guess before the pace is known", () => {
     expect(timeLeft(status({ pages_to_fetch: 820, pages_fetched: 2 }), at(2))).toBeNull();
-    expect(timeLeft(status({ stage: "merging" }), at(600))).toBeNull();
+    expect(timeLeft(status({ stage: "done" }), at(600))).toBeNull();
+  });
+});
+
+describe("merging", () => {
+  it("counts announcements while merging them", () => {
+    expect(refreshLabel(status({ stage: "merging", announcements_to_merge: 60, announcements_merged: 15 }))).toBe("Merging duplicates: 15 of 60");
   });
 });

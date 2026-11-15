@@ -45,7 +45,7 @@ describe("potential sources", () => {
     const row = channel.closest("li") as HTMLElement;
     expect(within(row).getByRole("link", { name: "Канал 1" }).getAttribute("href")).toBe("https://t.me/source/1");
     expect(within(row).getByLabelText("Post forwarded from this channel")).toBeTruthy();
-    expect(within(row).getByLabelText("Post links to this channel")).toBeTruthy();
+    expect(within(row).getByLabelText("A post or website page links to this channel")).toBeTruthy();
     expect(screen.getByText("Dismissed").closest("details")?.open).toBe(false);
   });
 

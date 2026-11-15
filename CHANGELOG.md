@@ -2,6 +2,15 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.11.1 — 2026-11-16
+
+Merging duplicates shows its progress, and website pages are no longer called posts.
+
+### Improvements
+- While duplicates are merged, the **Refresh** button counts announcements and shows roughly how long is left.
+![](docs/images/changelog/1.11.1/merge-progress.png)
+- Website pages are no longer called posts. The **Collecting sources** and **Reading posts and pages** labels on the button, the event window and the stats speak of sources, posts and pages.
+
 ## 1.11.0 — 2026-11-16
 
 While a refresh runs, you can see how much is done and roughly how long is left.
