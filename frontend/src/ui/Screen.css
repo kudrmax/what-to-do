@@ -75,3 +75,10 @@
 .empty .button {
   margin-top: 6px;
 }
+
+.screen__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
