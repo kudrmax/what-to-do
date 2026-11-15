@@ -231,3 +231,12 @@ async def test_broken_sitemap_is_the_source_error(reading):
     respx.get("https://site.test/sitemap.xml").respond(503)
     with pytest.raises(SourceError):
         await collect()
+
+
+@respx.mock
+async def test_probe_looks_past_pages_that_are_not_events():
+    pages = {f"category/{i}": event_page(markup=False) for i in range(12)} | {f"e{i}": on(f"2026-11-{16 + i}") for i in range(3)}
+    serve_site(pages)
+    async with httpx.AsyncClient() as client:
+        preview, _ = await WebSiteProbe(client, SitemapReader(client)).probe(page_url("e0"), BELGRADE)
+    assert [e.day for e in preview.examples] == [date(2026, 11, 16), date(2026, 11, 17), date(2026, 11, 18)]

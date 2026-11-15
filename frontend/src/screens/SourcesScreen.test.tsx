@@ -92,6 +92,7 @@ describe("adding a source", () => {
     expect(within(card).getByText("19:00")).toBeTruthy();
     expect(within(card).getByRole("link", { name: "polakohedonist.club/ru/events/" }).getAttribute("href")).toBe("https://polakohedonist.club/ru/events/");
     expect(addSource).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("button", { name: /Добавить/ }).map((b) => b.textContent)).toEqual(["Добавить сайт"]);
   });
 
   it("adds site after confirming preview", async () => {

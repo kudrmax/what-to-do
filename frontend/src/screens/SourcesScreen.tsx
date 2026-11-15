@@ -65,9 +65,11 @@ export function AddSourceForm() {
           <span className="label">Название</span>
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Как у канала или сайта" />
         </label>
-        <button type="submit" className="button" disabled={busy || !link.trim()}>
-          {busy && !site ? "Проверяю…" : "Добавить"}
-        </button>
+        {!site && (
+          <button type="submit" className="button" disabled={busy || !link.trim()}>
+            {busy ? "Проверяю…" : "Добавить"}
+          </button>
+        )}
         {error && <p className="error-text add-source__error">{errorText(error)}</p>}
       </form>
       {site && <SitePreviewCard site={site} adding={add.isPending} onAdd={addNow} onCancel={() => setSite(null)} />}

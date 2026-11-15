@@ -73,6 +73,7 @@ class PageFetcher:
 class WebSiteProbe:
     EXAMPLES = 3
     LOOK_AT = 8
+    LOOK_AT_MOST = 80
     TIME_VOTES = 2
 
     def __init__(self, client: httpx.AsyncClient, sitemaps: SitemapReader) -> None:
@@ -92,8 +93,7 @@ class WebSiteProbe:
         urls = [u for u in await self._sitemaps.urls(sitemap_url) if u in section]
         if not urls:
             raise SourceError("В списке страниц сайта нет других страниц этого раздела")
-        looked = await self._fetcher.many(urls[: self.LOOK_AT])
-        examples = [(u, e, html) for u, html in looked.items() if html and (e := EventMarkup.read(html))][: self.EXAMPLES]
+        examples = await self._examples(urls)
         votes = [EventClock.detect(event, PageText.main(own), zone)]
         votes += [EventClock.detect(e, PageText.main(html), zone) for _, e, html in examples[: self.TIME_VOTES]]
         clock = EventClock(EventClock.decide(votes), zone)
@@ -106,6 +106,16 @@ class WebSiteProbe:
             examples=[self._example(u, e, clock) for u, e, _ in examples],
         )
         return preview, WebSite(source_id=0, sitemap_url=sitemap_url, prefix=site + path, times_are_local=clock.is_local)
+
+    async def _examples(self, urls: list[str]) -> list[tuple[str, WebEvent, str]]:
+        """The first few events of the section; pages that are not events, such as categories, are skipped."""
+        found: list[tuple[str, WebEvent, str]] = []
+        for start in range(0, min(len(urls), self.LOOK_AT_MOST), self.LOOK_AT):
+            looked = await self._fetcher.many(urls[start : start + self.LOOK_AT])
+            found += [(u, e, html) for u, html in looked.items() if html and (e := EventMarkup.read(html))]
+            if len(found) >= self.EXAMPLES:
+                break
+        return found[: self.EXAMPLES]
 
     @staticmethod
     def _example(url: str, event: WebEvent, clock: EventClock) -> SiteExample:
