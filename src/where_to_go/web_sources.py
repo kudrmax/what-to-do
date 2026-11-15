@@ -10,6 +10,8 @@ from datetime import UTC, date, datetime, timedelta
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
+from typing import Protocol
+
 import httpx
 
 from where_to_go.localities import LocalityJudge
@@ -56,6 +58,25 @@ class Section:
         return host.lower().removeprefix("www.")
 
 
+class PageTally(Protocol):
+    """Counts website pages as a refresh downloads them, so it can say how far it got."""
+
+    def planned(self, pages: int) -> None: ...
+
+    def fetched(self) -> None: ...
+
+
+class _NoTally:
+    def planned(self, pages: int) -> None:
+        pass
+
+    def fetched(self) -> None:
+        pass
+
+
+NO_TALLY: PageTally = _NoTally()
+
+
 class PageFetcher:
     """Downloads pages politely: a few at a time, and when the site asks to slow down, everyone waits."""
 
@@ -95,8 +116,16 @@ class PageFetcher:
         seconds = float(asked) if asked.isdigit() else self.FIRST_WAIT * 2**attempt
         return min(seconds, self.LONGEST_WAIT)
 
-    async def many(self, urls: list[str]) -> dict[str, str | None]:
-        pages = await asyncio.gather(*(self.html(u) for u in urls))
+    async def many(self, urls: list[str], tally: PageTally = NO_TALLY) -> dict[str, str | None]:
+        tally.planned(len(urls))
+
+        async def counted(url: str) -> str | None:
+            try:
+                return await self.html(url)
+            finally:
+                tally.fetched()
+
+        pages = await asyncio.gather(*(counted(u) for u in urls))
         return dict(zip(urls, pages, strict=True))
 
 
@@ -195,7 +224,7 @@ class WebSiteReader:
         self._localities = localities
         self._clock = clock
 
-    async def collect(self, source: Source, city: City) -> list[CollectedPost]:
+    async def collect(self, source: Source, city: City, tally: PageTally = NO_TALLY) -> list[CollectedPost]:
         zone = ZoneInfo(city.timezone)
         site = self._web.site(source.id)
         section = Section(site.prefix)
@@ -205,7 +234,7 @@ class WebSiteReader:
         known = self._web.pages(source.id)
         due = [u for u in urls if u not in known or self._coming(known[u], today, now) or self._stale(known[u], now) or self._without_facts(known[u], today, site)]
         clock = EventClock(site.times_are_local, zone)
-        for url, html in (await self._fetcher.many(due)).items():
+        for url, html in (await self._fetcher.many(due, tally)).items():
             if html is not None:
                 known[url] = self._remember(source.id, url, html, known.get(url), clock, now)
         have_posts = self._posts.known_ids(source.id)

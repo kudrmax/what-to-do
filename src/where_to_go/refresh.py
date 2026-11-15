@@ -50,7 +50,12 @@ class Stage(StrEnum):
 class RefreshProgress(Public):
     stage: Stage = Stage.IDLE
     started_at: datetime | None = None
+    stage_started_at: datetime | None = Field(default=None, description="When the current stage began: how fast it goes tells how long is left")
     finished_at: datetime | None = None
+    sources_to_collect: int = 0
+    sources_collected: int = Field(default=0, description="Sources read, with or without an error")
+    pages_to_fetch: int = Field(default=0, description="Website pages to download in this refresh; known only as each site's list is read")
+    pages_fetched: int = 0
     new_posts: int = Field(default=0, description="Posts downloaded in this refresh")
     photos_to_read: int = Field(default=0, description="Photos Claude transcribes in this refresh")
     photos_read: int = 0
@@ -63,6 +68,16 @@ class RefreshProgress(Public):
     @property
     def running(self) -> bool:
         return self.stage.is_running
+
+    def enter(self, stage: Stage) -> None:
+        self.stage = stage
+        self.stage_started_at = datetime.now(UTC)
+
+    def planned(self, pages: int) -> None:
+        self.pages_to_fetch += pages
+
+    def fetched(self) -> None:
+        self.pages_fetched += 1
 
 
 class PostReader:
@@ -180,7 +195,7 @@ class RefreshService:
 
     def start(self) -> RefreshProgress:
         if not self.progress.running:
-            self.progress = RefreshProgress(stage=Stage.COLLECTING, started_at=datetime.now(UTC))
+            self.progress = RefreshProgress(stage=Stage.COLLECTING, started_at=datetime.now(UTC), stage_started_at=datetime.now(UTC))
             self._task = asyncio.create_task(self._run_safely())
         return self.progress
 
@@ -206,13 +221,14 @@ class RefreshService:
             raise RuntimeError("не выбран активный город")
         sources = {s.id: s for s in self._sources.in_city(city.id)}
 
-        self.progress.stage = Stage.COLLECTING
+        self.progress.enter(Stage.COLLECTING)
+        self.progress.sources_to_collect = len(sources)
         await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s, city) for s in sources.values()])
 
         context = self._post_reader.context(city)
         posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts)
 
-        self.progress.stage = Stage.PHOTOS
+        self.progress.enter(Stage.PHOTOS)
         with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text
         photos = self._photos.untranscribed(with_photos)
         self.progress.photos_to_read = len(photos)
@@ -220,13 +236,13 @@ class RefreshService:
         unreadable = set(self._photos.untranscribed(with_photos))
         posts = [p for p in posts if unreadable.isdisjoint(PhotoTranscriber.shown(p))]
 
-        self.progress.stage = Stage.READING
+        self.progress.enter(Stage.READING)
         self.progress.posts_to_read = len(posts)
         await self._bounded(self.READ_CONCURRENCY, [self._read(batch, sources, context) for batch in self._post_reader.batches(posts)])
 
         self._post_mentions.share_posters()
 
-        self.progress.stage = Stage.MERGING
+        self.progress.enter(Stage.MERGING)
         try:
             self.progress.events_touched = len(await self._linker.link(city.id, self._mentions.unassigned(sources)))
         except LlmError as error:
@@ -235,7 +251,13 @@ class RefreshService:
 
     async def _collect(self, source: Source, city: City) -> None:
         try:
-            found = await self._types.of(source.kind).collect(source, city)
+            await self._collect_one(source, city)
+        finally:
+            self.progress.sources_collected += 1
+
+    async def _collect_one(self, source: Source, city: City) -> None:
+        try:
+            found = await self._types.of(source.kind).collect(source, city, self.progress)
         except SourceError as error:
             self._sources.record_error(source.id, str(error))
             self.progress.errors.append(f"{source.title}: {error}")

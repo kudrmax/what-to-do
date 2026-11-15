@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.9.1"
+  "version": "1.10.2"
  },
  "paths": {
   "/settings": {
@@ -2898,6 +2898,19 @@
       ],
       "title": "Started At"
      },
+     "stage_started_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stage Started At",
+      "description": "When the current stage began: how fast it goes tells how long is left"
+     },
      "finished_at": {
       "anyOf": [
        {
@@ -2909,6 +2922,28 @@
        }
       ],
       "title": "Finished At"
+     },
+     "sources_to_collect": {
+      "type": "integer",
+      "title": "Sources To Collect",
+      "default": 0
+     },
+     "sources_collected": {
+      "type": "integer",
+      "title": "Sources Collected",
+      "description": "Sources read, with or without an error",
+      "default": 0
+     },
+     "pages_to_fetch": {
+      "type": "integer",
+      "title": "Pages To Fetch",
+      "description": "Website pages to download in this refresh; known only as each site's list is read",
+      "default": 0
+     },
+     "pages_fetched": {
+      "type": "integer",
+      "title": "Pages Fetched",
+      "default": 0
      },
      "new_posts": {
       "type": "integer",
@@ -2962,7 +2997,12 @@
     "required": [
      "stage",
      "started_at",
+     "stage_started_at",
      "finished_at",
+     "sources_to_collect",
+     "sources_collected",
+     "pages_to_fetch",
+     "pages_fetched",
      "new_posts",
      "photos_to_read",
      "photos_read",
