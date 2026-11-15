@@ -7,7 +7,6 @@
 .week {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin: 0 -6px;
   border-top: 1px solid var(--line);
 }
 
