@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState, type AnimationEvent } from "r
 const CLOSE_FALLBACK_MS = 250;
 
 /**
- * A window that plays its closing animation before it goes: `startClose` marks it closing,
- * and `onClose` runs when the root's animation ends.
+ * Something that plays its closing animation before it goes (a window, a menu): `startClose`
+ * marks it closing, and `onClose` runs when the root's animation ends. It can open and close again.
  */
 export function useAnimatedClose(onClose: () => void) {
   const [closing, setClosing] = useState(false);
@@ -13,9 +13,13 @@ export function useAnimatedClose(onClose: () => void) {
   const finish = useCallback(() => {
     if (closed.current) return;
     closed.current = true;
+    setClosing(false);
     onClose();
   }, [onClose]);
-  const startClose = useCallback(() => setClosing(true), []);
+  const startClose = useCallback(() => {
+    closed.current = false;
+    setClosing(true);
+  }, []);
 
   useEffect(() => {
     if (!closing) return;
