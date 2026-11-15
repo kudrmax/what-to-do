@@ -72,7 +72,7 @@ describe("review deck", () => {
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(2, { interest: 4, plan: null }));
     press("ArrowRight");
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(3, { interest: null, plan: "maybe" }));
-    expect(screen.getByText("Всё разобрано")).toBeTruthy();
+    expect(screen.getByText("All caught up")).toBeTruthy();
   });
 
   it("takes the last answer back and returns its card", async () => {
@@ -86,12 +86,12 @@ describe("review deck", () => {
 
   it("works with the mouse too, and leaves a skipped card unmarked", async () => {
     const { mark } = setup();
-    fireEvent.click(screen.getByRole("button", { name: "Не пойду" }));
+    fireEvent.click(screen.getByRole("button", { name: "Not going" }));
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(1, { interest: null, plan: "no" }));
-    fireEvent.click(screen.getByRole("button", { name: "Позже" }));
+    fireEvent.click(screen.getByRole("button", { name: "Later" }));
     expect(topTitle()).toBe("Концерт");
     expect(mark).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Очень интересно" }));
+    fireEvent.click(screen.getByRole("button", { name: "Very interesting" }));
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(3, { interest: 5, plan: null }));
   });
 });
