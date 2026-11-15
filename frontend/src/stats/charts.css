@@ -77,7 +77,6 @@
   min-width: 8px;
   border-radius: 0 4px 4px 0;
   background: var(--accent);
-  transition: background 120ms ease;
 }
 
 .bar-list__bar:hover,

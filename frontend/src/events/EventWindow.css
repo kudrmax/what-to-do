@@ -113,42 +113,6 @@
   gap: 16px;
 }
 
-/* ---------- tabs: one choice among a few views of the same thing ---------- */
-
-.tabs {
-  display: flex;
-  gap: 2px;
-  width: fit-content;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--bg-muted);
-}
-
-.tabs__tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.tabs__tab:hover {
-  color: var(--text);
-}
-
-.tabs__tab[aria-selected="true"] {
-  background: var(--bg);
-  box-shadow: 0 1px 3px rgba(32, 32, 32, 0.12);
-  color: var(--text);
-  font-weight: 600;
-}
-
 .details__description {
   font-size: var(--body-size);
   line-height: 1.6;

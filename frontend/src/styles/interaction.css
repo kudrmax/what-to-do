@@ -1,0 +1,88 @@
+/*
+ * How controls answer the pointer, in one place and after every other stylesheet:
+ * a press goes one step past the hover, so a click is felt before its result shows.
+ */
+
+/* One hover transition for everything that answers the pointer. */
+.button,
+.icon-button,
+.chip,
+.marks button,
+.dev-note__button,
+.segmented button,
+.shell__link,
+.city__button,
+.week__head,
+.week__item,
+.popover__item,
+.fact--link,
+.search-field,
+.search-field__clear,
+.inline-edit,
+.tag-row__handle,
+.potential__handle,
+.update-pill,
+.bar-list__bar,
+.columns__column {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.button:active:not(:disabled) {
+  background: var(--accent-ink);
+  transform: scale(0.98);
+}
+
+.button--quiet:active:not(:disabled) {
+  background: var(--bg-pressed);
+}
+
+.button--danger:active:not(:disabled) {
+  background: var(--text);
+}
+
+.icon-button:active:not([aria-disabled="true"]),
+.chip:active,
+.marks button:active,
+.dev-note__button:active,
+.segmented button:active {
+  transform: scale(0.96);
+}
+
+.icon-button:active:not([aria-disabled="true"], [aria-pressed="true"]),
+.chip:active:not([aria-pressed="true"]),
+.marks button:active:not([aria-pressed="true"]),
+.dev-note__button:active,
+.segmented button:active:not([aria-pressed="true"], [aria-selected="true"]) {
+  background: var(--bg-pressed);
+}
+
+.shell__link:active,
+.city__button:active,
+.week__head:active,
+.week__item:active,
+.popover__item:active,
+.fact--link:active {
+  background: var(--bg-pressed);
+}
+
+.week__item--going:active,
+.chip[aria-pressed="true"]:active {
+  background: var(--accent-soft-pressed);
+}
+
+/* A pressed control that is already on keeps its colour and only darkens. */
+.marks button[aria-pressed="true"]:active,
+.icon-button[aria-pressed="true"]:active,
+.segmented button:is([aria-pressed="true"], [aria-selected="true"]):active {
+  filter: brightness(0.94);
+}
+
+/* A press on a mark or a link inside the card belongs to that control, not to the card. */
+.card:active:not(:has(button:active, a:active)) {
+  transform: scale(0.995);
+}

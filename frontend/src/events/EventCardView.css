@@ -38,6 +38,7 @@
 }
 
 .card__layout {
+  flex: 1;
   display: flex;
   flex-direction: column;
 }
@@ -66,6 +67,7 @@
 }
 
 .card__body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -122,7 +124,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: auto;
+  padding-top: 4px;
   cursor: default;
 }
 

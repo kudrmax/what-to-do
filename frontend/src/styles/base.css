@@ -98,7 +98,6 @@ p {
   font-weight: 600;
   font-size: 14px;
   white-space: nowrap;
-  transition: background 120ms ease;
 }
 
 .button:hover:not(:disabled) {
@@ -144,7 +143,6 @@ p {
   border-radius: 8px;
   background: none;
   color: var(--text-muted);
-  transition: background 120ms ease, color 120ms ease;
 }
 
 .icon-button:hover {
@@ -195,6 +193,10 @@ p {
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-weight: 500;
+}
+
+.chip[aria-pressed="true"]:hover {
+  background: var(--accent-soft-hover);
 }
 
 .chip__count {
@@ -248,6 +250,7 @@ p {
   border-radius: 10px;
   background: var(--bg);
   box-shadow: var(--shadow-pop);
+  animation: popover-in 120ms ease;
   display: flex;
   flex-direction: column;
 }
@@ -290,6 +293,25 @@ p {
   margin-top: 2px;
   padding-top: 2px;
   border-top: 1px solid var(--line);
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.popover--closing {
+  animation: popover-out 100ms ease forwards;
+  pointer-events: none;
+}
+
+@keyframes popover-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 /* ---------- tooltip: any element with data-tip ---------- */
@@ -347,7 +369,7 @@ p {
 /* ---------- fields ---------- */
 
 .input {
-  height: 40px;
+  height: 38px;
   width: 100%;
   padding: 0 12px;
   border: 1px solid var(--line-control);
@@ -398,8 +420,11 @@ a.button:hover {
   gap: 8px;
 }
 
+/* One choice among a few: tabs over views of one thing, or a switch of what a list shows. */
 .segmented {
   display: inline-flex;
+  flex: none;
+  width: fit-content;
   padding: 3px;
   gap: 2px;
   border-radius: 999px;
@@ -407,6 +432,9 @@ a.button:hover {
 }
 
 .segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 26px;
   padding: 0 12px;
   border: none;
@@ -417,7 +445,12 @@ a.button:hover {
   font-weight: 500;
 }
 
-.segmented button[aria-pressed="true"] {
+.segmented button:is([aria-pressed="false"], [aria-selected="false"]):hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.segmented button:is([aria-pressed="true"], [aria-selected="true"]) {
   background: var(--bg);
   color: var(--text);
   box-shadow: 0 1px 2px rgba(32, 32, 32, 0.1);

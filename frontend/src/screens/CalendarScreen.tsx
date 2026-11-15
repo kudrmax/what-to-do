@@ -8,6 +8,7 @@ import { groupByDay } from "../domain/feed";
 import { plansToShow, SHOWN_PLANS } from "../domain/plans";
 import { EventTime } from "../events/EventTime";
 import { FilterBar } from "../events/FilterBar";
+import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { useOpenEvent } from "../events/navigation";
 import { IconButton } from "../ui/IconButton";
@@ -50,23 +51,30 @@ export function CalendarScreen() {
       }
       toolbar={<FilterBar filters={filters} />}
     >
-      {feed.isError && <LoadError error={feed.error} />}
-      <div className="week">
-        {groupByDay(feed.data ?? [], days).map(([day, items]) => (
-          <div key={day} className={`week__day${day < today ? " week__day--past" : ""}`}>
-            <Link to={feedFromHref(day)} className="week__head" data-tip={`Ближайшие с ${dayAndMonth(day)}`}>
-              <span className="week__weekday">{weekdayShort(day)}</span>
-              <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
-            </Link>
-            {items.map(({ event }) => (
-              <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}${event.plan === "no" ? " week__item--declined" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
-                <EventTime event={event} className="week__time" iconSize={14} />
-                <span className="week__title">{softHyphenate(event.title)}</span>
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
+      {feed.isError ? (
+        <LoadError error={feed.error} />
+      ) : feed.data?.length === 0 && filters.query.search ? (
+        <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.feed, query: { start: today, plans: SHOWN_PLANS.feed } }} />
+      ) : (
+        <div className="week">
+          {groupByDay(feed.data ?? [], days).map(([day, items]) => (
+            <div key={day} className={`week__day${day < today ? " week__day--past" : ""}`}>
+              <div className="week__band">
+                <Link to={feedFromHref(day)} className="week__head" data-tip={`Ближайшие с ${dayAndMonth(day)}`}>
+                  <span className="week__weekday">{weekdayShort(day)}</span>
+                  <span className={`week__number${day === today ? " week__number--today" : ""}`}>{dayNumber(day)}</span>
+                </Link>
+              </div>
+              {items.map(({ event }) => (
+                <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}${event.plan === "no" ? " week__item--declined" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
+                  <EventTime event={event} className="week__time" iconSize={14} />
+                  <span className="week__title">{softHyphenate(event.title)}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </Screen>
   );
 }

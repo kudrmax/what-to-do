@@ -7,7 +7,6 @@
 .week {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin: 0 -6px;
   border-top: 1px solid var(--line);
 }
 
@@ -29,12 +28,22 @@
   opacity: 0.55;
 }
 
+/* Stays on top while the days scroll, so every column keeps its weekday and date. */
+.week__band {
+  position: sticky;
+  top: var(--titlebar-h);
+  z-index: 1;
+  margin: -10px -6px 8px;
+  padding: 10px 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
 .week__head {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  margin-bottom: 8px;
   padding: 6px 0;
   border-radius: 10px;
   color: var(--text);
@@ -100,9 +109,12 @@
   overflow-wrap: anywhere;
 }
 
-.week__item--going,
-.week__item--going:hover {
+.week__item--going {
   background: var(--accent-soft);
+}
+
+.week__item--going:hover {
+  background: var(--accent-soft-hover);
 }
 
 .week__item--going .week__time {

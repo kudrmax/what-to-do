@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createApi } from "../api/client";
@@ -57,12 +57,12 @@ describe("photo viewer", () => {
     expect(screen.getByText("На фото нет текста.")).toBeTruthy();
   });
 
-  it("closes on Esc without letting the event window close too", () => {
+  it("closes on Esc without letting the event window close too", async () => {
     const behind = vi.fn();
     document.addEventListener("keydown", behind);
     const onClose = viewer();
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     expect(behind).not.toHaveBeenCalled();
     document.removeEventListener("keydown", behind);
   });

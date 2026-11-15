@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 
 import { useApi } from "../api/queries";
 import { IconButton } from "../ui/IconButton";
+import { useAnimatedClose } from "../ui/useAnimatedClose";
 import "./PhotoViewer.css";
 
 export interface ViewedPhoto {
@@ -17,10 +18,11 @@ export function PhotoViewer({ photos, start, onClose }: { photos: ViewedPhoto[];
   const count = photos.length;
   const photo = photos[index];
   const step = (by: number) => setIndex((current) => (current + by + count) % count);
+  const { closing, startClose, onAnimationEnd } = useAnimatedClose(onClose);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const keys: Record<string, () => void> = { Escape: onClose, ArrowLeft: () => step(-1), ArrowRight: () => step(1) };
+      const keys: Record<string, () => void> = { Escape: startClose, ArrowLeft: () => step(-1), ArrowRight: () => step(1) };
       if (!keys[event.key]) return;
       event.stopImmediatePropagation();
       keys[event.key]();
@@ -30,7 +32,7 @@ export function PhotoViewer({ photos, start, onClose }: { photos: ViewedPhoto[];
   });
 
   return createPortal(
-    <div className="viewer" role="dialog" aria-modal="true" aria-label="Просмотр фото" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className={`viewer${closing ? " viewer--closing" : ""}`} role="dialog" aria-modal="true" aria-label="Просмотр фото" onMouseDown={(event) => event.target === event.currentTarget && startClose()} onAnimationEnd={onAnimationEnd}>
       <div className="viewer__stage">
         {count > 1 && <IconButton icon="chevronLeft" label="Предыдущее фото" className="viewer__step" onClick={() => step(-1)} />}
         <img className="viewer__image" src={api.imageUrl(photo.url) ?? undefined} alt={`Фото ${index + 1} из ${count}`} />
@@ -41,7 +43,7 @@ export function PhotoViewer({ photos, start, onClose }: { photos: ViewedPhoto[];
           <span className="label">
             Фото {index + 1} из {count}
           </span>
-          <IconButton icon="close" label="Закрыть просмотр" onClick={onClose} />
+          <IconButton icon="close" label="Закрыть просмотр" onClick={startClose} />
         </div>
         <h3 className="viewer__title">Текст, который Claude прочитал на фото</h3>
         <p className={`viewer__text${photo.text ? "" : " viewer__text--none"}`}>{photo.text === null ? "Текст с этого фото ещё не прочитан." : photo.text || "На фото нет текста."}</p>

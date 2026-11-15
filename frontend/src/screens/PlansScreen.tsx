@@ -8,6 +8,7 @@ import { FilterBar } from "../events/FilterBar";
 import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { ToggleChip } from "../ui/Chips";
+import { Segmented } from "../ui/Segmented";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
@@ -22,22 +23,26 @@ export function PlansScreen() {
   const range = today ? (past ? { end: addDays(today, -1) } : { start: today }) : {};
   const feed = useFeed({ ...filters.query, ...range, plans }, today !== null);
 
+  const when = city && (
+    <Segmented
+      label="Когда"
+      options={[
+        { id: "ahead", label: "Впереди" },
+        { id: "past", label: "Прошедшие" },
+      ]}
+      value={past ? "past" : "ahead"}
+      onChange={(id) => setParam("past", id === "past")}
+    />
+  );
+
   const toolbar = city && (
     <FilterBar filters={filters}>
-      <div className="segmented" role="group" aria-label="Когда">
-        <button type="button" aria-pressed={!past} onClick={() => setParam("past", false)}>
-          Впереди
-        </button>
-        <button type="button" aria-pressed={past} onClick={() => setParam("past", true)}>
-          Прошедшие
-        </button>
-      </div>
       <ToggleChip label="Только «точно пойду»" on={onlySure} onChange={(on) => setParam("sure", on)} />
     </FilterBar>
   );
 
   return (
-    <Screen title={SECTIONS.plans.title} toolbar={toolbar}>
+    <Screen title={SECTIONS.plans.title} action={when} toolbar={toolbar}>
       {!city ? (
         <NoCity />
       ) : feed.isError ? (
