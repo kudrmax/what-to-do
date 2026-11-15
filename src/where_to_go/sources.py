@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from zoneinfo import ZoneInfo
-
 from where_to_go.linking import EventCards
 from where_to_go.models import (
     ChannelLink,
@@ -13,9 +11,10 @@ from where_to_go.models import (
     Source,
     SourceKind,
 )
-from where_to_go.repositories import EventRepository, PotentialSourceRepository, SourceRepository, WebRepository
-from where_to_go.telegram import SourceError, SourceLink, TelegramChannelReader, TelegramHandle
-from where_to_go.web_sources import SitePreview, WebSiteProbe
+from where_to_go.repositories import EventRepository, PotentialSourceRepository, SourceRepository
+from where_to_go.source_types import SourceType, SourceTypes
+from where_to_go.telegram import SourceError, TelegramHandle
+from where_to_go.web_sources import SitePreview
 
 
 class DuplicateSourceError(SourceError):
@@ -23,54 +22,34 @@ class DuplicateSourceError(SourceError):
 
 
 class SourceCatalog:
-    """Adding and removing sources — Telegram channels and websites — with what follows from it for the cards."""
+    """Adding and removing sources of any kind, with what follows from it for the cards."""
 
-    def __init__(
-        self,
-        sources: SourceRepository,
-        events: EventRepository,
-        cards: EventCards,
-        reader: TelegramChannelReader,
-        probe: WebSiteProbe,
-        web: WebRepository,
-    ) -> None:
+    def __init__(self, sources: SourceRepository, events: EventRepository, cards: EventCards, types: SourceTypes) -> None:
         self._sources = sources
         self._events = events
         self._cards = cards
-        self._reader = reader
-        self._probe = probe
-        self._web = web
+        self._types = types
 
-    async def preview(self, city: City, link: str) -> SitePreview:
+    async def preview(self, city: City, link: str, title: str | None = None) -> SitePreview:
         """What adding the link would add, without adding it."""
-        if SourceLink.is_telegram(link):
-            handle = TelegramHandle.parse(link)
-            self._refuse_duplicate(city, SourceKind.TELEGRAM, handle, "Этот канал уже добавлен")
-            return SitePreview(kind=SourceKind.TELEGRAM, title=await self._reader.title(handle), handle=handle)
-        preview, _ = await self._probe.probe(link, ZoneInfo(city.timezone))
-        self._refuse_duplicate(city, SourceKind.WEB, preview.handle, "Этот сайт уже добавлен")
+        kind = self._types.for_link(link)
+        known = kind.handle_of(link)
+        if known is not None:
+            self._refuse_duplicate(city, kind, known)
+        preview = await kind.preview(city, link, (title or "").strip() or None)
+        self._refuse_duplicate(city, kind, preview.handle)
         return preview
 
     async def add(self, city: City, link: str, title: str | None) -> Source:
-        if not SourceLink.is_telegram(link):
-            return await self._add_site(city, link, title)
-        handle = TelegramHandle.parse(link)
-        self._refuse_duplicate(city, SourceKind.TELEGRAM, handle, "Этот канал уже добавлен")
-        name = (title or "").strip() or await self._reader.title(handle)
-        return self._sources.add(Source(city_id=city.id, kind=SourceKind.TELEGRAM, handle=handle, title=name))
-
-    async def _add_site(self, city: City, link: str, title: str | None) -> Source:
-        preview, site = await self._probe.probe(link, ZoneInfo(city.timezone))
-        self._refuse_duplicate(city, SourceKind.WEB, preview.handle, "Этот сайт уже добавлен")
-        name = (title or "").strip() or preview.title
-        source = self._sources.add(Source(city_id=city.id, kind=SourceKind.WEB, handle=preview.handle, title=name))
-        site.source_id = source.id
-        self._web.add_site(site)
+        preview = await self.preview(city, link, title)
+        kind = self._types.for_link(link)
+        source = self._sources.add(Source(city_id=city.id, kind=kind.kind, handle=preview.handle, title=preview.title))
+        await kind.attach(source, city, link)
         return source
 
-    def _refuse_duplicate(self, city: City, kind: SourceKind, handle: str, message: str) -> None:
-        if any(s.kind == kind and s.handle.lower() == handle.lower() for s in self._sources.in_city(city.id)):
-            raise DuplicateSourceError(message)
+    def _refuse_duplicate(self, city: City, kind: SourceType, handle: str) -> None:
+        if any(s.kind == kind.kind and s.handle.lower() == handle.lower() for s in self._sources.in_city(city.id)):
+            raise DuplicateSourceError(kind.already_added)
 
     def delete(self, source_id: int) -> None:
         """The source's posts go with it; cards only it announced disappear, shared ones lose its post."""

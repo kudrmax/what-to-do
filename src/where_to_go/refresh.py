@@ -4,7 +4,6 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from enum import StrEnum
-from zoneinfo import ZoneInfo
 
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
@@ -27,8 +26,8 @@ from where_to_go.repositories import (
     SourceRepository,
     TagRepository,
 )
-from where_to_go.telegram import SourceError, TelegramChannelReader
-from where_to_go.web_sources import WebSiteReader
+from where_to_go.source_types import SourceTypes
+from where_to_go.telegram import SourceError
 
 log = logging.getLogger(__name__)
 
@@ -141,8 +140,7 @@ class RefreshService:
         posts: PostRepository,
         mentions: MentionRepository,
         events: EventRepository,
-        reader: TelegramChannelReader,
-        web_reader: WebSiteReader,
+        types: SourceTypes,
         images: ImageStore,
         photos: PhotoTranscriber,
         post_reader: PostReader,
@@ -157,8 +155,7 @@ class RefreshService:
         self._posts = posts
         self._mentions = mentions
         self._events = events
-        self._reader = reader
-        self._web_reader = web_reader
+        self._types = types
         self._images = images
         self._post_reader = post_reader
         self._linker = linker
@@ -194,8 +191,7 @@ class RefreshService:
         sources = {s.id: s for s in self._sources.in_city(city.id)}
 
         self.progress.stage = Stage.COLLECTING
-        zone = ZoneInfo(city.timezone)
-        await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s, zone) for s in sources.values()])
+        await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s, city) for s in sources.values()])
 
         context = self._post_reader.context(city)
         posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts)
@@ -221,12 +217,9 @@ class RefreshService:
             self.progress.errors.append(f"Не получилось склеить события: {error}")
         self._sources.recount_events(self._events)
 
-    async def _collect(self, source: Source, zone: ZoneInfo) -> None:
+    async def _collect(self, source: Source, city: City) -> None:
         try:
-            if source.kind == SourceKind.WEB:
-                found = await self._web_reader.collect(source, zone)
-            else:
-                found = await self._reader.new_posts(source.handle, self._posts.known_ids(source.id), self._settings.load().recent_posts)
+            found = await self._types.of(source.kind).collect(source, city)
         except SourceError as error:
             self._sources.record_error(source.id, str(error))
             self.progress.errors.append(f"{source.title}: {error}")

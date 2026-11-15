@@ -341,3 +341,15 @@ def test_site_without_event_markup_is_refused_in_preview(client):
     client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
     response = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
     assert response.status_code == 422 and response.json()["detail"] == "На странице нет разметки события"
+
+
+@respx.mock
+def test_adding_right_after_preview_does_not_check_the_site_again(client):
+    respx.route(host="testserver").pass_through()
+    serve_event_site()
+    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
+    site_calls = lambda: sum(1 for call in respx.calls if call.request.url.host == "site.test")  # noqa: E731
+    before = site_calls()
+    assert client.post("/sources", json={"link": "https://site.test/ru/events/a"}).status_code == 201
+    assert site_calls() == before
