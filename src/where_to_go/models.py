@@ -386,7 +386,7 @@ class WebPage(SQLModel, table=True):
     end_day: Day | None = None
     facts: str | None = Field(default=None, description="What Claude reads for this event")
     locality: str | None = Field(default=None, description="The town the page names, as it names it")
-    online: bool = False
+    online: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
     fingerprint: str | None = Field(default=None, description="Of the event's own facts: the page around them may change on every visit")
     image_url: str | None = None
     found_at: datetime

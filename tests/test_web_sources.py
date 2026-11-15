@@ -349,3 +349,15 @@ async def test_when_claude_cannot_tell_the_town_the_event_is_kept(reading):
     collect.judge._answer = lambda *_: (_ for _ in ()).throw(LlmError("нет связи"))
     serve_site({"a": on("2026-11-20", name="А", location=in_town("Novi Sad"))})
     assert [p.text.splitlines()[0] for p in await collect()] == ["А"]
+
+
+def test_pages_stored_by_1_10_0_open_with_the_new_columns(tmp_path):
+    from where_to_go.db import Database
+
+    Database(tmp_path / "db.sqlite3").close()
+    import sqlite3
+
+    with sqlite3.connect(tmp_path / "db.sqlite3") as raw:
+        for column in ("online", "locality"):
+            raw.execute(f"ALTER TABLE web_pages DROP COLUMN {column}")
+    Database(tmp_path / "db.sqlite3").close()
