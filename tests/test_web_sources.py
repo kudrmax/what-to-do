@@ -282,3 +282,27 @@ async def test_probe_refuses_a_section_too_big_to_read():
     async with httpx.AsyncClient() as client:
         with pytest.raises(SourceError, match="слишком много"):
             await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
+
+
+@respx.mock
+async def test_www_and_bare_host_are_one_site():
+    respx.get("https://www.site.test/ru/events/a").respond(200, text=on("2026-11-16"))
+    respx.get("https://www.site.test/robots.txt").respond(200, text="Sitemap: https://site.test/sitemap.xml\n")
+    respx.get("https://site.test/sitemap.xml").respond(200, text=sitemap([page_url("a")]))
+    respx.get(page_url("a")).respond(200, text=on("2026-11-16"))
+    async with httpx.AsyncClient() as client:
+        preview, _ = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe("https://www.site.test/ru/events/a", BELGRADE)
+    assert preview.handle == "site.test/ru/events/"
+
+
+@respx.mock
+async def test_page_that_was_not_an_event_is_looked_at_again_a_week_later(reading):
+    container, source, collect, now = reading
+    routes = serve_site({"draft": event_page(markup=False)})
+    await collect()
+    routes["draft"].respond(200, text=on("2026-11-30", name="Опубликовали"))
+    now[0] = NOW + timedelta(days=3)
+    assert await collect() == []
+    now[0] = NOW + timedelta(days=8)
+    assert [p.text.splitlines()[0] for p in await collect()] == ["Опубликовали"]
+    assert routes["draft"].call_count == 2

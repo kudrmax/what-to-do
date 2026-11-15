@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import logging
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
@@ -43,15 +43,15 @@ class Section:
 
     def __init__(self, prefix: str) -> None:
         parts = urlsplit(prefix)
-        self._host = self._bare(parts.netloc)
+        self._host = self.bare(parts.netloc)
         self._path = parts.path
 
     def __contains__(self, url: str) -> bool:
         parts = urlsplit(url)
-        return self._bare(parts.netloc) == self._host and parts.path.startswith(self._path) and parts.path != self._path
+        return self.bare(parts.netloc) == self._host and parts.path.startswith(self._path) and parts.path != self._path
 
     @staticmethod
-    def _bare(host: str) -> str:
+    def bare(host: str) -> str:
         return host.lower().removeprefix("www.")
 
 
@@ -111,7 +111,7 @@ class WebSiteProbe:
         votes = [EventClock.detect(event, PageText.main(own), zone)]
         votes += [EventClock.detect(e, PageText.main(html), zone) for _, e, html in examples[: self.TIME_VOTES]]
         clock = EventClock(EventClock.decide(votes), zone)
-        host = urlsplit(site).netloc
+        host = Section.bare(urlsplit(site).netloc)
         preview = SitePreview(
             kind=SourceKind.WEB,
             title=PageMeta.site_name(own) or host,
@@ -157,6 +157,7 @@ class WebSiteReader:
     and events within the horizon become posts."""
 
     RECHECK_DAYS = 7
+    NOT_EVENT_RECHECK_DAYS = 7
 
     def __init__(
         self,
@@ -179,7 +180,7 @@ class WebSiteReader:
         now = self._clock()
         today = now.astimezone(zone).date()
         known = self._web.pages(source.id)
-        due = [u for u in urls if u not in known or self._coming(known[u], today)]
+        due = [u for u in urls if u not in known or self._coming(known[u], today) or self._stale(known[u], now)]
         clock = EventClock(site.times_are_local, zone)
         for url, html in (await self._fetcher.many(due)).items():
             if html is not None:
@@ -190,6 +191,10 @@ class WebSiteReader:
             for p in known.values()
             if p.is_event and p.id not in have_posts and in_horizon(p.start_day, p.end_day, today, site.horizon_days)
         ]
+
+    def _stale(self, page: WebPage, now: datetime) -> bool:
+        """A page that was not an event may become one: sites publish pages before they are filled in."""
+        return not page.is_event and now - _aware(page.checked_at) >= timedelta(days=self.NOT_EVENT_RECHECK_DAYS)
 
     def _coming(self, page: WebPage, today: date) -> bool:
         return page.is_event and in_horizon(page.start_day, page.end_day, today, self.RECHECK_DAYS)
@@ -215,6 +220,10 @@ class WebSiteReader:
         if post_id is not None:
             self._posts.replace_text(post_id, facts)
         return page
+
+
+def _aware(moment: datetime) -> datetime:
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 def _day(value: datetime | date) -> date:
