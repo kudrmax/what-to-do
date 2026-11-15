@@ -623,3 +623,14 @@ async def test_refresh_counts_sources_and_site_pages_as_it_collects(app):
     assert (progress.sources_collected, progress.sources_to_collect) == (3, 3)
     assert (progress.pages_fetched, progress.pages_to_fetch) == (1, 1)
     assert progress.stage_started_at is not None and progress.stage_started_at >= progress.started_at
+
+
+@respx.mock
+async def test_refresh_counts_announcements_as_it_merges_them(app):
+    container, _, _ = app
+    serve_channels([(1, RECENT, "лекция про кафаны")], [(7, LATER, "дайджест недели")])
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    assert (progress.announcements_merged, progress.announcements_to_merge) == (3, 3)

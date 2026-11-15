@@ -45,7 +45,7 @@ describe("potential sources", () => {
     const row = channel.closest("li") as HTMLElement;
     expect(within(row).getByRole("link", { name: "Канал 1" }).getAttribute("href")).toBe("https://t.me/source/1");
     expect(within(row).getByLabelText("Пост переслан из этого канала")).toBeTruthy();
-    expect(within(row).getByLabelText("Пост ссылается на этот канал")).toBeTruthy();
+    expect(within(row).getByLabelText("Пост или страница сайта ссылается на этот канал")).toBeTruthy();
     expect(screen.getByText("Неинтересные").closest("details")?.open).toBe(false);
   });
 

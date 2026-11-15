@@ -113,7 +113,7 @@ function ModelsSection({ settings }: { settings: Settings }) {
   return (
     <Section title="Модели Claude" hint="Новая модель действует со следующего обновления.">
       <ModelRow name="photo_model" value={settings.photo_model} label="Расшифровка фото" hint="Переписывает текст с афиш и картинок постов. Haiku путает таблицы и коллажи." />
-      <ModelRow name="extraction_model" value={settings.extraction_model} label="Разбор постов" hint="Превращает посты в события и места." />
+      <ModelRow name="extraction_model" value={settings.extraction_model} label="Разбор постов и страниц" hint="Превращает посты каналов и страницы сайтов в события и места." />
       <ModelRow name="matching_model" value={settings.matching_model} label="Склейка повторов" hint="Решает, что два анонса — одно событие." />
     </Section>
   );
@@ -287,7 +287,7 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
 function PromptsSection({ settings }: { settings: Settings }) {
   return (
     <Section title="Промпты для Claude" hint="Новый текст действует для постов, которые придут после следующего обновления. Уже разобранные посты заново не читаются.">
-      <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Разбор постов" hint="Как превращать посты в события. Подстановки: {city} — город, {language} — язык описаний, {tags} — список тегов, {fallback} — тег «не распознано»." />
+      <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Разбор постов и страниц" hint="Как превращать посты и страницы сайтов в события. Подстановки: {city} — город, {language} — язык описаний, {tags} — список тегов, {fallback} — тег «не распознано»." />
       <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Расшифровка фото" hint="Как переписывать текст с афиш и картинок постов. Посты потом читаются вместе с этим текстом." />
       <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Склейка повторов" hint="Как решать, что два анонса — одно и то же событие." />
     </Section>

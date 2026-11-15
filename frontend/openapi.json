@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.10.2"
+  "version": "1.11.0"
  },
  "paths": {
   "/settings": {
@@ -2945,6 +2945,17 @@
       "title": "Pages Fetched",
       "default": 0
      },
+     "announcements_to_merge": {
+      "type": "integer",
+      "title": "Announcements To Merge",
+      "description": "Announcements of this refresh to place on cards",
+      "default": 0
+     },
+     "announcements_merged": {
+      "type": "integer",
+      "title": "Announcements Merged",
+      "default": 0
+     },
      "new_posts": {
       "type": "integer",
       "title": "New Posts",
@@ -3003,6 +3014,8 @@
      "sources_collected",
      "pages_to_fetch",
      "pages_fetched",
+     "announcements_to_merge",
+     "announcements_merged",
      "new_posts",
      "photos_to_read",
      "photos_read",
