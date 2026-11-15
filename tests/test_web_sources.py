@@ -15,7 +15,7 @@ from where_to_go.telegram import SourceError
 from where_to_go.web import SitemapReader
 from where_to_go.localities import LocalityJudge, LocalityRepository
 from where_to_go.llm import LlmError
-from where_to_go.web_sources import WebSiteProbe, WebSiteReader
+from where_to_go.web_sources import PageFetcher, WebSiteProbe, WebSiteReader
 
 NOW = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 
@@ -203,12 +203,13 @@ async def test_page_entering_horizon_becomes_post_without_download(reading):
 
 @respx.mock
 async def test_upcoming_week_is_rechecked_and_change_rereads_post(reading):
-    container, source, collect, _ = reading
+    container, source, collect, now = reading
     routes = serve_site({"soon": on("2026-11-18", name="Скоро"), "month": on("2026-12-01", name="Через две недели")})
     await collect()
     for post in container.posts.unprocessed([source.id]):
         container.posts.mark_processed(post.id, ReadingRules.POSTS)
     routes["soon"].respond(200, text=on("2026-11-19", name="Скоро"))
+    now[0] = NOW + timedelta(days=1)
     assert await collect() == []
     assert (routes["soon"].call_count, routes["month"].call_count) == (2, 1)
     [changed] = container.posts.unprocessed([source.id])
@@ -259,12 +260,13 @@ async def test_probe_shows_coming_events_soonest_first():
 
 @respx.mock
 async def test_page_text_changing_around_the_same_event_is_not_read_again(reading):
-    container, source, collect, _ = reading
+    container, source, collect, now = reading
     routes = serve_site({"soon": event_page(name="Скоро", startDate="2026-11-18T19:00:00.000Z", description="Коротко.", text="Новое: статья 1")})
     await collect()
     for post in container.posts.unprocessed([source.id]):
         container.posts.mark_processed(post.id, ReadingRules.POSTS)
     routes["soon"].respond(200, text=event_page(name="Скоро", startDate="2026-11-18T19:00:00.000Z", description="Коротко.", text="Новое: статья 2"))
+    now[0] = NOW + timedelta(days=1)
     await collect()
     assert routes["soon"].call_count == 2
     assert container.posts.unprocessed([source.id]) == []
@@ -361,3 +363,40 @@ def test_pages_stored_by_1_10_0_open_with_the_new_columns(tmp_path):
         for column in ("online", "locality"):
             raw.execute(f"ALTER TABLE web_pages DROP COLUMN {column}")
     Database(tmp_path / "db.sqlite3").close()
+
+
+@respx.mock
+async def test_a_site_that_asks_to_slow_down_is_waited_for():
+    waits: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        waits.append(seconds)
+
+    route = respx.get(page_url("a")).mock(side_effect=[httpx.Response(429, headers={"Retry-After": "3"}), httpx.Response(429), httpx.Response(200, text="ok")])
+    async with httpx.AsyncClient() as client:
+        assert await PageFetcher(client, sleep=sleep).html(page_url("a")) == "ok"
+    assert route.call_count == 3
+    assert waits[:2] == [3.0, PageFetcher.FIRST_WAIT * 2]
+
+
+@respx.mock
+async def test_a_site_that_keeps_refusing_is_given_up_on_for_now():
+    async def sleep(_: float) -> None:
+        pass
+
+    respx.get(page_url("a")).respond(429)
+    async with httpx.AsyncClient() as client:
+        assert await PageFetcher(client, sleep=sleep).html(page_url("a")) is None
+
+
+@respx.mock
+async def test_coming_event_is_rechecked_at_most_once_a_day(reading):
+    container, source, collect, now = reading
+    routes = serve_site({"soon": on("2026-11-18", name="Скоро")})
+    await collect()
+    now[0] = NOW + timedelta(hours=5)
+    await collect()
+    assert routes["soon"].call_count == 1
+    now[0] = NOW + timedelta(hours=25)
+    await collect()
+    assert routes["soon"].call_count == 2

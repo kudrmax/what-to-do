@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -57,24 +57,43 @@ class Section:
 
 
 class PageFetcher:
-    CONCURRENCY = 4
+    """Downloads pages politely: a few at a time, and when the site asks to slow down, everyone waits."""
 
-    def __init__(self, client: httpx.AsyncClient) -> None:
+    CONCURRENCY = 2
+    TRIES = 5
+    FIRST_WAIT = 2.0
+    LONGEST_WAIT = 60.0
+
+    def __init__(self, client: httpx.AsyncClient, sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None:
         self._client = client
+        self._sleep = sleep
         self._limit = asyncio.Semaphore(self.CONCURRENCY)
+        self._pause = asyncio.Lock()
 
     async def html(self, url: str) -> str | None:
         """None when the page cannot be had now; it is asked for again at the next refresh."""
         async with self._limit:
-            try:
-                response = await self._client.get(url, follow_redirects=True)
-            except httpx.HTTPError as error:
-                log.warning("page %s not downloaded: %s", url, error.__class__.__name__)
-                return None
+            for attempt in range(self.TRIES):
+                async with self._pause:
+                    pass
+                try:
+                    response = await self._client.get(url, follow_redirects=True)
+                except httpx.HTTPError as error:
+                    log.warning("page %s not downloaded: %s", url, error.__class__.__name__)
+                    return None
+                if response.status_code != 429:
+                    break
+                async with self._pause:
+                    await self._sleep(self._wait(response, attempt))
         if response.status_code != 200:
             log.warning("page %s answered %s", url, response.status_code)
             return None
         return response.text
+
+    def _wait(self, response: httpx.Response, attempt: int) -> float:
+        asked = response.headers.get("Retry-After", "")
+        seconds = float(asked) if asked.isdigit() else self.FIRST_WAIT * 2**attempt
+        return min(seconds, self.LONGEST_WAIT)
 
     async def many(self, urls: list[str]) -> dict[str, str | None]:
         pages = await asyncio.gather(*(self.html(u) for u in urls))
@@ -184,7 +203,7 @@ class WebSiteReader:
         now = self._clock()
         today = now.astimezone(zone).date()
         known = self._web.pages(source.id)
-        due = [u for u in urls if u not in known or self._coming(known[u], today) or self._stale(known[u], now)]
+        due = [u for u in urls if u not in known or self._coming(known[u], today, now) or self._stale(known[u], now)]
         clock = EventClock(site.times_are_local, zone)
         for url, html in (await self._fetcher.many(due)).items():
             if html is not None:
@@ -206,8 +225,10 @@ class WebSiteReader:
         """A page that was not an event may become one: sites publish pages before they are filled in."""
         return not page.is_event and now - _aware(page.checked_at) >= timedelta(days=self.NOT_EVENT_RECHECK_DAYS)
 
-    def _coming(self, page: WebPage, today: date) -> bool:
-        return page.is_event and in_horizon(page.start_day, page.end_day, today, self.RECHECK_DAYS)
+    def _coming(self, page: WebPage, today: date, now: datetime) -> bool:
+        """An event of the coming week is looked at again once a day: it may move or be cancelled."""
+        fresh = now - _aware(page.checked_at) < timedelta(days=1)
+        return page.is_event and not fresh and in_horizon(page.start_day, page.end_day, today, self.RECHECK_DAYS)
 
     def _remember(self, source_id: int, url: str, html: str, page: WebPage | None, clock: EventClock, now: datetime) -> WebPage:
         page = page or WebPage(source_id=source_id, url=url, is_event=False, found_at=now, checked_at=now)
