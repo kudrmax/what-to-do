@@ -15,6 +15,8 @@ function status(fields: Partial<RefreshStatus>): RefreshStatus {
     sources_collected: 0,
     pages_to_fetch: 0,
     pages_fetched: 0,
+    announcements_to_merge: 0,
+    announcements_merged: 0,
     new_posts: 0,
     photos_to_read: 0,
     photos_read: 0,
@@ -56,6 +58,12 @@ describe("time left", () => {
 
   it("does not guess before the pace is known", () => {
     expect(timeLeft(status({ pages_to_fetch: 820, pages_fetched: 2 }), at(2))).toBeNull();
-    expect(timeLeft(status({ stage: "merging" }), at(600))).toBeNull();
+    expect(timeLeft(status({ stage: "done" }), at(600))).toBeNull();
+  });
+});
+
+describe("merging", () => {
+  it("counts announcements while merging them", () => {
+    expect(refreshLabel(status({ stage: "merging", announcements_to_merge: 60, announcements_merged: 15 }))).toBe("Склеиваю повторы: 15 из 60");
   });
 });
