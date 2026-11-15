@@ -588,3 +588,22 @@ async def test_unexpected_failure_of_one_source_does_not_stop_the_refresh(app):
     assert progress.stage is Stage.DONE
     assert any(e.startswith("Сломанный: ") for e in progress.errors)
     assert {e.original_title for e in container.events.in_city(1)} == {"Кафаны"}
+
+
+@respx.mock
+async def test_site_facts_win_over_what_claude_read(app):
+    container, _, _ = app
+    soon = (datetime.now(UTC) + timedelta(days=10)).date()
+    container.post_reader._extractor._llm = extraction_by_text(
+        {"кафаны": [raw_event("Кафаны", (soon + timedelta(days=1)).isoformat(), "21:00", venue="Не тот бар", price=99, currency="EUR")]}
+    )
+    serve_channels([], [])
+    add_event_site(container)
+    serve_event_site(f"{soon.isoformat()}T19:00:00.000Z")
+
+    container.refresh.start()
+    await container.refresh.wait()
+
+    [card] = container.events.in_city(1)
+    assert (card.start_date, card.start_time.strftime("%H:%M"), card.venue) == (soon, "19:00", "Бар")
+    assert card.title == "Кафаны"

@@ -203,7 +203,7 @@ class WebSiteReader:
         now = self._clock()
         today = now.astimezone(zone).date()
         known = self._web.pages(source.id)
-        due = [u for u in urls if u not in known or self._coming(known[u], today, now) or self._stale(known[u], now)]
+        due = [u for u in urls if u not in known or self._coming(known[u], today, now) or self._stale(known[u], now) or self._without_facts(known[u], today, site)]
         clock = EventClock(site.times_are_local, zone)
         for url, html in (await self._fetcher.many(due)).items():
             if html is not None:
@@ -220,6 +220,10 @@ class WebSiteReader:
             for p in coming
             if p.locality is None or here[p.locality]
         ]
+
+    @staticmethod
+    def _without_facts(page: WebPage, today: date, site: WebSite) -> bool:
+        return page.is_event and not page.has_facts and in_horizon(page.start_day, page.end_day, today, site.horizon_days)
 
     def _stale(self, page: WebPage, now: datetime) -> bool:
         """A page that was not an event may become one: sites publish pages before they are filled in."""
@@ -246,6 +250,13 @@ class WebSiteReader:
         page.facts = facts
         page.locality = event.locality
         page.online = event.online
+        start = clock.local(event.start)
+        page.start_time = start.time() if isinstance(start, datetime) else None
+        page.venue = event.place if event.place != event.locality else None
+        page.address = ", ".join(dict.fromkeys(p for p in (event.address, event.locality) if p)) or None
+        page.price = event.price_amount
+        page.currency = event.price_currency
+        page.has_facts = True
         page.fingerprint = fingerprint
         page.image_url = event.image
         page = self._web.save_page(page)

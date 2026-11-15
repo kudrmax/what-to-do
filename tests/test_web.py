@@ -240,3 +240,10 @@ def test_markdown_description_reads_as_plain_text():
 def test_html_description_reads_as_plain_text():
     event = EventMarkup.read(event_page(description="<p>Первый <b>абзац</b></p><p>Второй <a href='https://x.test'>ссылка</a></p>"))
     assert event.description == "Первый абзац\n\nВторой ссылка (https://x.test)"
+
+
+def test_price_comes_as_an_amount_and_currency():
+    event = EventMarkup.read(event_page(offers={"@type": "AggregateOffer", "lowPrice": "800", "priceCurrency": "RSD"}))
+    assert (event.price_amount, event.price_currency) == (800.0, "RSD")
+    free = EventMarkup.read(event_page(offers={"price": 0}))
+    assert (free.price_amount, free.price_currency) == (0.0, None)

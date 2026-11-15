@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -400,3 +400,30 @@ async def test_coming_event_is_rechecked_at_most_once_a_day(reading):
     now[0] = NOW + timedelta(hours=25)
     await collect()
     assert routes["soon"].call_count == 2
+
+
+@respx.mock
+async def test_page_keeps_the_event_facts_apart_from_the_text(reading):
+    container, source, collect, _ = reading
+    serve_site({"a": on("2026-11-20", name="А", location={"name": "Клуб", "address": {"streetAddress": "Улица, 1", "addressLocality": "Belgrade"}}, offers={"price": 1500, "priceCurrency": "RSD"})})
+    await collect()
+    facts = container.web.page_facts(next(iter(container.web.pages(source.id).values())).id)
+    assert (facts.start_date, facts.start_time, facts.venue, facts.address, facts.price, facts.currency) == (
+        date(2026, 11, 20), time(19, 0), "Клуб", "Улица, 1, Belgrade", 1500.0, "RSD"
+    )
+
+
+@respx.mock
+async def test_page_stored_before_facts_were_kept_is_fetched_again_and_meanwhile_has_none(reading):
+    container, source, collect, now = reading
+    routes = serve_site({"a": on("2026-11-25", name="А")})
+    await collect()
+    page = next(iter(container.web.pages(source.id).values()))
+    page.has_facts = False
+    page.start_time = None
+    container.web.save_page(page)
+    assert container.web.page_facts(page.id) is None
+    now[0] = NOW + timedelta(hours=1)
+    await collect()
+    assert routes["a"].call_count == 2
+    assert container.web.page_facts(page.id).start_time == time(19, 0)

@@ -45,6 +45,8 @@ class WebEvent:
     price: str | None
     organizer: str | None
     online: bool = False
+    price_amount: float | None = None
+    price_currency: str | None = None
 
 
 class PlainText:
@@ -132,6 +134,7 @@ class EventMarkup:
             price=cls._price(item.get("offers")),
             organizer=_text(organizer.get("name")) if isinstance(organizer, dict) else _text(organizer),
             online=(_text(item.get("eventAttendanceMode")) or "").endswith("OnlineEventAttendanceMode"),
+            **cls._amount(item.get("offers")),
         )
 
     @staticmethod
@@ -140,6 +143,18 @@ class EventMarkup:
         if isinstance(value, dict):
             value = value.get("url") or value.get("contentUrl")
         return _text(value)
+
+    @staticmethod
+    def _amount(value: Any) -> dict[str, Any]:
+        offer = _first(value)
+        if not isinstance(offer, dict):
+            return {}
+        raw = offer.get("price") if offer.get("price") not in (None, "") else offer.get("lowPrice")
+        try:
+            amount = float(raw)
+        except (TypeError, ValueError):
+            return {}
+        return {"price_amount": amount, "price_currency": (_text(offer.get("priceCurrency")) or None) if amount else None}
 
     @staticmethod
     def _price(value: Any) -> str | None:

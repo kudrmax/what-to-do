@@ -8,7 +8,7 @@ from enum import StrEnum
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import City, Post, Public, Source, SourceKind
+from where_to_go.models import City, ExtractedEvent, Post, Public, Source, SourceKind
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
@@ -25,6 +25,7 @@ from where_to_go.repositories import (
     SettingsRepository,
     SourceRepository,
     TagRepository,
+    WebRepository,
 )
 from where_to_go.source_types import SourceTypes
 from where_to_go.telegram import SourceError
@@ -79,9 +80,11 @@ class PostReader:
         extractor: PostExtractor,
         photos: PhotoTranscriber,
         photo_texts: PhotoTextRepository,
+        web: WebRepository,
         atomically: Atomically,
     ) -> None:
         self._atomically = atomically
+        self._web = web
         self._photos = photos
         self._photo_texts = photo_texts
         self._settings = settings
@@ -117,13 +120,26 @@ class PostReader:
             raise
         by_id = {post.id: post for post in batch}
         for result in results:
+            post = by_id[result.post_id]
+            events = self._settled(post, sources[post.source_id], result.events)
             with self._atomically():
-                self._post_mentions.store(result.post_id, result.events)
+                self._post_mentions.store(result.post_id, events)
                 self._places.forget_post(result.post_id)
                 for place in result.places:
                     self._places.add(context.city.id, result.post_id, place)
                 self._potential_sources.note(context.city.id, by_id[result.post_id], result.channels)
                 self._posts.mark_processed(result.post_id, context.rules)
+
+
+    def _settled(self, post: Post, source: Source, events: list[tuple[ExtractedEvent, int | None]]) -> list[tuple[ExtractedEvent, int | None]]:
+        """An event page's own facts replace Claude's reading of them; a page Claude split into several events is left as read."""
+        if source.kind != SourceKind.WEB or len(events) != 1:
+            return events
+        facts = self._web.page_facts(post.external_id)
+        if facts is None:
+            return events
+        [(event, photo)] = events
+        return [(facts.settle(event), photo)]
 
 
 class RefreshService:
