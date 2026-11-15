@@ -386,11 +386,39 @@ class WebPage(SQLModel, table=True):
     end_day: Day | None = None
     facts: str | None = Field(default=None, description="What Claude reads for this event")
     locality: str | None = Field(default=None, description="The town the page names, as it names it")
+    start_time: time | None = None
+    venue: str | None = None
+    address: str | None = None
+    price: float | None = None
+    currency: str | None = None
     online: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
     fingerprint: str | None = Field(default=None, description="Of the event's own facts: the page around them may change on every visit")
     image_url: str | None = None
     found_at: datetime
     checked_at: datetime
+
+
+class PageFacts(SQLModel):
+    """What an event page states for sure; it wins over what Claude reads from the page's text."""
+
+    start_date: Day
+    start_time: time | None = None
+    end_date: Day | None = None
+    venue: str | None = None
+    address: str | None = None
+    price: float | None = None
+    currency: str | None = None
+
+    def settle(self, event: ExtractedEvent) -> ExtractedEvent:
+        """Claude keeps the title, description, tags and how it split the page; the facts are the page's."""
+        update: dict[str, Any] = {"start_date": self.start_date, "start_time": self.start_time}
+        update |= {k: v for k, v in {"venue": self.venue, "address": self.address}.items() if v}
+        if self.price is not None:
+            update |= {"price": self.price, "currency": self.currency if self.price else None}
+        if event.kind != EventKind.RECURRING:
+            runs = self.end_date is not None and self.end_date > self.start_date
+            update |= {"kind": EventKind.MULTIDAY if runs else EventKind.SINGLE, "end_date": self.end_date if runs else None}
+        return event.model_copy(update=update)
 
 
 class Locality(SQLModel, table=True):

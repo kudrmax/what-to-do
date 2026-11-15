@@ -140,6 +140,7 @@ class Container:
             extractor=PostExtractor(extraction_llm),
             photos=photos,
             photo_texts=photo_texts,
+            web=web,
             atomically=db.transaction,
         )
         refresh = RefreshService(

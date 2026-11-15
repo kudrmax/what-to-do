@@ -29,6 +29,7 @@ from where_to_go.models import (
     Source,
     SourceKind,
     Tag,
+    PageFacts,
     WebPage,
     WebSite,
 )
@@ -167,6 +168,21 @@ class WebRepository:
     def pages(self, source_id: int) -> dict[str, WebPage]:
         with self._db.session() as s:
             return {p.url: p for p in s.exec(select(WebPage).where(WebPage.source_id == source_id))}
+
+    def page_facts(self, page_id: int) -> PageFacts | None:
+        with self._db.session() as s:
+            page = s.get(WebPage, page_id)
+        if page is None or not page.is_event or page.start_day is None:
+            return None
+        return PageFacts(
+            start_date=page.start_day,
+            start_time=page.start_time,
+            end_date=page.end_day,
+            venue=page.venue,
+            address=page.address,
+            price=page.price,
+            currency=page.currency,
+        )
 
     def save_page(self, page: WebPage) -> WebPage:
         with self._db.session() as s:

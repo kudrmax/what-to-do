@@ -246,6 +246,12 @@ class WebSiteReader:
         page.facts = facts
         page.locality = event.locality
         page.online = event.online
+        start = clock.local(event.start)
+        page.start_time = start.time() if isinstance(start, datetime) else None
+        page.venue = event.place if event.place != event.locality else None
+        page.address = ", ".join(dict.fromkeys(p for p in (event.address, event.locality) if p)) or None
+        page.price = event.price_amount
+        page.currency = event.price_currency
         page.fingerprint = fingerprint
         page.image_url = event.image
         page = self._web.save_page(page)
