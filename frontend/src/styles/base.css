@@ -369,7 +369,7 @@ p {
 /* ---------- fields ---------- */
 
 .input {
-  height: 40px;
+  height: 38px;
   width: 100%;
   padding: 0 12px;
   border: 1px solid var(--line-control);
