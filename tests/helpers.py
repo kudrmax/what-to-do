@@ -146,3 +146,50 @@ def channel_page(handle: str, posts: list[tuple[int, str, str]], before: int | N
         '<html><body><div class="tgme_channel_info"><div class="tgme_channel_info_header_title">'
         f"<span>Канал {handle}</span></div></div>{more}{items}</body></html>"
     )
+
+
+def event_markup(wrap: str = "plain", **fields: Any) -> dict[str, Any]:
+    """A schema.org Event as a site puts it in its page, wrapped the way `wrap` says."""
+    event: dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": "Концерт",
+        "startDate": "2026-11-20T19:00:00.000Z",
+        "location": {"@type": "Place", "name": "Бар", "address": {"streetAddress": "Улица, 1", "addressLocality": "Belgrade"}},
+        "description": "Описание концерта. " * 20,
+        "image": "https://cdn.test/poster.jpg",
+    }
+    event.update({k: v for k, v in fields.items() if v is not None})
+    for key in [k for k, v in fields.items() if v is None]:
+        event.pop(key, None)
+    if wrap == "graph":
+        return {"@context": "https://schema.org", "@graph": [{"@type": "Organization", "name": "Сайт"}, event]}
+    if wrap == "list":
+        return [{"@type": "BreadcrumbList"}, event]  # type: ignore[return-value]
+    if wrap == "type_list":
+        event["@type"] = ["Event", "MusicEvent"]
+    if wrap == "subtype":
+        event["@type"] = "MusicEvent"
+    return event
+
+
+def event_page(markup: Any = None, text: str = "", site_name: str = "Сайт афиши", **fields: Any) -> str:
+    """A page with a JSON-LD block; `markup=False` leaves the event block out."""
+    blocks = [{"@context": "https://schema.org", "@type": "Organization", "name": site_name}]
+    if markup is not False:
+        blocks.append(markup if markup is not None else event_markup(**fields))
+    scripts = "".join(f'<script type="application/ld+json">{json.dumps(b, ensure_ascii=False)}</script>' for b in blocks)
+    return (
+        f'<html><head><meta property="og:site_name" content="{site_name}"/>{scripts}</head>'
+        f"<body><nav>Меню</nav><main><h1>Страница</h1><p>{text}</p></main></body></html>"
+    )
+
+
+def sitemap(urls: list[str]) -> str:
+    items = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
+    return f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{items}</urlset>'
+
+
+def sitemap_index(urls: list[str]) -> str:
+    items = "".join(f"<sitemap><loc>{u}</loc></sitemap>" for u in urls)
+    return f'<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{items}</sitemapindex>'
