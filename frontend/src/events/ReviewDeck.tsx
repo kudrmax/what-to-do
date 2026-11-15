@@ -15,7 +15,7 @@ import { useOpenEvent } from "./navigation";
 import "./ReviewDeck.css";
 
 const INTEREST = [1, 2, 3, 4, 5] as const;
-const INTEREST_WORDS = ["Совсем неинтересно", "Скорее неинтересно", "Так себе", "Интересно", "Очень интересно"];
+const INTEREST_WORDS = ["Not interesting at all", "Not very interesting", "So-so", "Interesting", "Very interesting"];
 /** Cards drawn under the top one, so the deck looks like a deck. */
 const DEPTH = 2;
 const TAP_DISTANCE = 6;
@@ -42,7 +42,7 @@ interface Drag {
 
 type Stamp = "no" | "maybe" | "sure";
 
-const STAMPS: Record<Stamp, string> = { no: "Не пойду", maybe: "Возможно", sure: "Точно пойду" };
+const STAMPS: Record<Stamp, string> = { no: "Not going", maybe: "Maybe", sure: "Going" };
 
 const stampOf = (answer: ReviewAnswer): Stamp | null => (answer.kind === "plan" ? answer.plan : null);
 
@@ -61,7 +61,7 @@ const isTyping = (target: EventTarget | null) => {
 };
 
 /**
- * The feed one card at a time: swipe or press ← for «не пойду», → for «возможно пойду», ↑ for «точно пойду»,
+ * The feed one card at a time: swipe or press ← for not going, → for maybe going, ↑ for going for sure,
  * a digit for interest, ↓ to leave it for later. Each answer brings the next card; ⌘Z takes the last one back.
  */
 export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; today: string }) {
@@ -155,11 +155,11 @@ export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; 
   return (
     <div className="review">
       <div className="review__progress" aria-live="polite" hidden={!top}>
-        <div className="review__bar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Разобрано">
+        <div className="review__bar" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label="Reviewed">
           <div className="review__bar-fill" style={{ width: total ? `${(done / total) * 100}%` : "0%" }} />
         </div>
         <span className="review__left">
-          <strong>{left}</strong> {plural(left, "осталась", "осталось", "осталось")}
+          <strong>{left}</strong> left
         </span>
       </div>
 
@@ -197,9 +197,9 @@ export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; 
         ) : (
           <div className="review__done">
             <EmptyState
-              title="Всё разобрано"
-              text={done ? `За этот разбор — ${done} ${plural(done, "карточка", "карточки", "карточек")}. Новые появятся после «Обновить».` : "Неразмеченных событий впереди нет, или их скрывают фильтры."}
-              action={history.length ? { label: "Вернуть последнюю", onClick: undo } : undefined}
+              title="All caught up"
+              text={done ? `${done} ${plural(done, "card", "cards")} reviewed this time. New ones arrive with Refresh.` : "No unmarked events ahead, or filters are hiding them."}
+              action={history.length ? { label: "Undo the last one", onClick: undo } : undefined}
             />
           </div>
         )}
@@ -216,11 +216,11 @@ export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; 
       </div>
 
       <div className="review__controls" hidden={!top}>
-        <RoundAction icon="undo" label="Вернуть" hint="⌘Z" size="small" disabled={!history.length} onClick={undo} />
-        <RoundAction icon={PLANS.no.icon} label="Не пойду" hint="←" tone="no" hot={hot("no")} disabled={!top} onClick={() => top && answer(top, { kind: "plan", plan: "no" })} />
-        <RoundAction icon={PLANS.sure.icon} label="Точно пойду" hint="↑" tone="sure" size="middle" hot={hot("sure")} disabled={!top} onClick={() => top && answer(top, { kind: "plan", plan: "sure" })} />
-        <RoundAction icon={PLANS.maybe.icon} label="Возможно" hint="→" tone="maybe" hot={hot("maybe")} disabled={!top} onClick={() => top && answer(top, { kind: "plan", plan: "maybe" })} />
-        <RoundAction icon="arrowDown" label="Позже" hint="↓" size="small" disabled={!top} onClick={() => top && answer(top, { kind: "skip" })} />
+        <RoundAction icon="undo" label="Undo" hint="⌘Z" size="small" disabled={!history.length} onClick={undo} />
+        <RoundAction icon={PLANS.no.icon} label="Not going" hint="←" tone="no" hot={hot("no")} disabled={!top} onClick={() => top && answer(top, { kind: "plan", plan: "no" })} />
+        <RoundAction icon={PLANS.sure.icon} label="For sure" hint="↑" tone="sure" size="middle" hot={hot("sure")} disabled={!top} onClick={() => top && answer(top, { kind: "plan", plan: "sure" })} />
+        <RoundAction icon={PLANS.maybe.icon} label="Maybe" hint="→" tone="maybe" hot={hot("maybe")} disabled={!top} onClick={() => top && answer(top, { kind: "plan", plan: "maybe" })} />
+        <RoundAction icon="arrowDown" label="Later" hint="↓" size="small" disabled={!top} onClick={() => top && answer(top, { kind: "skip" })} />
       </div>
     </div>
   );
@@ -339,7 +339,7 @@ function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, o
           {event.kind !== "multiday" && <span className={`review-card__day${heading.relative ? " review-card__day--soon" : ""}`}>{heading.title}</span>}
           {event.kind !== "multiday" && <span className="review-card__weekday">{heading.subtitle}</span>}
           <EventTime event={event} className="review-card__time" />
-          {event.is_cancelled ? <span className="badge badge--accent review-card__end">Отменено</span> : price && <span className="review-card__price review-card__end">{price}</span>}
+          {event.is_cancelled ? <span className="badge badge--accent review-card__end">Cancelled</span> : price && <span className="review-card__price review-card__end">{price}</span>}
         </div>
         <h2 className="review-card__title">{event.title}</h2>
         {tags.length > 0 && (
@@ -358,9 +358,9 @@ function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, o
             <span>{event.place}</span>
           </p>
         )}
-        <div className="review-card__interest" role="group" aria-label="Интерес">
+        <div className="review-card__interest" role="group" aria-label="Interest">
           <span className="review-card__interest-label" aria-hidden>
-            Интерес
+            Interest
           </span>
           {INTEREST.map((n) => (
             <button key={n} type="button" tabIndex={depth === 0 && !leaving ? 0 : -1} data-tip={INTEREST_WORDS[n - 1]} aria-label={INTEREST_WORDS[n - 1]} aria-pressed={leaving?.interest === n} onClick={() => onInterest?.(n)}>

@@ -40,10 +40,10 @@ export function FeedScreen() {
     <div className="screen__actions">
       <Segmented
         tabs
-        label="Вид"
+        label="View"
         options={[
-          { id: "list", label: "Лента" },
-          { id: "review", label: "Разбор" },
+          { id: "list", label: "List" },
+          { id: "review", label: "Review" },
         ]}
         value={view}
         onChange={setView}
