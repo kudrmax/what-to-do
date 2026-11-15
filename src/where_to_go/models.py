@@ -70,6 +70,7 @@ class BookingKind(StrEnum):
 
 class SourceKind(StrEnum):
     TELEGRAM = "telegram"
+    WEB = "web"
 
 
 class SourceStatus(StrEnum):
@@ -336,7 +337,8 @@ class SourcePublic(SourceBase, Public):
     @computed_field
     @property
     def url(self) -> str:
-        return TelegramUrls.channel(self.handle)
+        """The channel on t.me, or the site's section with its events."""
+        return f"https://{self.handle}" if self.kind == SourceKind.WEB else TelegramUrls.channel(self.handle)
 
 
 class Post(SQLModel, table=True):
@@ -355,6 +357,37 @@ class Post(SQLModel, table=True):
     read_with: str | None = Field(default=None, description="Fingerprint of the reading rules the post was last read with")
 
     source: Source = Relationship(sa_relationship_kwargs={"lazy": "joined"})
+
+
+class WebSite(SQLModel, table=True):
+    """How a website source is read: where its list of pages is and which of them are its events."""
+
+    __tablename__ = "web_sites"
+
+    source_id: int = Field(primary_key=True, foreign_key="sources.id", ondelete="CASCADE")
+    sitemap_url: str
+    prefix: str = Field(description="The site and the section its event pages are in: https://site/ru/events/")
+    times_are_local: bool = Field(default=False, description="The site labels its local time as UTC")
+    horizon_days: int = 30
+
+
+class WebPage(SQLModel, table=True):
+    """A page of a website source, downloaded once: an event with its facts, or a page that is not one."""
+
+    __tablename__ = "web_pages"
+    __table_args__ = (UniqueConstraint("source_id", "url"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    source_id: int = Field(foreign_key="sources.id", ondelete="CASCADE", index=True)
+    url: str
+    is_event: bool
+    start_day: Day | None = Field(default=None, description="In the city's time; all the horizon needs")
+    end_day: Day | None = None
+    facts: str | None = Field(default=None, description="What Claude reads for this event")
+    image_url: str | None = None
+    found_at: datetime
+    checked_at: datetime
+    post_id: int | None = Field(default=None, foreign_key="posts.id", ondelete="SET NULL")
 
 
 class PhotoTextBase(SQLModel):

@@ -27,7 +27,10 @@ from where_to_go.models import (
     PotentialSourcePost,
     Setting,
     Source,
+    SourceKind,
     Tag,
+    WebPage,
+    WebSite,
 )
 from where_to_go.settings import AppSettings
 
@@ -141,6 +144,38 @@ class SourceRepository:
             s.commit()
 
 
+class WebRepository:
+    """Website sources: how each is read, and every page of it seen so far."""
+
+    def __init__(self, db: Database) -> None:
+        self._db = db
+
+    def add_site(self, site: WebSite) -> WebSite:
+        with self._db.session() as s:
+            s.add(site)
+            s.commit()
+            s.refresh(site)
+            return site
+
+    def site(self, source_id: int) -> WebSite:
+        with self._db.session() as s:
+            site = s.get(WebSite, source_id)
+        if site is None:
+            raise KeyError(source_id)
+        return site
+
+    def pages(self, source_id: int) -> dict[str, WebPage]:
+        with self._db.session() as s:
+            return {p.url: p for p in s.exec(select(WebPage).where(WebPage.source_id == source_id))}
+
+    def save_page(self, page: WebPage) -> WebPage:
+        with self._db.session() as s:
+            page = s.merge(page)
+            s.commit()
+            s.refresh(page)
+            return page
+
+
 class PostRepository:
     def __init__(self, db: Database) -> None:
         self._db = db
@@ -153,6 +188,13 @@ class PostRepository:
             s.add(Post(source_id=source_id, image_paths=image_paths, **fields))
             s.commit()
             return True
+
+    def replace_text(self, post_id: int, text: str) -> None:
+        """New facts of the same post, read again at the next refresh; a post the user merged or split by hand stays."""
+        with self._db.session() as s:
+            if s.exec(select(Mention.id).where(Mention.post_id == post_id, Mention.locked == True)).first():  # noqa: E712
+                return
+        self._change(post_id, text=text, processed_at=None, process_error=None)
 
     def known_ids(self, source_id: int) -> set[int]:
         with self._db.session() as s:
@@ -172,7 +214,8 @@ class PostRepository:
         with self._db.session() as s:
             curated = set(s.exec(select(Mention.post_id).where(Mention.locked == True)))  # noqa: E712
             chosen = {p.id: p for p in self.unprocessed(ids)}
-            for source_id in ids:
+            telegram = set(s.exec(select(Source.id).where(col(Source.id).in_(ids), Source.kind == SourceKind.TELEGRAM)))
+            for source_id in (i for i in ids if i in telegram):
                 latest = s.exec(select(Post).where(Post.source_id == source_id).order_by(col(Post.published_at).desc()).limit(recent))
                 chosen |= {p.id: p for p in latest if p.read_with != rules and p.id not in curated}
         return sorted(chosen.values(), key=lambda p: p.published_at)

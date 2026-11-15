@@ -29,6 +29,7 @@ from where_to_go.repositories import (
     SettingsRepository,
     SourceRepository,
     TagRepository,
+    WebRepository,
 )
 from where_to_go.resolution import EventResolver
 from where_to_go.sources import PotentialSources, SourceCatalog
@@ -61,6 +62,7 @@ class Container:
     settings: SettingsRepository
     cities: CityRepository
     sources: SourceRepository
+    web: WebRepository
     catalog: SourceCatalog
     potential_sources: PotentialSources
     posts: PostRepository
@@ -96,6 +98,7 @@ class Container:
         settings = SettingsRepository(db)
         cities = CityRepository(db, settings)
         sources = SourceRepository(db)
+        web = WebRepository(db)
         posts = PostRepository(db)
         mentions = MentionRepository(db)
         places = PlaceRepository(db)
@@ -146,6 +149,7 @@ class Container:
             settings=settings,
             cities=cities,
             sources=sources,
+            web=web,
             catalog=catalog,
             potential_sources=potential_sources,
             posts=posts,
