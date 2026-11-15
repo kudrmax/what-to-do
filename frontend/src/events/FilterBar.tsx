@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { useSources, useTags } from "../api/queries";
+import { useSettings, useSources, useTags } from "../api/queries";
 import { MultiSelectChip, ToggleChip } from "../ui/Chips";
 import { SearchField } from "./SearchField";
 import type { EventFilters } from "./useEventFilters";
@@ -8,11 +8,15 @@ import type { EventFilters } from "./useEventFilters";
 export function FilterBar({ filters, children }: { filters: EventFilters; children?: ReactNode }) {
   const tags = useTags();
   const sources = useSources();
+  const wish = useSettings().data?.priority_wish;
   const { query } = filters;
   return (
     <div className="filter-bar">
       <SearchField value={query.search ?? ""} onChange={filters.setSearch} />
       {children}
+      {(wish || query.only_priority) && (
+        <ToggleChip label="For you" icon="sparkle" className="chip--priority" tip={wish ? `Only events that fit: ${wish}` : undefined} on={!!query.only_priority} onChange={(on) => filters.setFlag("only_priority", on)} />
+      )}
       <MultiSelectChip label="Теги" options={(tags.data ?? []).map((t) => ({ value: t.name, label: t.name }))} selected={query.tags ?? []} onChange={(v) => filters.setList("tags", v)} />
       <MultiSelectChip label="Источники" options={(sources.data ?? []).map((s) => ({ value: s.id, label: s.title }))} selected={query.sources ?? []} onChange={(v) => filters.setList("sources", v)} />
       <ToggleChip label="Только с временем" on={!!query.only_timed} onChange={(on) => filters.setFlag("only_timed", on)} />

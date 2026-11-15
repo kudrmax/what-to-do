@@ -160,6 +160,12 @@ class EventFacts(SQLModel):
     )
     currency: str | None = Field(default=None, description="ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0")
     tags: list[str] = json_field(list[str], default_factory=list, description="One or two tags from the allowed list")
+    is_priority: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+        description="true when the event fits what the person looks for first (see Priority in the instructions); "
+        "false when it does not or nothing is given there",
+    )
     booking: Booking | None = json_field(
         Booking | None,
         default=None,

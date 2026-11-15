@@ -114,3 +114,9 @@ def test_search_typed_in_the_wrong_layout_is_tried_in_the_other_one():
 
     assert found("bvghj") == {1}
     assert found("офяя") == {2}
+
+
+def test_only_priority_keeps_the_flagged_cards():
+    feed = Feed(Events(event(id=1, is_priority=True), event(id=2)))
+    criteria = FeedFilter(start=WEEK.start, end=WEEK.end, only_priority=True)
+    assert [o.event.id for o in feed.occurrences(1, criteria)] == [1]

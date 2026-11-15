@@ -124,6 +124,7 @@ class PostReader:
             language=settings.description_language,
             tags=[t.name for t in tags if not t.is_fallback],
             fallback_tag=self._tags.fallback(),
+            priority_wish=settings.priority_wish,
         )
 
     async def read(self, batch: list[Post], sources: dict[int, Source], context: ExtractionContext) -> None:

@@ -11,6 +11,7 @@ import { FilterBar } from "../events/FilterBar";
 import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { useOpenEvent } from "../events/navigation";
+import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { LoadError, Screen } from "../ui/Screen";
 import { softHyphenate } from "../ui/softHyphens";
@@ -66,8 +67,15 @@ export function CalendarScreen() {
                 </Link>
               </div>
               {items.map(({ event }) => (
-                <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}${event.plan === "no" ? " week__item--declined" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
-                  <EventTime event={event} className="week__time" iconSize={14} />
+                <button key={event.id} type="button" className={`week__item${event.is_going ? " week__item--going" : ""}${event.plan === "no" ? " week__item--declined" : ""}${event.is_priority ? " week__item--priority" : ""}`} onClick={() => open(event.id, day)} onPointerEnter={() => prefetch(event.id)} onFocus={() => prefetch(event.id)}>
+                  <span className="week__top">
+                    <EventTime event={event} className="week__time" iconSize={14} />
+                    {event.is_priority && (
+                      <span className="week__priority" data-tip="Fits what you look for first" aria-label="For you">
+                        <Icon name="sparkle" size={13} strokeWidth={2.2} />
+                      </span>
+                    )}
+                  </span>
                   <span className="week__title">{softHyphenate(event.title)}</span>
                 </button>
               ))}

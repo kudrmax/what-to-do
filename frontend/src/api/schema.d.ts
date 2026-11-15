@@ -749,6 +749,12 @@ export interface components {
              */
             recent_posts: number;
             /**
+             * Priority Wish
+             * @description What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             * @default
+             */
+            priority_wish: string;
+            /**
              * Extraction Prompt
              * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
              * @default You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.
@@ -1042,6 +1048,12 @@ export interface components {
              * @description One or two tags from the allowed list
              */
             tags: string[];
+            /**
+             * Is Priority
+             * @description true when the event fits what the person looks for first (see Priority in the instructions); false when it does not or nothing is given there
+             * @default false
+             */
+            is_priority: boolean;
             /** @description Where to sign up or buy a ticket for this event: a registration form, a booking bot or a ticket shop the post links to. null when the post gives none; never the channel or another post about the event */
             booking: components["schemas"]["Booking"] | null;
             /**
@@ -1162,6 +1174,12 @@ export interface components {
              * @description One or two tags from the allowed list
              */
             tags?: string[];
+            /**
+             * Is Priority
+             * @description true when the event fits what the person looks for first (see Priority in the instructions); false when it does not or nothing is given there
+             * @default false
+             */
+            is_priority: boolean;
             /** @description Where to sign up or buy a ticket for this event: a registration form, a booking bot or a ticket shop the post links to. null when the post gives none; never the channel or another post about the event */
             booking?: components["schemas"]["Booking"] | null;
             /**
@@ -1498,6 +1516,11 @@ export interface components {
              * @description How many latest posts of every channel are read; raising it reads older posts on the next refresh
              */
             recent_posts?: number | null;
+            /**
+             * Priority Wish
+             * @description What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             */
+            priority_wish?: string | null;
             /**
              * Extraction Prompt
              * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
@@ -2368,6 +2391,8 @@ export interface operations {
                 only_timed?: boolean;
                 /** @description Hide exhibitions, festivals and other multiday events */
                 hide_multiday?: boolean;
+                /** @description Only events Claude flagged as fitting the priority wish from settings */
+                only_priority?: boolean;
                 /** @description Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case and е/ё do not matter, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout */
                 search?: string;
             };

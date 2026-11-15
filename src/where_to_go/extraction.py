@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -20,10 +21,32 @@ class ExtractionContext:
     language: str
     tags: list[str]
     fallback_tag: str
+    priority_wish: str = ""
 
     @property
     def rules(self) -> str:
-        return ReadingRules.POSTS
+        """A new priority wish reads the recent posts again, so the cards already there get flagged by it too."""
+        if not self.priority_wish:
+            return ReadingRules.POSTS
+        return f"{ReadingRules.POSTS}:{hashlib.sha256(self.priority_wish.encode()).hexdigest()[:8]}"
+
+    def system(self) -> str:
+        instructions = self.prompt.format(
+            city=self.city.name,
+            language=self.language,
+            tags=", ".join(f'"{t}"' for t in self.tags),
+            fallback=self.fallback_tag,
+        )
+        return f"{instructions}\n\n{self._priority()}"
+
+    def _priority(self) -> str:
+        if not self.priority_wish:
+            return "Priority\n- Nothing is given: is_priority is always false."
+        return (
+            "Priority\n- What the person looks for first, in their own words:\n"
+            f"<wish>\n{self.priority_wish}\n</wish>\n"
+            "- Set is_priority to true for every event that clearly fits this wish, false for the rest."
+        )
 
 
 @dataclass(frozen=True)
@@ -64,12 +87,7 @@ class PostExtractor:
     async def extract(
         self, posts: list[Post], sources: dict[int, Source], context: ExtractionContext, photo_texts: dict[str, PhotoText]
     ) -> list[ExtractedPost]:
-        system = context.prompt.format(
-            city=context.city.name,
-            language=context.language,
-            tags=", ".join(f'"{t}"' for t in context.tags),
-            fallback=context.fallback_tag,
-        )
+        system = context.system()
         photos = [PostPhotos.of(post, photo_texts) for post in posts]
         answer = await self._llm.complete_json(system, self._prompt(photos, sources, context.city), Reading.model_json_schema())
         by_id = {item.get("post_id"): item for item in answer.get("posts", []) if isinstance(item, dict)}

@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.11.0"
+  "version": "1.11.1"
  },
  "paths": {
   "/settings": {
@@ -854,6 +854,18 @@
       "description": "Hide exhibitions, festivals and other multiday events"
      },
      {
+      "name": "only_priority",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "description": "Only events Claude flagged as fitting the priority wish from settings",
+       "default": false,
+       "title": "Only Priority"
+      },
+      "description": "Only events Claude flagged as fitting the priority wish from settings"
+     },
+     {
       "name": "search",
       "in": "query",
       "required": false,
@@ -1618,6 +1630,13 @@
       "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh",
       "default": 20
      },
+     "priority_wish": {
+      "type": "string",
+      "maxLength": 2000,
+      "title": "Priority Wish",
+      "description": "What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged",
+      "default": ""
+     },
      "extraction_prompt": {
       "type": "string",
       "minLength": 1,
@@ -1660,6 +1679,7 @@
      "active_city_id",
      "description_language",
      "recent_posts",
+     "priority_wish",
      "extraction_prompt",
      "matching_prompt",
      "photo_prompt",
@@ -2129,6 +2149,12 @@
       "title": "Tags",
       "description": "One or two tags from the allowed list"
      },
+     "is_priority": {
+      "type": "boolean",
+      "title": "Is Priority",
+      "description": "true when the event fits what the person looks for first (see Priority in the instructions); false when it does not or nothing is given there",
+      "default": false
+     },
      "booking": {
       "anyOf": [
        {
@@ -2224,6 +2250,7 @@
      "price",
      "currency",
      "tags",
+     "is_priority",
      "booking",
      "is_cancelled",
      "conflicts",
@@ -2401,6 +2428,12 @@
       "type": "array",
       "title": "Tags",
       "description": "One or two tags from the allowed list"
+     },
+     "is_priority": {
+      "type": "boolean",
+      "title": "Is Priority",
+      "description": "true when the event fits what the person looks for first (see Priority in the instructions); false when it does not or nothing is given there",
+      "default": false
      },
      "booking": {
       "anyOf": [
@@ -3067,6 +3100,19 @@
       ],
       "title": "Recent Posts",
       "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh"
+     },
+     "priority_wish": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 2000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Priority Wish",
+      "description": "What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged"
      },
      "extraction_prompt": {
       "anyOf": [

@@ -320,6 +320,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         plans: Annotated[list[PlanFilter], Query(description="Only cards with these plans; none = not marked yet. Default: all")] = [],
         only_timed: Annotated[bool, Query(description="Only events with a known date and time")] = False,
         hide_multiday: Annotated[bool, Query(description="Hide exhibitions, festivals and other multiday events")] = False,
+        only_priority: Annotated[bool, Query(description="Only events Claude flagged as fitting the priority wish from settings")] = False,
         search: Annotated[
             str,
             Query(
@@ -340,6 +341,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             source_ids=frozenset(sources),
             only_timed=only_timed,
             hide_multiday=hide_multiday,
+            only_priority=only_priority,
             plans=frozenset(plans),
             search=SearchQuery(search),
         )

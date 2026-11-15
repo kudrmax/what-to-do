@@ -130,7 +130,7 @@ async def test_the_prompt_comes_from_settings():
     custom = ExtractionContext(CONTEXT.city, "Город {city}, язык {language}", "русский", ["Лекция"], "не распознано")
     llm = FakeLlm(lambda *_: {"posts": []})
     await extractor(llm).extract([post()], SOURCES, custom, {})
-    assert llm.calls[0][0] == "Город Белград, язык русский"
+    assert llm.calls[0][0].startswith("Город Белград, язык русский\n\nPriority")
 
 
 async def test_the_schema_claude_gets_carries_the_field_descriptions():
@@ -155,3 +155,25 @@ async def test_a_booking_link_and_lines_come_through():
     result, _ = await extract_one([raw_event("Концерт", "2026-11-13", booking=booking, post_lines=["19:00 Концерт"])])
     [event] = events(result)
     assert (event.booking.url, event.booking.kind, event.post_lines) == ("https://tickets.rs/x", "tickets", ["19:00 Концерт"])
+
+
+async def test_the_priority_wish_reaches_claude_and_its_flag_comes_back():
+    wishful = ExtractionContext(CONTEXT.city, CONTEXT.prompt, "русский", CONTEXT.tags, CONTEXT.fallback_tag, "Ищу друзей")
+    llm = FakeLlm(lambda *_: {"posts": [{"post_id": 10, "events": [raw_event("Нетворкинг", "2026-11-13", is_priority=True), raw_event("Лекция", "2026-11-14")]}]})
+    [result] = await extractor(llm).extract([post()], SOURCES, wishful, {})
+    assert "<wish>\nИщу друзей\n</wish>" in llm.calls[0][0]
+    assert [e.is_priority for e in events(result)] == [True, False]
+
+
+async def test_without_a_wish_claude_is_told_to_flag_nothing():
+    _, llm = await extract_one([])
+    assert "is_priority is always false" in llm.calls[0][0] and "<wish>" not in llm.calls[0][0]
+
+
+def test_a_new_wish_reads_the_recent_posts_again_and_no_wish_keeps_the_old_readings():
+    def wishing(wish: str) -> ExtractionContext:
+        return ExtractionContext(CONTEXT.city, CONTEXT.prompt, "русский", CONTEXT.tags, CONTEXT.fallback_tag, wish)
+
+    assert wishing("").rules == CONTEXT.rules
+    assert len({CONTEXT.rules, wishing("Ищу друзей").rules, wishing("Хочу танцевать").rules}) == 3
+    assert wishing("Ищу друзей").rules == wishing("Ищу друзей").rules

@@ -22,6 +22,7 @@ import { PhotoViewer, type ViewedPhoto } from "./PhotoViewer";
 import { PostText } from "./PostText";
 import { useOpenEvent } from "./navigation";
 import "./EventWindow.css";
+import { PriorityBadge } from "./PriorityBadge";
 
 /** An event opened in a window over the list it was opened from. */
 export function EventWindow() {
@@ -74,6 +75,7 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
   return (
     <header className="details__head">
       <div className="details__badges">
+        {event.is_priority && <PriorityBadge />}
         {tags.map((tag) => (
           <span key={tag} className="badge">
             {tag}
