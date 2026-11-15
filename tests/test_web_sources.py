@@ -248,3 +248,16 @@ async def test_probe_shows_coming_events_soonest_first():
     async with httpx.AsyncClient() as client:
         preview, _ = await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("late"), BELGRADE)
     assert [e.title for e in preview.examples] == ["Скоро", "Позже"]
+
+
+@respx.mock
+async def test_page_text_changing_around_the_same_event_is_not_read_again(reading):
+    container, source, collect, _ = reading
+    routes = serve_site({"soon": event_page(name="Скоро", startDate="2026-11-18T19:00:00.000Z", description="Коротко.", text="Новое: статья 1")})
+    await collect()
+    for post in container.posts.unprocessed([source.id]):
+        container.posts.mark_processed(post.id, ReadingRules.POSTS)
+    routes["soon"].respond(200, text=event_page(name="Скоро", startDate="2026-11-18T19:00:00.000Z", description="Коротко.", text="Новое: статья 2"))
+    await collect()
+    assert routes["soon"].call_count == 2
+    assert container.posts.unprocessed([source.id]) == []

@@ -385,6 +385,7 @@ class WebPage(SQLModel, table=True):
     start_day: Day | None = Field(default=None, description="In the city's time; all the horizon needs")
     end_day: Day | None = None
     facts: str | None = Field(default=None, description="What Claude reads for this event")
+    fingerprint: str | None = Field(default=None, description="Of the event's own facts: the page around them may change on every visit")
     image_url: str | None = None
     found_at: datetime
     checked_at: datetime

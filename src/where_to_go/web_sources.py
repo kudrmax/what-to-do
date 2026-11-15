@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from collections.abc import Callable
 from datetime import UTC, date, datetime
@@ -188,11 +189,13 @@ class WebSiteReader:
             page.is_event = False
             return self._web.save_page(page)
         facts = WebEventText.render(event, clock, PageText.main(html))
-        changed = page.facts is not None and page.facts != facts
+        fingerprint = hashlib.sha1(WebEventText.render(event, clock, "").encode()).hexdigest()
+        changed = page.fingerprint is not None and page.fingerprint != fingerprint
         page.is_event = True
         page.start_day = _day(clock.local(event.start))
         page.end_day = _day(clock.local(event.end)) if event.end else None
         page.facts = facts
+        page.fingerprint = fingerprint
         page.image_url = event.image
         page = self._web.save_page(page)
         post_id = self._posts.id_of(source_id, page.id) if changed else None
