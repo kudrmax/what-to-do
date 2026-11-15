@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from urllib.parse import urlsplit
@@ -14,6 +15,9 @@ from where_to_go.models import CollectedPost, Public, Source, SourceKind, WebPag
 from where_to_go.repositories import PostRepository, WebRepository
 from where_to_go.telegram import SourceError
 from where_to_go.web import EventClock, EventMarkup, PageMeta, PageText, SiteAddress, SitemapReader, WebEvent, WebEventText, in_horizon
+
+
+log = logging.getLogger(__name__)
 
 
 class SiteExample(Public):
@@ -58,12 +62,17 @@ class PageFetcher:
         self._limit = asyncio.Semaphore(self.CONCURRENCY)
 
     async def html(self, url: str) -> str | None:
+        """None when the page cannot be had now; it is asked for again at the next refresh."""
         async with self._limit:
             try:
                 response = await self._client.get(url, follow_redirects=True)
-            except httpx.HTTPError:
+            except httpx.HTTPError as error:
+                log.warning("page %s not downloaded: %s", url, error.__class__.__name__)
                 return None
-        return response.text if response.status_code == 200 else None
+        if response.status_code != 200:
+            log.warning("page %s answered %s", url, response.status_code)
+            return None
+        return response.text
 
     async def many(self, urls: list[str]) -> dict[str, str | None]:
         pages = await asyncio.gather(*(self.html(u) for u in urls))

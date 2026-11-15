@@ -179,7 +179,7 @@ class WebEventText:
 
     @classmethod
     def render(cls, event: WebEvent, clock: EventClock, page_text: str) -> str:
-        place = ", ".join(p for p in (event.place, event.address, event.locality) if p)
+        place = ", ".join(dict.fromkeys(p for p in (event.place, event.address, event.locality) if p))
         lines = [
             event.name,
             f"Начало: {_when(clock.local(event.start))}",

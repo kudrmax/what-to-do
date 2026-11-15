@@ -171,3 +171,8 @@ def test_short_description_is_completed_with_page_text():
     text = WebEventText.render(event, EventClock(False, BELGRADE), "Полный текст страницы " * 300)
     assert "Коротко." in text and "Полный текст страницы" in text
     assert len(text) < 3400
+
+
+def test_place_repeated_in_every_field_is_said_once():
+    event = EventMarkup.read(event_page(location={"name": "Belgrade", "address": {"streetAddress": "Belgrade", "addressLocality": "Belgrade"}}))
+    assert "Место: Belgrade\n" in WebEventText.render(event, EventClock(False, BELGRADE), "")
