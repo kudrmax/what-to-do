@@ -51,23 +51,23 @@ export function AddSourceForm() {
     <div className="add-source-block">
       <form className="add-source" onSubmit={submit}>
         <label className="add-source__field add-source__field--wide">
-          <span className="label">Ссылка</span>
+          <span className="label">Link</span>
           <input
             className="input"
             value={link}
             onChange={(e) => (setLink(e.target.value), setSite(null))}
-            placeholder="t.me/канал или страница события на сайте"
+            placeholder="t.me/channel or an event page on a website"
             required
             aria-invalid={Boolean(error)}
           />
         </label>
         <label className="add-source__field">
-          <span className="label">Название</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Как у канала или сайта" />
+          <span className="label">Name</span>
+          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Same as the channel or website" />
         </label>
         {!site && (
           <button type="submit" className="button" disabled={busy || !link.trim()}>
-            {busy ? "Проверяю…" : "Добавить"}
+            {busy ? "Checking…" : "Add"}
           </button>
         )}
         {error && <p className="error-text add-source__error">{errorText(error)}</p>}
@@ -97,12 +97,12 @@ function SitePreviewCard({ site, adding, onAdd, onCancel }: { site: SitePreview;
       </header>
       <div className="site-preview__found">
         <p className="site-preview__count">
-          На сайте {found} {plural(found, "событие", "события", "событий")}
+          {found} {plural(found, "event", "events")} on the website
         </p>
-        <p className="site-preview__scope">В приложение попадут события вашего города на ближайшие 30 дней</p>
+        <p className="site-preview__scope">The app will get events in your city for the next 30 days</p>
       </div>
       {site.examples.length > 0 && (
-        <ul className="site-preview__examples" aria-label="Например">
+        <ul className="site-preview__examples" aria-label="Examples">
           {site.examples.map((example) => (
             <li key={example.url} className="site-preview__example">
               <a href={example.url} target="_blank" rel="noreferrer" className="site-preview__event">
@@ -118,10 +118,10 @@ function SitePreviewCard({ site, adding, onAdd, onCancel }: { site: SitePreview;
       )}
       <footer className="site-preview__actions">
         <button type="button" className="button button--quiet" onClick={onCancel}>
-          Отмена
+          Cancel
         </button>
         <button type="button" className="button" onClick={onAdd} disabled={adding}>
-          {adding ? "Добавляю…" : "Добавить сайт"}
+          {adding ? "Adding…" : "Add website"}
         </button>
       </footer>
     </section>
@@ -131,10 +131,10 @@ function SitePreviewCard({ site, adding, onAdd, onCancel }: { site: SitePreview;
 export function SourceList() {
   const sources = useSources();
   if (!sources.data?.length) {
-    return <p className="muted">Источников пока нет. Добавьте Telegram-канал или сайт с афишей и нажмите «Обновить» в «Ближайших».</p>;
+    return <p className="muted">No sources yet. Add a Telegram channel or a website with event listings, then click Refresh in Upcoming.</p>;
   }
   return (
-    <div className="sources-table" role="table" aria-label="Источники">
+    <div className="sources-table" role="table" aria-label="Sources">
       {favoritesFirst(sources.data).map((source) => (
         <SourceRow key={source.id} source={source} />
       ))}
@@ -152,7 +152,7 @@ function FavoriteToggle({ source }: { source: Source }) {
   return (
     <IconButton
       icon="star"
-      label={favorite ? "Убрать из избранного" : "В избранное"}
+      label={favorite ? "Remove from favorites" : "Add to favorites"}
       aria-pressed={favorite}
       className={`favorite-toggle${favorite ? " favorite-toggle--on" : ""}`}
       onClick={() => mark.mutate({ id: source.id, status: favorite ? "new" : "favorite" })}
@@ -168,8 +168,8 @@ function SourceRow({ source }: { source: Source }) {
   const state = source.last_error
     ? { label: source.last_error, kind: "error" }
     : source.last_refreshed_at
-      ? { label: "Работает", kind: "ok" }
-      : { label: "Ждёт обновления", kind: "new" };
+      ? { label: "Working", kind: "ok" }
+      : { label: "Awaiting refresh", kind: "new" };
   return (
     <div className="sources-table__row" role="row">
       <span role="cell" className="sources-table__favorite">
@@ -177,20 +177,20 @@ function SourceRow({ source }: { source: Source }) {
       </span>
       <div className="sources-table__name" role="cell">
         <span className="sources-table__heading">
-          <span role="img" aria-label={web ? "Сайт" : "Telegram-канал"} className="sources-table__kind">
+          <span role="img" aria-label={web ? "Website" : "Telegram channel"} className="sources-table__kind">
             <Icon name={web ? "globe" : "send"} size={14} />
           </span>
-          <InlineEdit value={source.title} label="Название источника" className="sources-table__title" onSave={(title) => rename.mutate({ id: source.id, title })} />
+          <InlineEdit value={source.title} label="Source name" className="sources-table__title" onSave={(title) => rename.mutate({ id: source.id, title })} />
         </span>
         <a href={source.url} target="_blank" rel="noreferrer" className="sources-table__link">
           {web ? source.handle : `@${source.handle}`}
         </a>
       </div>
       <span role="cell" className="sources-table__value sources-table__updated">
-        {source.last_refreshed_at ? `Обновлён ${ago(source.last_refreshed_at)}` : "Ещё не обновлялся"}
+        {source.last_refreshed_at ? `Refreshed ${ago(source.last_refreshed_at)}` : "Not refreshed yet"}
       </span>
       <span role="cell" className="sources-table__value sources-table__count">
-        {source.events_found} {plural(source.events_found, "событие", "события", "событий")}
+        {source.events_found} {plural(source.events_found, "event", "events")}
       </span>
       <span role="cell" className="sources-table__state">
         <span className={`state state--${state.kind}`}>{state.label}</span>
@@ -199,14 +199,14 @@ function SourceRow({ source }: { source: Source }) {
         {confirming ? (
           <>
             <button type="button" className="button button--small button--danger" onClick={() => remove.mutate(source.id)}>
-              Удалить
+              Delete
             </button>
             <button type="button" className="button button--small button--quiet" onClick={() => setConfirming(false)}>
-              Нет
+              No
             </button>
           </>
         ) : (
-          <IconButton icon="trash" label="Удалить источник и его события" onClick={() => setConfirming(true)} />
+          <IconButton icon="trash" label="Delete source and its events" onClick={() => setConfirming(true)} />
         )}
       </span>
     </div>

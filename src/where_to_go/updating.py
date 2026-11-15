@@ -25,7 +25,7 @@ class UpdateStepStatus(StrEnum):
 
 
 class UpdateStep(BaseModel):
-    """One stage of the update as the user sees it, such as "Устанавливаем v1.2.0"."""
+    """One stage of the update as the user sees it, such as "Installing v1.2.0"."""
 
     title: str
     status: UpdateStepStatus
@@ -42,7 +42,7 @@ class UpdateProgress(BaseModel):
 
 class UpdateAlreadyRunningError(RuntimeError):
     def __init__(self) -> None:
-        super().__init__("Обновление уже идёт")
+        super().__init__("An update is already running")
 
 
 class UpdateFiles:

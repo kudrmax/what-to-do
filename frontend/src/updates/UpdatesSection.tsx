@@ -21,35 +21,35 @@ export function UpdatesSection() {
   };
 
   return (
-    <Section title="Приложение">
+    <Section title="App">
       <div className="setting-row">
         <div className="setting-row__text">
-          <span className="setting-row__label">Версия {status?.current ?? "…"}</span>
+          <span className="setting-row__label">Version {status?.current ?? "…"}</span>
           <p className="setting-row__hint">
             {historyError ? (
               <span className="error-text">{historyError}</span>
             ) : checkOutcome === "failed" ? (
               <span className="error-text">{CHECK_FAILED_TEXT}</span>
             ) : status?.available ? (
-              `Вышла версия ${status.latest}`
+              `Version ${status.latest} is available`
             ) : checkOutcome === "latest" && status ? (
               latestVersionText(status.current)
             ) : (
-              "Раз в день приложение само проверяет, не вышла ли новая версия."
+              "The app checks for a new version once a day."
             )}
           </p>
         </div>
         <div className="setting-row__control setting-row__control--buttons">
           <button type="button" className="button button--quiet button--small" onClick={openHistory}>
-            История изменений
+            Changelog
           </button>
           {status?.available ? (
             <button type="button" className="button button--small" onClick={updates.openOffer}>
-              Обновить до {status.latest}
+              Update to {status.latest}
             </button>
           ) : (
             <button type="button" className="button button--small" disabled={updates.checking} onClick={() => void updates.checkNow()}>
-              {updates.checking ? "Проверяю…" : "Проверить обновления"}
+              {updates.checking ? "Checking…" : "Check for updates"}
             </button>
           )}
         </div>

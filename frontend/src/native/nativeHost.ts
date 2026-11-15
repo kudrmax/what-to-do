@@ -59,13 +59,13 @@ export function windowTheme(win: Window = window): WindowTheme | null {
   };
 }
 
-/** Calls back when the macOS app's «Настройки…» menu item (⌘,) is chosen; returns the unsubscribe. */
+/** Calls back when the macOS app's "Settings…" menu item (⌘,) is chosen; returns the unsubscribe. */
 export function onNativeOpenSettings(listener: () => void, win: Window = window): () => void {
   win.addEventListener(OPEN_SETTINGS_EVENT, listener);
   return () => win.removeEventListener(OPEN_SETTINGS_EVENT, listener);
 }
 
-/** Calls back when the macOS app's «Проверить обновления…» menu item is chosen; returns the unsubscribe. */
+/** Calls back when the macOS app's "Check for Updates…" menu item is chosen; returns the unsubscribe. */
 export function onNativeCheckForUpdates(listener: () => void, win: Window = window): () => void {
   win.addEventListener(CHECK_FOR_UPDATES_EVENT, listener);
   return () => win.removeEventListener(CHECK_FOR_UPDATES_EVENT, listener);

@@ -59,7 +59,7 @@ public actor ServerLauncher {
     public var ownsServers: Bool { ownsProcesses }
 
     public func start() async -> LaunchOutcome {
-        if inFlightStop != nil { return .failed(message: "Приложение закрывается", outputTail: "") }
+        if inFlightStop != nil { return .failed(message: "The app is quitting", outputTail: "") }
         if let inFlightStart { return await inFlightStart.value }
         let task = Task { await performStart() }
         inFlightStart = task
@@ -84,14 +84,14 @@ public actor ServerLauncher {
         ownsProcesses = true
         let result = await runner.run(Self.upCommand, in: projectDir)
         guard result.exitCode == 0 else {
-            return .failed(message: "Сервер не запустился (код выхода \(result.exitCode))", outputTail: tail(of: result.output))
+            return .failed(message: "The server didn’t start (exit code \(result.exitCode))", outputTail: tail(of: result.output))
         }
 
         for _ in 0..<policy.attempts where inFlightStop == nil {
             if await probe.isUp() { return .ready }
             await sleeper.sleep(for: policy.pollInterval)
         }
-        return .failed(message: "Сервер запустился, но не отвечает", outputTail: tail(of: result.output))
+        return .failed(message: "The server started but isn’t responding", outputTail: tail(of: result.output))
     }
 
     private func performStop() async {

@@ -60,7 +60,7 @@ async def test_unread_channel_gives_its_last_n_posts_paging_back_as_needed():
 async def test_closed_channel_is_reported():
     respx.get("https://t.me/s/secret").respond(302, headers={"Location": "https://t.me/secret"})
     async with httpx.AsyncClient() as client:
-        with pytest.raises(SourceError, match="закрыт"):
+        with pytest.raises(SourceError, match="private"):
             await TelegramChannelReader(client).new_posts("secret", set(), recent=20)
 
 

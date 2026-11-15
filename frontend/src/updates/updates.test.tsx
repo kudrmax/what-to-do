@@ -62,34 +62,34 @@ async function onePoll() {
 describe("updates", () => {
   it("shows the pill only while a newer release is out", async () => {
     setup(<UpdateIndicator />, { updates: status({ available: false, latest: "1.0.0", entries: [] }) });
-    await waitFor(() => expect(screen.queryByText("Новая версия")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("New version")).toBeNull());
   });
 
   it("opens what the update brings and starts it", async () => {
     const { spies } = setup(<UpdateIndicator />);
-    fireEvent.click(await screen.findByText("Новая версия"));
-    expect(screen.getByRole("dialog", { name: "Вышла новая версия" })).toBeTruthy();
+    fireEvent.click(await screen.findByText("New version"));
+    expect(screen.getByRole("dialog", { name: "A new version is available" })).toBeTruthy();
     expect(screen.getByText("Неделя целиком.")).toBeTruthy();
-    spies.updateState.mockResolvedValue({ state: "running", log_tail: "", steps: [{ title: "Скачиваем v1.1.0", status: "current" }] });
+    spies.updateState.mockResolvedValue({ state: "running", log_tail: "", steps: [{ title: "Downloading v1.1.0", status: "current" }] });
     vi.useFakeTimers();
-    fireEvent.click(screen.getByText("Обновить до 1.1.0"));
+    fireEvent.click(screen.getByText("Update to 1.1.0"));
     await act(async () => {
       await Promise.resolve();
     });
     expect(spies.startUpdate).toHaveBeenCalled();
-    expect(screen.getByRole("alertdialog", { name: "Приложение обновляется" })).toBeTruthy();
+    expect(screen.getByRole("alertdialog", { name: "Updating the app" })).toBeTruthy();
     expect(screen.getByText("cd /app && make down && make up")).toBeTruthy();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
     });
-    expect(screen.getByText("Скачиваем v1.1.0")).toBeTruthy();
+    expect(screen.getByText("Downloading v1.1.0")).toBeTruthy();
   });
 
   it("reloads the page once the server comes back on the new version", async () => {
     const { spies, reload } = setup(<UpdateIndicator />);
-    fireEvent.click(await screen.findByText("Новая версия"));
+    fireEvent.click(await screen.findByText("New version"));
     vi.useFakeTimers();
-    fireEvent.click(screen.getByText("Обновить до 1.1.0"));
+    fireEvent.click(screen.getByText("Update to 1.1.0"));
     spies.updateState.mockRejectedValue(new Error("down"));
     spies.version.mockResolvedValue({ version: "1.1.0" });
     await onePoll();
@@ -99,30 +99,30 @@ describe("updates", () => {
   it("explains a failed update and how to run it by hand", async () => {
     const { spies } = setup(<UpdateIndicator />);
     spies.updateState.mockResolvedValue({ state: "failed", log_tail: "npm ERR", steps: [] });
-    fireEvent.click(await screen.findByText("Новая версия"));
+    fireEvent.click(await screen.findByText("New version"));
     vi.useFakeTimers();
-    fireEvent.click(screen.getByText("Обновить до 1.1.0"));
+    fireEvent.click(screen.getByText("Update to 1.1.0"));
     await onePoll();
-    expect(screen.getByRole("alertdialog", { name: "Обновление не удалось" })).toBeTruthy();
+    expect(screen.getByRole("alertdialog", { name: "Update failed" })).toBeTruthy();
     expect(screen.getByText("npm ERR")).toBeTruthy();
     expect(screen.getByText("cd /app && make update")).toBeTruthy();
   });
 
   it("shows what's new once and remembers it was seen", async () => {
     const { spies } = setup(null, { unseen: [ENTRY] });
-    expect(await screen.findByRole("dialog", { name: "Что нового" })).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Закрыть"));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Что нового" })).toBeNull());
+    expect(await screen.findByRole("dialog", { name: "What’s new" })).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Close"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "What’s new" })).toBeNull());
     expect(spies.seen).toHaveBeenCalled();
   });
 
   it("settings tell the version, check now and open the history", async () => {
     const { spies } = setup(<UpdatesSection />, { updates: status({ available: false, latest: "1.0.0", entries: [] }) });
-    expect(await screen.findByText("Версия 1.0.0")).toBeTruthy();
-    fireEvent.click(screen.getByText("Проверить обновления"));
-    expect(await screen.findByText("У вас последняя версия, 1.0.0")).toBeTruthy();
+    expect(await screen.findByText("Version 1.0.0")).toBeTruthy();
+    fireEvent.click(screen.getByText("Check for updates"));
+    expect(await screen.findByText("You’re on the latest version, 1.0.0")).toBeTruthy();
     expect(spies.updates).toHaveBeenLastCalledWith(true);
-    fireEvent.click(screen.getByText("История изменений"));
-    expect(await screen.findByRole("dialog", { name: "История изменений" })).toBeTruthy();
+    fireEvent.click(screen.getByText("Changelog"));
+    expect(await screen.findByRole("dialog", { name: "Changelog" })).toBeTruthy();
   });
 });

@@ -211,11 +211,11 @@ export function Icon({ name, size = 18, strokeWidth = 2, className }: IconProps)
   );
 }
 
-/** «Время уточняется»: a dashed clock instead of words. */
+/** "Time to be confirmed": a dashed clock instead of words. */
 export function UnknownTimeIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" role="img" aria-label="Время уточняется">
-      <title>Время уточняется</title>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" role="img" aria-label="Time to be confirmed">
+      <title>Time to be confirmed</title>
       <circle cx="12" cy="12" r="9" strokeDasharray="3 3" />
       <path d="M12 7v5l3 2" />
     </svg>

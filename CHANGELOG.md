@@ -1,253 +1,265 @@
-# Что нового
+# What's new
 
-Что менялось в каждом релизе «What To Do», сверху самое новое.
+What changed in each release of What To Do, newest first.
+
+## 1.12.0 — 2026-11-16
+
+The app now speaks English. Your events, tags and prompts stay as they were.
+
+### English interface
+Every screen, button, hint and message is in English: the sidebar, filters, the event window, stats, settings, the **Refresh** progress, errors and the update steps. The macOS app's menus and windows are in English too. Claude still writes event titles and descriptions in the language set in **Settings**, and your tags keep their names.
+![](docs/images/changelog/1.12.0/english.png)
+
+### Improvements
+- Dates read the English way, such as **Tuesday, 17 November**, and prices as **RSD 1,500**.
+- The section of events you plan to attend is called **Want to go**.
 
 ## 1.11.1 — 2026-11-16
 
-Склейка повторов показывает прогресс, а страницы сайтов больше не называются постами.
+Merging duplicates shows its progress, and website pages are no longer called posts.
 
-### Улучшения
-- Во время склейки повторов кнопка «Обновить» считает анонсы и показывает, сколько примерно осталось.
+### Improvements
+- While duplicates are merged, the **Refresh** button counts announcements and shows roughly how long is left.
 ![](docs/images/changelog/1.11.1/merge-progress.png)
-- Страницы сайтов больше не называются постами. На кнопке «Собираю источники» и «Читаю посты и страницы», в окне события и в статистике речь об источниках, постах и страницах.
+- Website pages are no longer called posts. The **Collecting sources** and **Reading posts and pages** labels on the button, the event window and the stats speak of sources, posts and pages.
 
 ## 1.11.0 — 2026-11-16
 
-Во время обновления видно, сколько уже сделано и сколько примерно ждать.
+While a refresh runs, you can see how much is done and roughly how long is left.
 
-### Прогресс обновления
-Кнопка «Обновить» считает каждый этап: сколько источников уже собрано, сколько страниц сайтов скачано, сколько фото и постов прочитано. Рядом показывается, сколько примерно осталось, по тому, как быстро идёт текущий этап.
+### Refresh progress
+The **Refresh** button counts every stage: how many sources are collected, how many website pages are downloaded, how many photos and posts are read. Next to it you see roughly how much time is left, judged by how fast the current stage goes.
 ![](docs/images/changelog/1.11.0/refresh-progress.png)
 
 ## 1.10.2 — 2026-11-16
 
-Даты и места событий с сайтов теперь точно как на сайте.
+Event dates and places from websites now match the website exactly.
 
-### Улучшения
-- Дату, время, место и цену события с сайта приложение берёт прямо со страницы, а не из пересказа Claude, поэтому они больше не могут перепутаться. Claude пишет только название, описание и теги.
+### Improvements
+- The app takes the date, time, place and price of a website event straight from the page rather than from Claude's retelling, so they can no longer get mixed up. Claude writes only the title, description and tags.
 
 ## 1.10.1 — 2026-11-15
 
-Сайты-афиши тратят меньше Claude и читаются надёжнее.
+Event websites use less Claude and are read more reliably.
 
-### Улучшения
-- События с сайта из других городов и онлайн-события больше не уходят в Claude. Какие названия мест относятся к вашему городу, приложение спрашивает у Claude один раз и запоминает.
-- В предпросмотре сайта видно, сколько на нём событий и какие из них попадут в приложение.
+### Improvements
+- Website events in other cities and online events no longer go to Claude. The app asks Claude once which place names belong to your city and remembers the answer.
+- The website preview shows how many events the site has and which of them will make it into the app.
 ![](docs/images/changelog/1.10.1/site-preview.png)
-- Сайт добавляется сразу после предпросмотра, без второй проверки.
-- Если сайт просит не спешить, приложение ждёт и докачивает все страницы, а не пропускает их.
-- Ближайшие события сайта перепроверяются раз в сутки, поэтому «Обновить» не тянется лишние минуты.
-- Описания с сайтов показываются обычным текстом, без служебной разметки.
+- A website is added right after the preview, without a second check.
+- When a website asks to slow down, the app waits and downloads every page instead of skipping them.
+- Upcoming events of a website are rechecked once a day, so **Refresh** no longer drags on for extra minutes.
+- Website descriptions are shown as plain text, without markup.
 
-### Исправлено
-- Ссылки на сайт с www и без него считаются одним сайтом.
-- Событие, которое сайт опубликовал позже своей страницы, всё равно попадёт в приложение.
+### Fixed
+- Website links with and without www count as one website.
+- An event the website published later than its page still makes it into the app.
 
 ## 1.10.0 — 2026-11-15
 
-Теперь события можно брать не только из Telegram-каналов, но и с сайтов-афиш.
+Events can now come not only from Telegram channels but also from event websites.
 
-### Сайты с афишей
-Вставьте в «Источниках» ссылку на любое событие с сайта-афиши. Приложение само найдёт на сайте список всех событий и покажет, сколько страниц нашлось и какие события ближайшие. После «Добавить сайт» он появится в списке рядом с каналами, а «Обновить» будет забирать с него события на 30 дней вперёд. Они склеиваются с теми же событиями из каналов. Подходят сайты, которые размечают события для поисковиков, например Polako Hedonist. Если сайт так не умеет, приложение скажет об этом сразу.
+### Event websites
+In **Sources**, paste a link to any event on an event website. The app finds the site's list of all events by itself and shows how many pages it found and which events are coming up. After **Add website**, the site appears in the list next to the channels, and **Refresh** takes its events for the next 30 days. They merge with the same events from channels. Sites that mark up their events for search engines work, such as Polako Hedonist. If a site can't do that, the app says so right away.
 ![](docs/images/changelog/1.10.0/site-preview.png)
 ![](docs/images/changelog/1.10.0/site-source.png)
 
-### Улучшения
-- У событий с сайта кнопка называется «Открыть на сайте» и ведёт на страницу события.
-- Канал или сайт, который уже есть в источниках, не добавится второй раз: приложение предупредит об этом.
+### Improvements
+- Website events have an **Open on website** button that leads to the event's page.
+- A channel or website that is already among your sources is not added a second time: the app warns you.
 
 ## 1.9.1 — 2026-11-15
 
-Исправлена полоса под заголовком окна.
+Fixed the strip under the window title.
 
-### Исправлено
-- В приложении для macOS прокрученные карточки и события больше не просвечивают в полосе заголовка окна, где кнопки закрытия. В календаре над закреплённой строкой дней теперь чисто.
+### Fixed
+- In the macOS app, scrolled cards and events no longer show through the title bar strip with the close buttons. In **Calendar**, the area above the pinned row of days is now clean.
 
 ## 1.9.0 — 2026-11-15
 
-Интерфейс отвечает на каждое действие: кнопки откликаются на нажатие, окна и меню плавно появляются и исчезают, а календарём удобнее пользоваться.
+The interface responds to every action: buttons react to presses, windows and menus fade in and out smoothly, and **Calendar** is easier to use.
 
-### Календарь
-- Дни недели остаются наверху, когда прокручиваешь длинную неделю.
-- Если поиск ничего не нашёл в этой неделе, календарь так и говорит и подсказывает, сколько таких событий в «Ближайших».
+### Calendar
+- The weekdays stay at the top when you scroll a long week.
+- When a search finds nothing in this week, the calendar says so and tells you how many such events are in **Upcoming**.
 ![](docs/images/changelog/1.9.0/calendar-search.png)
-- Длинные латинские имена переносятся по слогам («Shcher-ba-kova»), а не после любой буквы.
-- Сетка недели больше не выходит за края экрана.
+- Long Latin names break by syllables ("Shcher-ba-kova") rather than after any letter.
+- The week grid no longer runs past the edges of the screen.
 
-### Улучшения
-- Все кнопки, чипы, оценки и пункты меню показывают нажатие. Включённые при нажатии сохраняют свой цвет.
-- На наведение отвечают все элементы, в том числе включённые фильтры, отмеченные события в календаре, «Впереди / Прошедшие» и «+ Добавить город». Скорость отклика у всех одинаковая.
-- Окна закрываются плавно, как и открываются. Меню появляются и исчезают с короткой анимацией.
-- Переключатель «Кратко / Оригинал» в окне события выглядит так же, как «Впереди / Прошедшие».
-- В «Собираюсь пойти» переключатель «Впереди / Прошедшие» переехал в шапку, и фильтры помещаются в одну строку.
+### Improvements
+- All buttons, chips, ratings and menu items show a press. Ones that are switched on keep their color while pressed.
+- Every element responds to hover, including active filters, marked events in **Calendar**, **Upcoming / Past** and **+ Add city**. They all respond at the same speed.
+- Windows close as smoothly as they open. Menus appear and disappear with a short animation.
+- The **Summary / Original** switch in the event window looks the same as **Upcoming / Past**.
+- In **Want to go**, the **Upcoming / Past** switch moved to the header, and the filters fit on one line.
 ![](docs/images/changelog/1.9.0/plans.png)
-- Карточки в одном ряду одной высоты, оценки и статусы стоят на одной линии.
+- Cards in one row have the same height, and ratings and statuses line up.
 ![](docs/images/changelog/1.9.0/cards.png)
-- Поля ввода той же высоты, что кнопки рядом. В настройках выбор модели выровнен по полям над ним.
+- Input fields are as tall as the buttons next to them. In **Settings**, the model picker lines up with the fields above it.
 
 ## 1.8.1 — 2026-11-15
 
-Исправлены визуальные огрехи на экранах «Источники», «Календарь», «Статистика» и в меню фильтров.
+Fixed visual glitches on the **Sources**, **Calendar** and **Stats** screens and in the filter menu.
 
-### Исправлено
-- «Источники»: дата обновления и число событий больше не разрываются на две строки, колонки стоят ровно.
+### Fixed
+- **Sources**: the refresh date and the event count no longer break onto two lines, and the columns line up.
 ![](docs/images/changelog/1.8.1/sources.png)
-- «Календарь»: в узком окне длинные латинские имена переносятся с дефисом, а не рвутся посреди слова.
-- «Статистика»: в узком окне четыре плитки сверху встают 2 × 2, без одинокой плитки во втором ряду.
+- **Calendar**: in a narrow window, long Latin names break with a hyphen instead of splitting mid-word.
+- **Stats**: in a narrow window, the four tiles at the top form a 2 × 2 grid, with no lonely tile in the second row.
 ![](docs/images/changelog/1.8.1/stats-tiles.png)
-- «Статистика»: короткие полоски в «Тегах» и «Источниках» больше не выглядят обрубленными полукругами.
-- Меню фильтров стало шире, и чекбокс стоит у первой строки длинного названия канала.
+- **Stats**: short bars in **Tags** and **Sources** no longer look like clipped semicircles.
+- The filter menu is wider, and the checkbox sits at the first line of a long channel name.
 ![](docs/images/changelog/1.8.1/filter-menu.png)
 
 ## 1.8.0 — 2026-11-14
 
-Теги теперь можно скрывать из ленты и расставлять в своём порядке.
+Tags can now be hidden from the feed and arranged in your own order.
 
-### Чёрный список и порядок тегов
-В настройках теги стали списком. Нажмите на глаз рядом с тегом — он попадёт в чёрный список, и события с ним пропадут из ленты. События, которые вы уже отметили, остаются в «Собираюсь пойти», даже если у них скрытый тег. Перетащите тег за ручку слева, чтобы поменять порядок: в нём теги показываются на карточках и в окне события, а у карточки с несколькими тегами виден самый важный для вас.
+### Tag blacklist and order
+In **Settings**, tags became a list. Click the eye next to a tag to put it on the blacklist, and events with it disappear from the feed. Events you have already marked stay in **Want to go**, even if they have a hidden tag. Drag a tag by the handle on the left to change the order: tags are shown in this order on cards and in the event window, and a card with several tags shows the one that matters most to you.
 ![](docs/images/changelog/1.8.0/tags.png)
 
 ## 1.7.1 — 2026-11-12
 
-Исправление: у событий снова виден оригинал поста.
+Fix: events show their original post again.
 
-### Исправлено
-- Во вкладке «Оригинал» было пусто, и в окне события пропадала кнопка «Открыть пост». Так случалось, когда другая программа на компьютере занимала тот же порт, что и приложение: запросы постов уходили к ней. Теперь приложение обращается только к своему серверу и при запуске проверяет, что отвечает именно оно.
-- Если посты всё же не загрузились, вкладка «Оригинал» так и пишет и даёт кнопку «Попробовать ещё раз», а не притворяется пустой.
+### Fixed
+- The **Original** tab was empty, and the **Open post** button disappeared from the event window. This happened when another program on the computer used the same port as the app: post requests went to it. Now the app talks only to its own server and checks at startup that it is the one answering.
+- If posts still fail to load, the **Original** tab says so and offers a **Try again** button instead of pretending to be empty.
 ![](docs/images/changelog/1.7.1/posts-error.png)
 
 ## 1.7.0 — 2026-11-11
 
-Новый экран «Статистика»: всё, что приложение прочитало и нашло, в числах и графиках.
+A new **Stats** screen: everything the app has read and found, in numbers and charts.
 
-### Статистика
-В меню появился раздел «Статистика». Сверху — главные числа: сколько постов и фото прочитал Claude, сколько событий нашлось и сколько из них вы отметили. Ниже — путь от поста до ваших планов: сколько анонсов было в постах и сколько карточек осталось после склейки дублей. Ещё там статусы и оценки интереса ваших карточек, посты по неделям, самые частые теги и какой канал сколько событий даёт. Наведите на столбик — увидите точные числа.
+### Stats
+The menu has a new **Stats** section. At the top are the main numbers: how many posts and photos Claude read, how many events were found and how many of them you marked. Below is the path from a post to your plans: how many announcements the posts had and how many cards remained after merging duplicates. There are also the statuses and interest ratings of your cards, posts by week, the most frequent tags and how many events each channel brings. Hover over a bar to see the exact numbers.
 ![](docs/images/changelog/1.7.0/stats.png)
 
 ## 1.6.2 — 2026-11-10
 
-Поиск находит любую карточку, как бы она ни была отмечена.
+Search finds any card, however it is marked.
 
-### Исправлено
-- Карточку, отмеченную «Не пойду», раньше нельзя было найти нигде, даже поиском, и снять отметку тоже было негде. Теперь поиск на любом экране находит карточки с любой отметкой. В календаре карточки с «Не пойду» зачёркнуты, а в ленте видна их отметка, и её можно снять. Без поиска всё показывается как раньше.
+### Fixed
+- A card marked **Not going** used to be impossible to find anywhere, even with search, and there was nowhere to remove the mark. Now search on any screen finds cards with any mark. In **Calendar**, **Not going** cards are crossed out, and in the feed their mark is visible and can be removed. Without a search, everything shows as before.
 ![](docs/images/changelog/1.6.2/search-declined.png)
 
 ## 1.6.1 — 2026-11-10
 
-Фото на карточках событий из постов с одной общей обложкой и более надёжная кнопка обновления.
+Photos on the cards of events from posts with one shared cover, and a more reliable update button.
 
-### Исправлено
-- Если в посте одно фото и Claude не отдал его ни одному событию, например обложка «В какие музеи сходить бесплатно 11 ноября», теперь оно есть на карточке каждого события из этого поста. Карточки, которые у вас уже есть, получат его при следующем обновлении, без вызовов Claude.
+### Fixed
+- If a post has one photo and Claude gave it to none of its events, such as a cover for "Which museums to visit for free on November 11", it is now on the card of every event from that post. Cards you already have get it on the next refresh, without Claude calls.
 ![](docs/images/changelog/1.6.1/post-cover.png)
-- Кнопка «Обновить до…» иногда показывала, что обновление не удалось, хотя оно шло нормально. Это исправление заработает со следующего обновления после этого.
+- The **Update to…** button sometimes showed that the update had failed even though it was going fine. This fix takes effect from the update after this one.
 
 ## 1.6.0 — 2026-11-10
 
-Потенциальный источник добавляется одной кнопкой.
+A potential source is added with one button.
 
-### Добавить или убрать в один клик
-У каждого потенциального источника теперь две кнопки вместо галочки. «В источники» сразу добавляет канал в ваши источники, и он уходит из списка. «Неинтересно» убирает канал в свёрнутый блок «Неинтересные», откуда его можно вернуть. Если канал добавить не получилось, например он закрыт или у него выключен веб-просмотр, он остаётся в списке, а под ним написано почему.
+### Add or dismiss in one click
+Each potential source now has two buttons instead of a checkbox. **Add to sources** adds the channel to your sources right away, and it leaves the list. **Not interesting** moves the channel to the collapsed **Dismissed** block, where you can bring it back from. If a channel could not be added, for example because it is private or has its web preview turned off, it stays in the list with the reason below it.
 ![](docs/images/changelog/1.6.0/adopt.png)
 
 ## 1.5.1 — 2026-11-10
 
-Фото у каждой лекции цикла и правка промптов без лишних вызовов Claude.
+A photo for every lecture of a series, and editing prompts without extra Claude calls.
 
-### Исправлено
-- Если в посте анонсирован цикл лекций с одной общей афишей, эта афиша теперь есть на карточке каждой лекции, а не только первой. Карточки, которые у вас уже есть, получат её при следующем обновлении, без вызовов Claude.
+### Fixed
+- If a post announces a lecture series with one shared poster, that poster is now on the card of every lecture, not only the first. Cards you already have get it on the next refresh, without Claude calls.
 ![](docs/images/changelog/1.5.1/series-poster.png)
 
-### Улучшения
-- Правка промптов в настройках больше не перечитывает уже разобранные посты: новый текст действует для новых постов, и обновление не тратит лишние вызовы Claude.
+### Improvements
+- Editing prompts in **Settings** no longer rereads posts that were already parsed: the new text applies to new posts, and a refresh does not spend extra Claude calls.
 
 ## 1.5.0 — 2026-11-10
 
-Источники можно отмечать звездой, чтобы не теряться среди многих каналов.
+Sources can be starred, so you don't get lost among many channels.
 
-### Избранные источники
-У каждого канала на странице «Источники» есть звезда. Новый канал добавляется без неё, а нажатие на звезду переносит его в избранные: они стоят в начале списка. Повторное нажатие снимает отметку. Звезда нужна только для вашей разметки и не влияет ни на обновление, ни на ленту.
+### Favorite sources
+Each channel on the **Sources** page has a star. A new channel is added without it, and clicking the star makes it a favorite: favorites stand at the top of the list. Clicking again removes the mark. The star is only for your own organizing and affects neither the refresh nor the feed.
 ![](docs/images/changelog/1.5.0/favorite-sources.png)
 
 ## 1.4.2 — 2026-11-10
 
-Кнопки оценки на карточке снова в одну строку.
+The rating buttons on a card are back on one line.
 
-### Исправлено
-- В узкой колонке ленты оценка 1–5, заметка и кнопки статуса помещаются в одну строку, а не переносятся вниз.
+### Fixed
+- In a narrow feed column, the 1–5 rating, the note and the status buttons fit on one line instead of wrapping.
 
 ## 1.4.1 — 2026-11-10
 
-Внутренняя правка ссылок на запись.
+An internal fix for sign-up links.
 
-### Исправлено
-- Ссылка на запись или билеты в карточке события сохраняется без предупреждений в журнале приложения при обновлении.
+### Fixed
+- The sign-up or ticket link of an event card is saved during a refresh without warnings in the app log.
 
 ## 1.4.0 — 2026-11-10
 
-Приложение подсказывает новые каналы: те, из которых ваши источники пересылают посты или на которые ссылаются.
+The app suggests new channels: the ones your sources forward posts from or link to.
 
-### Потенциальные источники
-При обновлении Claude отмечает каналы, на которые ссылается пост, и каналы, из которых он переслан. Они собираются на странице «Источники» в разделе «Потенциальные источники». У каждого канала видно, из каких постов он пришёл, а сам канал и эти посты открываются по ссылке. Понравился канал — добавьте его вручную, как обычно. Отметьте «Разобрано», и канал больше не появится. Каналы, которые уже есть в источниках, и боты в список не попадают.
+### Potential sources
+During a refresh, Claude notes the channels a post links to and the channels it was forwarded from. They are collected on the **Sources** page in the **Potential sources** section. Each channel shows which posts it came from, and both the channel and those posts open by link. If you like a channel, add it by hand as usual. Mark it **Done**, and the channel won't appear again. Channels already among your sources and bots don't make the list.
 ![](docs/images/changelog/1.4.0/potential-sources.png)
 
-### Улучшения
-- Чтобы собрать каналы из уже прочитанных постов, при первом обновлении после установки последние посты каждого канала перечитываются заново.
+### Improvements
+- To collect channels from posts already read, the first refresh after installing rereads the recent posts of every channel.
 
 ## 1.3.1 — 2026-11-10
 
-Лента и окно события откликаются сразу и ничего не дёргается.
+The feed and the event window respond instantly, and nothing jumps.
 
-### Исправлено
-- Тень карточки при наведении появляется и уходит мгновенно, а фото на этой и соседних карточках больше не дёргаются.
-- Окно события открывается сразу целиком: без промежуточного «Загружаю…», без прыжка размера и тени, кнопки и фото на месте с первого кадра.
-- Пока открыто окно события, раздел под ним остаётся подсвеченным в меню.
+### Fixed
+- A card's hover shadow appears and disappears instantly, and the photos on this and neighboring cards no longer jump.
+- The event window opens complete right away: no intermediate "Loading…", no jump in size and shadow, buttons and photos in place from the first frame.
+- While the event window is open, the section under it stays highlighted in the menu.
 
 ## 1.3.0 — 2026-11-10
 
-На карточке можно оставить заметку разработчику: что доработать в этом событии или в приложении.
+You can leave a note to the developer on a card: what to improve in this event or in the app.
 
-### Заметки разработчику
-Рядом со шкалой интереса 1–5 появилась кнопка с облачком. Она открывает окно, куда пишется любой текст: «сюда просится новый тег», «криво разобралось время». Заметки копятся в базе для будущих доработок и в приложении больше нигде не показываются.
+### Notes to the developer
+Next to the 1–5 interest scale there is a new button with a speech bubble. It opens a window where you can write any text, such as "this needs a new tag" or "the time was parsed wrong". Notes are collected in the database for future improvements and are not shown anywhere else in the app.
 ![](docs/images/changelog/1.3.0/button.png)
 ![](docs/images/changelog/1.3.0/window.png)
 
 ## 1.2.0 — 2026-11-10
 
-Окно события показывает оригинальные посты: можно сверить, что написал Claude, с тем, что написали в канале.
+The event window shows the original posts, so you can compare what Claude wrote with what the channel wrote.
 
-### Новое окно события
-Сверху суть: название, время, место, цена, кнопка записи и кнопка «В календарь». Ниже две вкладки. «Кратко» — афиша и описание. «Оригинал» — сам пост: все его фото и текст как есть, строки про это событие подсвечены, и пост сразу прокручивается к ним. Если о событии писали несколько каналов, посты выбираются плашками сверху.
+### New event window
+At the top is the gist: title, time, place, price, the sign-up button and the **Add to Calendar** button. Below are two tabs. **Summary** has the poster and the description. **Original** has the post itself: all its photos and its text as is, with the lines about this event highlighted and the post scrolled straight to them. If several channels wrote about the event, the posts are picked with chips at the top.
 ![](docs/images/changelog/1.2.0/event-window.png)
 ![](docs/images/changelog/1.2.0/original.png)
 
-### Новое
-- Кнопка «Записаться» или «Купить билет», когда в посте есть ссылка на запись или билеты.
-- Любое фото открывается крупно, а рядом — текст, который Claude прочитал на нём.
+### New
+- A **Sign up** or **Buy ticket** button when the post has a sign-up or ticket link.
+- Any photo opens large, next to the text Claude read on it.
 ![](docs/images/changelog/1.2.0/photo-text.png)
 
-### Улучшения
-- Добавить событие в календарь теперь можно отдельной кнопкой.
+### Improvements
+- An event can now be added to the calendar with a separate button.
 
 ## 1.1.0 — 2026-11-10
 
-Фото постов читаются отдельно, а модель Claude для каждого шага выбирается в настройках.
+Post photos are read separately, and the Claude model for each step is chosen in the settings.
 
-### Новое
-- «Настройки → Модели Claude»: для расшифровки фото, разбора постов и склейки повторов можно выбрать Haiku, Sonnet или Opus.
-- Свой промпт для расшифровки фото в «Промптах для Claude».
+### New
+- **Settings → Claude models**: pick Haiku, Sonnet or Opus for reading photos, parsing posts and merging duplicates.
+- Your own prompt for reading photos in **Claude prompts**.
 
-### Улучшения
-- Текст с афиш и картинок переписывается отдельным шагом и сохраняется, поэтому полное описание с постера больше не теряется. Пока идёт обновление, кнопка показывает «Читаю фото: N из M».
+### Improvements
+- Text from posters and images is transcribed in a separate step and saved, so the full description from a poster is no longer lost. While a refresh runs, the button shows "Reading photos: N of M".
 
-### Исправлено
-- Приложение называется What To Do.
+### Fixed
+- The app is called What To Do.
 
 ## 1.0.0 — 2026-11-10
 
-Первый релиз: у «What To Do» появились версии, своё приложение для macOS и обновление одной кнопкой.
+The first release: What To Do got versions, its own macOS app and one-button updates.
 
-### Приложение для macOS
-«What To Do» открывается в своём окне, без браузера. Приложение само запускает сервер при старте и останавливает его при выходе. В меню есть «Настройки…» (⌘,), «Проверить обновления…», масштаб и перезагрузка страницы.
+### macOS app
+What To Do opens in its own window, without a browser. The app starts the server on launch and stops it on quit. The menu has **Settings…** (⌘,), **Check for Updates…**, zoom and page reload.
 
-### Обновление одной кнопкой
-Раз в день приложение проверяет, не вышла ли новая версия. Если вышла, в боковой колонке появляется «Новая версия». Она открывает список изменений с кнопкой «Обновить». Пока идёт обновление, видно его этапы. После обновления один раз показывается «Что нового». Всю историю изменений можно открыть в «Настройки → Приложение».
+### One-button updates
+Once a day the app checks whether a new version is out. If it is, **New version** appears in the sidebar. It opens the list of changes with an **Update** button. While the update runs, you see its stages. After the update, **What's new** is shown once. The whole change history is in **Settings → App**.

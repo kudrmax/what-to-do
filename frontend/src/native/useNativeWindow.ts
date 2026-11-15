@@ -9,7 +9,7 @@ import { titlebarAction, titlebarHeight } from "./titlebarPress";
 const PAGE_THEME: ThemeMode = "light";
 
 /**
- * Ties the page to the macOS app's window: the window takes the page's theme, «Настройки…» opens
+ * Ties the page to the macOS app's window: the window takes the page's theme, "Settings…" opens
  * the settings screen, and the returned handler lets the strip under the title bar move the window.
  * In a plain browser it does nothing.
  */

@@ -39,7 +39,7 @@ export function MultiSelectChip<T extends string | number>({ label, options, sel
           {selected.length > 0 && (
             <div className="popover__footer">
               <button type="button" className="popover__item" onClick={() => onChange([])}>
-                Сбросить
+                Reset
               </button>
             </div>
           )}

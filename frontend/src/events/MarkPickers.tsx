@@ -8,11 +8,11 @@ type Size = "small" | "large";
 
 const INTEREST = [1, 2, 3, 4, 5] as const;
 const INTEREST_WORDS: Record<(typeof INTEREST)[number], string> = {
-  1: "Совсем неинтересно",
-  2: "Скорее неинтересно",
-  3: "Так себе",
-  4: "Интересно",
-  5: "Очень интересно",
+  1: "Not interesting at all",
+  2: "Not very interesting",
+  3: "So-so",
+  4: "Interesting",
+  5: "Very interesting",
 };
 
 /** Interest and plan are independent; a second click on the chosen value clears it. */
@@ -31,7 +31,7 @@ function useMark(event: EventCard) {
 export function InterestPicker({ event, size }: { event: EventCard; size: Size }) {
   const mark = useMark(event);
   return (
-    <div role="group" aria-label="Интерес" className={`marks marks--${size}`}>
+    <div role="group" aria-label="Interest" className={`marks marks--${size}`}>
       {INTEREST.map((n) => (
         <button key={n} type="button" className="marks__interest" aria-label={INTEREST_WORDS[n]} data-tip={INTEREST_WORDS[n]} aria-pressed={mark.interest === n} onClick={() => mark.setInterest(n)}>
           {n}
@@ -44,7 +44,7 @@ export function InterestPicker({ event, size }: { event: EventCard; size: Size }
 export function PlanPicker({ event, size }: { event: EventCard; size: Size }) {
   const mark = useMark(event);
   return (
-    <div role="group" aria-label="Статус" className={`marks marks--${size}`}>
+    <div role="group" aria-label="Status" className={`marks marks--${size}`}>
       {PLAN_ORDER.map((plan) => (
         <button
           key={plan}

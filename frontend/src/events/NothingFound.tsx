@@ -9,15 +9,15 @@ import { EmptyState } from "../ui/Screen";
 export function NothingFound({ search, elsewhere }: { search: string; elsewhere: { section: Section; query: FeedQuery } }) {
   const other = useFeed({ ...elsewhere.query, plans: plansToShow(elsewhere.query.plans ?? [], search), search });
   const count = new Set((other.data ?? []).map((item) => item.event.id)).size;
-  const words = `«${search.trim()}»`;
+  const words = `“${search.trim()}”`;
   if (count === 0) {
-    return <EmptyState title="Ничего не нашлось" text={`Нет событий со словами ${words}. Проверьте фильтры или поищите иначе.`} />;
+    return <EmptyState title="Nothing found" text={`No events match ${words}. Check the filters or try other words.`} />;
   }
   return (
     <EmptyState
-      title="Здесь ничего не нашлось"
-      text={`В «${elsewhere.section.title}» по запросу ${words} есть ${count} ${plural(count, "событие", "события", "событий")}.`}
-      link={{ to: `${elsewhere.section.path}?${new URLSearchParams({ search })}`, label: `Открыть «${elsewhere.section.title}»` }}
+      title="Nothing found here"
+      text={`${elsewhere.section.title} has ${count} ${plural(count, "event", "events")} matching ${words}.`}
+      link={{ to: `${elsewhere.section.path}?${new URLSearchParams({ search })}`, label: `Open ${elsewhere.section.title}` }}
     />
   );
 }

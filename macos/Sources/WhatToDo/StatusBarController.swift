@@ -11,9 +11,9 @@ final class StatusBarController {
             button.toolTip = appName
         }
         let menu = NSMenu()
-        let open = NSMenuItem(title: "Открыть «\(appName)»", action: #selector(AppDelegate.openMainWindow(_:)), keyEquivalent: "")
+        let open = NSMenuItem(title: "Open \(appName)", action: #selector(AppDelegate.openMainWindow(_:)), keyEquivalent: "")
         open.target = target
-        let quit = NSMenuItem(title: "Завершить «\(appName)»", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+        let quit = NSMenuItem(title: "Quit \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
         quit.target = NSApp
         menu.addItem(open)
         menu.addItem(.separator())

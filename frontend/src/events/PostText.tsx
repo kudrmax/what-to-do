@@ -16,7 +16,7 @@ export function PostText({ text, highlighted }: { text: string; highlighted: num
     first.current?.scrollIntoView({ block: "center" });
   }, [text, firstMarked]);
 
-  if (!text.trim()) return <p className="post-text__empty">В посте только фото, без текста.</p>;
+  if (!text.trim()) return <p className="post-text__empty">The post has only photos, no text.</p>;
   return (
     <div className="post-text">
       {lines.map((line, index) =>
@@ -46,7 +46,7 @@ function LineWithLinks({ line }: { line: string }) {
         typeof piece === "string" ? (
           <Fragment key={index}>{piece}</Fragment>
         ) : (
-          <a key={index} className="post-text__link" href={piece.url} target="_blank" rel="noreferrer" aria-label={`Ссылка: ${piece.url}`} data-tip={piece.url}>
+          <a key={index} className="post-text__link" href={piece.url} target="_blank" rel="noreferrer" aria-label={`Link: ${piece.url}`} data-tip={piece.url}>
             <Icon name="external" size={13} />
           </a>
         ),

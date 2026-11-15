@@ -12,12 +12,12 @@ export function EventTime({ event, className = "", iconSize = 18 }: { event: Eve
   return (
     <span className={`event-time ${className}`}>
       {time ?? (
-        <span className="event-time__unknown" data-tip="Время уточняется">
+        <span className="event-time__unknown" data-tip="Time to be confirmed">
           <UnknownTimeIcon size={iconSize} />
         </span>
       )}
       {event.kind === "recurring" && (
-        <span className="event-time__repeat" data-tip={describeRecurrence(event.rrule) ?? "Повторяется"}>
+        <span className="event-time__repeat" data-tip={describeRecurrence(event.rrule) ?? "Repeats"}>
           <Icon name="repeat" size={14} />
         </span>
       )}

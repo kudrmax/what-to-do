@@ -34,7 +34,7 @@ function UpdateOffer() {
       note={startError && <span className="error-text">{startError}</span>}
       action={
         <button type="button" className="button" onClick={() => void startUpdate()}>
-          Обновить до {status.latest}
+          Update to {status.latest}
         </button>
       }
     />
@@ -56,7 +56,7 @@ function WhatsNew() {
   return <ChangelogWindow mode="whatsnew" entries={entries} onClose={close} />;
 }
 
-/** «Проверить обновления…» in the macOS app's menu: the check over the current screen. */
+/** "Check for Updates…" in the macOS app's menu: the check over the current screen. */
 function NativeCheck({ subscribe }: { subscribe: (listener: () => void) => () => void }) {
   const { status, checkNow } = useUpdates();
   const [check, setCheck] = useState<"checking" | CheckOutcome | null>(null);
@@ -71,7 +71,7 @@ function NativeCheck({ subscribe }: { subscribe: (listener: () => void) => () =>
   if (!check) return null;
   const close = () => setCheck(null);
   return (
-    <Modal label="Проверка обновлений" onClose={close}>
+    <Modal label="Checking for updates" onClose={close}>
       <div className="update-check">
         {check === "checking" ? (
           <p className="update-check__text">
@@ -92,8 +92,8 @@ export function UpdateIndicator() {
   const { status, openOffer } = useUpdates();
   if (!status?.available) return null;
   return (
-    <button type="button" className="update-pill" onClick={openOffer} data-tip={`Вышла версия ${status.latest}`}>
-      Новая версия
+    <button type="button" className="update-pill" onClick={openOffer} data-tip={`Version ${status.latest} is available`}>
+      New version
     </button>
   );
 }

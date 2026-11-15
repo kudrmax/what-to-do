@@ -146,16 +146,16 @@ class WebSiteProbe:
         site, path = SiteAddress.parse(link)
         own = await self._fetcher.html(link.strip() if "://" in link else f"https://{link.strip()}")
         if own is None:
-            raise SourceError("Страница по ссылке не открывается")
+            raise SourceError("The page at this link doesn't open")
         event = EventMarkup.read(own)
         if event is None:
-            raise SourceError("На странице нет разметки события")
+            raise SourceError("The page has no event markup")
         section = Section(site + path)
         sitemaps, urls = await self._section(site, section)
         if not urls:
-            raise SourceError("В списке страниц сайта нет других страниц этого раздела")
+            raise SourceError("The site's page list has no other pages in this section")
         if len(urls) > self.MAX_PAGES:
-            raise SourceError(f"В этом разделе сайта слишком много страниц ({len(urls)}): так его не прочитать")
+            raise SourceError(f"This section of the site has too many pages ({len(urls)}) to read")
         examples = await self._examples(urls, self._clock().astimezone(zone).date())
         votes = [EventClock.detect(event, PageText.main(own), zone)]
         votes += [EventClock.detect(e, PageText.main(html), zone) for _, e, html in examples[: self.TIME_VOTES]]

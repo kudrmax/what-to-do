@@ -53,7 +53,7 @@ def test_image_and_price_come_in_any_shape():
     )
     assert event.image == "https://cdn.test/a.jpg"
     assert event.price == "1500 RSD"
-    assert EventMarkup.read(event_page(offers={"@type": "AggregateOffer", "lowPrice": "800", "priceCurrency": "RSD"})).price == "от 800 RSD"
+    assert EventMarkup.read(event_page(offers={"@type": "AggregateOffer", "lowPrice": "800", "priceCurrency": "RSD"})).price == "from 800 RSD"
 
 
 def test_page_text_is_the_main_part_without_markup():
@@ -69,7 +69,7 @@ def test_site_address_takes_the_section_of_the_link():
 
 @pytest.mark.parametrize("link", ["https://x.club", "https://x.club/", "ftp://x.club/a/b", "просто текст"])
 def test_link_without_a_page_is_refused(link):
-    with pytest.raises(SourceError, match="ссылку на страницу события"):
+    with pytest.raises(SourceError, match="link to an event page"):
         SiteAddress.parse(link)
 
 
@@ -99,7 +99,7 @@ async def test_site_without_sitemap_is_refused():
     respx.get("https://site.test/robots.txt").respond(404)
     respx.get("https://site.test/sitemap.xml").respond(404)
     async with httpx.AsyncClient() as client:
-        with pytest.raises(SourceError, match=r"На сайте нет списка страниц \(sitemap\)"):
+        with pytest.raises(SourceError, match=r"The site has no page list \(sitemap\)"):
             await SitemapReader(client).locate("https://site.test")
 
 
@@ -151,10 +151,10 @@ def test_text_for_claude_has_facts_not_html():
     text = WebEventText.render(EventMarkup.read(fixture("polako_event.html")), EventClock(True, BELGRADE), "")
     assert text.splitlines()[:6] == [
         "Искусство быть нелепым",
-        "Начало: 2026-11-18 19:00",
-        "Конец: 2026-11-18 21:00",
-        "Место: Restoran Tri, Светогорска, 46, Belgrade",
-        "Организатор: Event Catalog",
+        "Start: 2026-11-18 19:00",
+        "End: 2026-11-18 21:00",
+        "Place: Restoran Tri, Светогорска, 46, Belgrade",
+        "Organizer: Event Catalog",
         "",
     ]
     assert "<" not in text
@@ -163,7 +163,7 @@ def test_text_for_claude_has_facts_not_html():
 
 def test_lines_without_value_are_left_out():
     event = EventMarkup.read(event_page(startDate="2026-11-20", location=None, offers={"price": 0, "priceCurrency": "RSD"}))
-    assert WebEventText.render(event, EventClock(False, BELGRADE), "").splitlines()[:3] == ["Концерт", "Начало: 2026-11-20", "Цена: 0 RSD"]
+    assert WebEventText.render(event, EventClock(False, BELGRADE), "").splitlines()[:3] == ["Концерт", "Start: 2026-11-20", "Price: 0 RSD"]
 
 
 def test_short_description_is_completed_with_page_text():
@@ -175,7 +175,7 @@ def test_short_description_is_completed_with_page_text():
 
 def test_place_repeated_in_every_field_is_said_once():
     event = EventMarkup.read(event_page(location={"name": "Belgrade", "address": {"streetAddress": "Belgrade", "addressLocality": "Belgrade"}}))
-    assert "Место: Belgrade\n" in WebEventText.render(event, EventClock(False, BELGRADE), "")
+    assert "Place: Belgrade\n" in WebEventText.render(event, EventClock(False, BELGRADE), "")
 
 
 @respx.mock
@@ -216,7 +216,7 @@ def test_dated_folders_are_not_part_of_the_section():
 
 @pytest.mark.parametrize("link", ["https://x.club/slug", "https://x.club/event.php?id=5", "https://x.club/2026/11/slug"])
 def test_link_whose_section_is_the_whole_site_is_refused(link):
-    with pytest.raises(SourceError, match="весь сайт"):
+    with pytest.raises(SourceError, match="whole site"):
         SiteAddress.parse(link)
 
 

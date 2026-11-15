@@ -146,8 +146,8 @@ def test_tags_settings_and_unknown_ids(client):
     assert client.get("/settings").json()["recent_posts"] == 20
     assert client.patch("/settings", json={"recent_posts": 5}).json()["recent_posts"] == 5
     too_small = client.patch("/settings", json={"recent_posts": 0})
-    assert too_small.status_code == 422 and too_small.json() == {"detail": "Значение должно быть не меньше 1"}
-    assert client.patch("/settings", json={"recent_posts": 301}).json() == {"detail": "Значение должно быть не больше 300"}
+    assert too_small.status_code == 422 and too_small.json() == {"detail": "Must be at least 1"}
+    assert client.patch("/settings", json={"recent_posts": 301}).json() == {"detail": "Must be at most 300"}
     assert client.patch("/settings", json={"active_city_id": 999}).status_code == 404
     assert client.get("/events/999").status_code == 404
     assert client.get("/images/../where-to-go.sqlite3").status_code == 404
@@ -220,7 +220,7 @@ def test_closed_channel_cannot_be_added(client):
     respx.get("https://t.me/s/secretchan").respond(302)
     client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
     response = client.post("/sources", json={"link": "t.me/secretchan"})
-    assert response.status_code == 422 and "закрыт" in response.json()["detail"]
+    assert response.status_code == 422 and "private" in response.json()["detail"]
     assert client.post("/sources", json={"link": "https://example.com"}).status_code == 422
 
 
@@ -320,9 +320,9 @@ def test_site_is_added_once(client):
     assert source.status_code == 201
     assert (source.json()["kind"], source.json()["url"], source.json()["title"]) == ("web", "https://site.test/ru/events/", "Сайт афиши")
     again = client.post("/sources", json={"link": "https://site.test/ru/events/a"})
-    assert again.status_code == 409 and again.json()["detail"] == "Этот сайт уже добавлен"
+    assert again.status_code == 409 and again.json()["detail"] == "This site is already added"
     preview = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
-    assert preview.status_code == 409 and preview.json()["detail"] == "Этот сайт уже добавлен"
+    assert preview.status_code == 409 and preview.json()["detail"] == "This site is already added"
 
 
 @respx.mock
@@ -340,7 +340,7 @@ def test_site_without_event_markup_is_refused_in_preview(client):
     respx.get("https://site.test/ru/events/a").respond(200, text=event_page(markup=False))
     client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
     response = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
-    assert response.status_code == 422 and response.json()["detail"] == "На странице нет разметки события"
+    assert response.status_code == 422 and response.json()["detail"] == "The page has no event markup"
 
 
 @respx.mock
