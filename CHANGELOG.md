@@ -2,6 +2,18 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.12.0 — 2026-11-16
+
+The app now speaks English. Your events, tags and prompts stay as they were.
+
+### English interface
+Every screen, button, hint and message is in English: the sidebar, filters, the event window, stats, settings, the **Refresh** progress, errors and the update steps. The macOS app's menus and windows are in English too. Claude still writes event titles and descriptions in the language set in **Settings**, and your tags keep their names.
+![](docs/images/changelog/1.12.0/english.png)
+
+### Improvements
+- Dates read the English way, such as **Tuesday, 17 November**, and prices as **RSD 1,500**.
+- The section of events you plan to attend is called **Want to go**.
+
 ## 1.11.1 — 2026-11-16
 
 Merging duplicates shows its progress, and website pages are no longer called posts.
