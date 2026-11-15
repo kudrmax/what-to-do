@@ -7,7 +7,7 @@ import { useUpdates } from "./useUpdates";
 import "./updates.css";
 
 const STUCK_AFTER_MINUTES = 10;
-const COPY_LABELS = { idle: "Скопировать", copied: "Скопировано", failed: "Не скопировалось" } as const;
+const COPY_LABELS = { idle: "Copy", copied: "Copied", failed: "Couldn’t copy" } as const;
 
 /** While the update runs the app under it is closed; a failed one says what to do by hand. */
 export function UpdatingOverlay() {
@@ -28,16 +28,16 @@ export function UpdatingOverlay() {
   return createPortal(
     <div className="updating">
       {run.phase === "running" ? (
-        <div className="updating__card" role="alertdialog" aria-modal="true" aria-label="Приложение обновляется">
+        <div className="updating__card" role="alertdialog" aria-modal="true" aria-label="Updating the app">
           <div className="updating__progress">
             {run.steps.length === 0 && <span className="spinner" />}
-            Приложение обновляется…
+            Updating the app…
           </div>
           {run.steps.length > 0 && <UpdateSteps steps={run.steps} />}
           {status && (
             <div className="updating__fallback">
-              <p className="updating__hint">Ничего не меняется {STUCK_AFTER_MINUTES} минут? Перезапустите приложение вручную:</p>
-              <ByHand command={status.restart_command} waitFor="Дождитесь строки, которая начинается с →." />
+              <p className="updating__hint">Nothing has changed for {STUCK_AFTER_MINUTES} minutes? Restart the app manually:</p>
+              <ByHand command={status.restart_command} waitFor="Wait for the line that starts with →." />
             </div>
           )}
         </div>
@@ -51,7 +51,7 @@ export function UpdatingOverlay() {
 
 function UpdateSteps({ steps }: { steps: UpdateStep[] }) {
   return (
-    <ol className="updating__steps" aria-label="Этапы обновления">
+    <ol className="updating__steps" aria-label="Update steps">
       {steps.map((step, index) => (
         <li key={index} className="updating__step" data-status={step.status}>
           <span className="updating__mark">
@@ -72,8 +72,8 @@ function UpdateFailed({ logTail, command, onClose }: { logTail: string; command:
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [logTail]);
   return (
-    <div className="updating__card" role="alertdialog" aria-modal="true" aria-label="Обновление не удалось">
-      <h2 className="updating__title">Обновление не удалось</h2>
+    <div className="updating__card" role="alertdialog" aria-modal="true" aria-label="Update failed">
+      <h2 className="updating__title">Update failed</h2>
       {logTail && (
         <pre ref={log} className="updating__log">
           {logTail}
@@ -81,13 +81,13 @@ function UpdateFailed({ logTail, command, onClose }: { logTail: string; command:
       )}
       {command && (
         <div className="updating__fallback">
-          <p className="updating__hint">Запустите обновление вручную, чтобы увидеть, что пошло не так:</p>
-          <ByHand command={command} waitFor="Дождитесь строки «Updated to …» или ошибки." />
+          <p className="updating__hint">Run the update manually to see what went wrong:</p>
+          <ByHand command={command} waitFor="Wait for the line “Updated to …” or an error." />
         </div>
       )}
       <div className="updating__footer">
         <button type="button" className="button button--quiet" onClick={onClose}>
-          Закрыть
+          Close
         </button>
       </div>
     </div>
@@ -99,13 +99,13 @@ function ByHand({ command, waitFor }: { command: string; waitFor: string }) {
   return (
     <ol className="updating__by-hand">
       <li>
-        Откройте Терминал: нажмите <kbd>⌘</kbd> <kbd>Пробел</kbd>, наберите <b>Терминал</b> и нажмите <kbd>Return</kbd>.
+        Open Terminal: press <kbd>⌘</kbd> <kbd>Space</kbd>, type <b>Terminal</b> and press <kbd>Return</kbd>.
       </li>
       <li>
-        Нажмите <b>Скопировать</b>, щёлкните в окне Терминала, нажмите <kbd>⌘</kbd> <kbd>V</kbd> и <kbd>Return</kbd>.
+        Click <b>Copy</b>, click in the Terminal window, then press <kbd>⌘</kbd> <kbd>V</kbd> and <kbd>Return</kbd>.
         <CommandLine command={command} />
       </li>
-      <li>{waitFor} Потом перезагрузите эту страницу.</li>
+      <li>{waitFor} Then reload this page.</li>
     </ol>
   );
 }

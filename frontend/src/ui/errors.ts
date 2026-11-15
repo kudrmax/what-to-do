@@ -4,6 +4,6 @@ import { ApiError } from "../api/client";
 export function errorText(error: unknown): string | null {
   if (!error) return null;
   if (error instanceof ApiError) return error.message;
-  if (error instanceof TypeError) return "Нет связи с приложением: похоже, оно остановлено. Запустите его снова и обновите страницу.";
-  return "Не получилось, попробуйте ещё раз";
+  if (error instanceof TypeError) return "Can’t reach the app. It seems to have stopped. Start it again and reload the page.";
+  return "Something went wrong. Try again.";
 }

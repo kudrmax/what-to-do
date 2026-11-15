@@ -99,7 +99,7 @@ def start_update(request: Request, releases: ReleasesDep) -> None:
     """Starts updating this copy to the latest release; the app restarts on its way. Poll `GET /update/state`."""
     container: Container = request.app.state.container
     if container.refresh.progress.running:
-        raise HTTPException(423, "Сейчас идёт обновление событий. Дождитесь его конца и обновите приложение")
+        raise HTTPException(423, "Events are refreshing right now. Wait for it to finish, then update the app")
     try:
         releases.runner.start()
     except UpdateAlreadyRunningError as error:
@@ -136,5 +136,5 @@ def get_changelog_asset(version: str, path: str, releases: ReleasesDep) -> Respo
     requested = AppVersion.parse_or_none(version)
     content = releases.asset(requested, path) if requested else None
     if content is None:
-        raise HTTPException(404, "Нет такой картинки")
+        raise HTTPException(404, "Image not found")
     return Response(content=content, media_type=mimetypes.guess_type(path)[0] or "application/octet-stream")

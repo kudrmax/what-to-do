@@ -4,21 +4,21 @@ import { addDays, ago, dateRange, dayHeading, longDate, plural, todayIn, weekSta
 
 describe("dates", () => {
   it("names today and tomorrow, other days by date", () => {
-    expect(dayHeading("2026-11-09", "2026-11-09")).toEqual({ title: "Сегодня", subtitle: "9 ноября, понедельник", relative: true });
-    expect(dayHeading("2026-11-10", "2026-11-09")).toEqual({ title: "Завтра", subtitle: "10 ноября, вторник", relative: true });
-    expect(dayHeading("2026-11-11", "2026-11-09")).toEqual({ title: "11 ноября", subtitle: "среда", relative: false });
+    expect(dayHeading("2026-11-09", "2026-11-09")).toEqual({ title: "Today", subtitle: "Monday, 9 November", relative: true });
+    expect(dayHeading("2026-11-10", "2026-11-09")).toEqual({ title: "Tomorrow", subtitle: "Tuesday, 10 November", relative: true });
+    expect(dayHeading("2026-11-11", "2026-11-09")).toEqual({ title: "11 November", subtitle: "Wednesday", relative: false });
   });
 
   it("formats ranges inside and across months", () => {
-    expect(dateRange("2026-11-01", "2026-11-30")).toBe("1–30 ноября");
-    expect(dateRange("2026-10-28", "2026-11-05")).toBe("28 октября – 5 ноября");
+    expect(dateRange("2026-11-01", "2026-11-30")).toBe("1–30 November");
+    expect(dateRange("2026-10-28", "2026-11-05")).toBe("28 October – 5 November");
   });
 
   it("walks days across month and year ends", () => {
     expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
     expect(weekStart("2026-11-15")).toBe("2026-11-09");
     expect(weekStart("2026-11-09")).toBe("2026-11-09");
-    expect(longDate("2026-11-09")).toBe("понедельник, 9 ноября");
+    expect(longDate("2026-11-09")).toBe("Monday, 9 November");
   });
 
   it("takes today in the city's zone, not the computer's", () => {
@@ -29,12 +29,12 @@ describe("dates", () => {
 
   it("says how long ago in words", () => {
     const now = new Date(2026, 10, 9, 20, 0);
-    expect(ago(new Date(2026, 10, 9, 18, 40).toISOString(), now)).toBe("сегодня в 18:40");
-    expect(ago(new Date(2026, 10, 6, 10, 0).toISOString(), now)).toBe("3 дня назад");
-    expect(ago(new Date(2026, 9, 20, 10, 0).toISOString(), now)).toBe("20 октября");
+    expect(ago(new Date(2026, 10, 9, 18, 40).toISOString(), now)).toBe("today at 18:40");
+    expect(ago(new Date(2026, 10, 6, 10, 0).toISOString(), now)).toBe("3 days ago");
+    expect(ago(new Date(2026, 9, 20, 10, 0).toISOString(), now)).toBe("20 October");
   });
 
-  it("declines Russian nouns", () => {
-    expect([1, 2, 5, 11, 21, 22, 25].map((n) => plural(n, "день", "дня", "дней"))).toEqual(["день", "дня", "дней", "дней", "день", "дня", "дней"]);
+  it("picks the singular for one and the plural otherwise", () => {
+    expect([0, 1, 2, 11, 21].map((n) => plural(n, "day", "days"))).toEqual(["days", "day", "days", "days", "days"]);
   });
 });

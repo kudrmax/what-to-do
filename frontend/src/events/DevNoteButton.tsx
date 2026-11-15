@@ -12,11 +12,11 @@ export function DevNoteButton({ event, size }: { event: EventCard; size: "small"
   const close = () => setOpen(false);
   return (
     <>
-      <button type="button" className={`dev-note__button dev-note__button--${size}`} aria-label="Заметка разработчику" data-tip="Заметка разработчику" aria-expanded={open} onClick={() => setOpen(true)}>
+      <button type="button" className={`dev-note__button dev-note__button--${size}`} aria-label="Note to developer" data-tip="Note to developer" aria-expanded={open} onClick={() => setOpen(true)}>
         <Icon name="comment" size={size === "small" ? 14 : 18} strokeWidth={2} />
       </button>
       {open && (
-        <Modal label="Заметка разработчику" className="dev-note__window" onClose={close}>
+        <Modal label="Note to developer" className="dev-note__window" onClose={close}>
           <DevNoteForm event={event} onDone={close} />
         </Modal>
       )}
@@ -36,17 +36,17 @@ function DevNoteForm({ event, onDone }: { event: EventCard; onDone: () => void }
       <h2 className="dev-note__title">{event.title}</h2>
       <textarea
         className="input dev-note__text"
-        aria-label="Текст заметки"
-        placeholder="Что доработать"
+        aria-label="Note text"
+        placeholder="What to improve"
         rows={5}
         autoFocus
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && submit(e)}
       />
-      {add.isError && <p className="error-text">Не сохранилось, попробуй ещё раз</p>}
+      {add.isError && <p className="error-text">Couldn’t save. Try again.</p>}
       <button type="submit" className="button" disabled={!text.trim() || add.isPending}>
-        Сохранить
+        Save
       </button>
     </form>
   );

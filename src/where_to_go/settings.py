@@ -46,7 +46,7 @@ class AppSettings(BaseModel):
         try:
             prompt.format(**dict.fromkeys(prompts.EXTRACTION_PLACEHOLDERS, ""))
         except (KeyError, IndexError, ValueError) as error:
-            raise ValueError(f"В промпте неизвестная подстановка {error}. Можно: " + ", ".join("{" + n + "}" for n in prompts.EXTRACTION_PLACEHOLDERS)) from None
+            raise ValueError(f"The prompt has an unknown placeholder {error}. Available: " + ", ".join("{" + n + "}" for n in prompts.EXTRACTION_PLACEHOLDERS)) from None
         return prompt
 
 

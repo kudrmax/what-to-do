@@ -138,15 +138,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showRestartError(_ error: Error) {
         let alert = NSAlert()
-        alert.messageText = "Не получилось перезапустить"
+        alert.messageText = "Couldn’t Restart"
         alert.informativeText = error.localizedDescription
         alert.runModal()
     }
 
     private func showFatalError(_ error: Error) {
         let alert = NSAlert()
-        alert.messageText = "Приложение собрано с ошибкой"
-        alert.informativeText = "\(error)\n\nПересоберите его командой `make app` в папке проекта."
+        alert.messageText = "The App Was Built Incorrectly"
+        alert.informativeText = "\(error)\n\nRebuild it with `make app` in the project folder."
         alert.runModal()
         NSApp.terminate(nil)
     }

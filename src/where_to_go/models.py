@@ -295,7 +295,7 @@ class EventPublic(EventCard, Public):
 
 
 class CityBase(SQLModel):
-    name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Белград"]})
+    name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Belgrade"]})
     timezone: str = Field(
         description="IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it", schema_extra={"examples": ["Europe/Belgrade"]}
     )
@@ -456,7 +456,7 @@ class PhotoText(PhotoTextBase, table=True):
 
 
 class TagBase(SQLModel):
-    name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Танцы"]})
+    name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Dance"]})
 
 
 class Tag(TagBase, table=True):

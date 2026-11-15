@@ -13,10 +13,10 @@ export function FilterBar({ filters, children }: { filters: EventFilters; childr
     <div className="filter-bar">
       <SearchField value={query.search ?? ""} onChange={filters.setSearch} />
       {children}
-      <MultiSelectChip label="Теги" options={(tags.data ?? []).map((t) => ({ value: t.name, label: t.name }))} selected={query.tags ?? []} onChange={(v) => filters.setList("tags", v)} />
-      <MultiSelectChip label="Источники" options={(sources.data ?? []).map((s) => ({ value: s.id, label: s.title }))} selected={query.sources ?? []} onChange={(v) => filters.setList("sources", v)} />
-      <ToggleChip label="Только с временем" on={!!query.only_timed} onChange={(on) => filters.setFlag("only_timed", on)} />
-      <ToggleChip label="Без многодневных" on={!!query.hide_multiday} onChange={(on) => filters.setFlag("hide_multiday", on)} />
+      <MultiSelectChip label="Tags" options={(tags.data ?? []).map((t) => ({ value: t.name, label: t.name }))} selected={query.tags ?? []} onChange={(v) => filters.setList("tags", v)} />
+      <MultiSelectChip label="Sources" options={(sources.data ?? []).map((s) => ({ value: s.id, label: s.title }))} selected={query.sources ?? []} onChange={(v) => filters.setList("sources", v)} />
+      <ToggleChip label="Only with time" on={!!query.only_timed} onChange={(on) => filters.setFlag("only_timed", on)} />
+      <ToggleChip label="Hide multi-day" on={!!query.hide_multiday} onChange={(on) => filters.setFlag("hide_multiday", on)} />
     </div>
   );
 }

@@ -18,7 +18,7 @@ final class StatusViewController: NSViewController {
     private let messageLabel = NSTextField(wrappingLabelWithString: "")
     private let detailsView = NSTextView()
     private lazy var detailsScroll = NSScrollView()
-    private lazy var retryButton = NSButton(title: "Повторить", target: self, action: #selector(retry))
+    private lazy var retryButton = NSButton(title: "Try Again", target: self, action: #selector(retry))
 
     override func loadView() {
         spinner.style = .spinning
@@ -59,11 +59,11 @@ final class StatusViewController: NSViewController {
         loadViewIfNeeded()
         switch status {
         case .starting:
-            render(title: "Запускается…", message: "", details: nil, spinning: true)
+            render(title: "Starting…", message: "", details: nil, spinning: true)
         case .stopping:
-            render(title: "Останавливается…", message: "", details: nil, spinning: true)
+            render(title: "Stopping…", message: "", details: nil, spinning: true)
         case let .failed(message, details):
-            render(title: "Не получилось запустить", message: message, details: details, spinning: false)
+            render(title: "Couldn’t Start", message: message, details: details, spinning: false)
         }
     }
 

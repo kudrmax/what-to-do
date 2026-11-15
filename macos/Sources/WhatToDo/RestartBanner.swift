@@ -8,10 +8,10 @@ final class RestartBanner: NSTitlebarAccessoryViewController {
     var onRestart: (() -> Void)?
 
     override func loadView() {
-        let label = NSTextField(labelWithString: "Перезапустите, чтобы завершить обновление")
+        let label = NSTextField(labelWithString: "Restart to finish updating")
         label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         label.textColor = .secondaryLabelColor
-        let button = NSButton(title: "Перезапустить", target: self, action: #selector(restart))
+        let button = NSButton(title: "Restart", target: self, action: #selector(restart))
         button.controlSize = .small
         button.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
 

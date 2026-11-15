@@ -49,7 +49,7 @@ async function answer<T>(request: Promise<Answer<T>>): Promise<T> {
   const { data, error, response } = await request;
   if (!response.ok) {
     const detail = (error as { detail?: unknown } | undefined)?.detail;
-    throw new ApiError(response.status, typeof detail === "string" ? detail : `Ошибка ${response.status}`);
+    throw new ApiError(response.status, typeof detail === "string" ? detail : `Error ${response.status}`);
   }
   return data as T;
 }

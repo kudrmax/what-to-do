@@ -1,10 +1,9 @@
 /** Calendar days as "YYYY-MM-DD" strings: the backend's format, free of time-zone shifts. */
 export type IsoDay = string;
 
-const MONTHS_GENITIVE = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
-const MONTHS_NOMINATIVE = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-const WEEKDAYS = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
-const WEEKDAYS_SHORT = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** RFC 5545 weekday codes in JavaScript's weekday order (Sunday first). */
 export const WEEKDAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
@@ -36,33 +35,33 @@ export function weekdayShort(day: IsoDay): string {
 }
 
 export function monthTitle(day: IsoDay): string {
-  return MONTHS_NOMINATIVE[parts(day).month];
+  return MONTHS[parts(day).month];
 }
 
-/** "9 ноября". */
+/** "9 November". */
 export function dayAndMonth(day: IsoDay): string {
   const { date, month } = parts(day);
-  return `${date} ${MONTHS_GENITIVE[month]}`;
+  return `${date} ${MONTHS[month]}`;
 }
 
-/** "понедельник, 9 ноября". */
+/** "Monday, 9 November". */
 export function longDate(day: IsoDay): string {
   return `${WEEKDAYS[parts(day).weekday]}, ${dayAndMonth(day)}`;
 }
 
-/** Day heading: "Сегодня" / "9 ноября, понедельник", "Завтра" / …, "11 ноября" / "среда". */
+/** Day heading: "Today" / "Monday, 9 November", "Tomorrow" / …, "11 November" / "Wednesday". */
 export function dayHeading(day: IsoDay, today: IsoDay): { title: string; subtitle: string; relative: boolean } {
   const weekday = WEEKDAYS[parts(day).weekday];
-  if (day === today) return { title: "Сегодня", subtitle: `${dayAndMonth(day)}, ${weekday}`, relative: true };
-  if (day === addDays(today, 1)) return { title: "Завтра", subtitle: `${dayAndMonth(day)}, ${weekday}`, relative: true };
+  if (day === today) return { title: "Today", subtitle: `${weekday}, ${dayAndMonth(day)}`, relative: true };
+  if (day === addDays(today, 1)) return { title: "Tomorrow", subtitle: `${weekday}, ${dayAndMonth(day)}`, relative: true };
   return { title: dayAndMonth(day), subtitle: weekday, relative: false };
 }
 
-/** "1–30 ноября" or "28 октября – 5 ноября". */
+/** "1–30 November" or "28 October – 5 November". */
 export function dateRange(start: IsoDay, end: IsoDay): string {
   const a = parts(start);
   const b = parts(end);
-  if (a.month === b.month && a.year === b.year) return `${a.date}–${b.date} ${MONTHS_GENITIVE[b.month]}`;
+  if (a.month === b.month && a.year === b.year) return `${a.date}–${b.date} ${MONTHS[b.month]}`;
   return `${dayAndMonth(start)} – ${dayAndMonth(end)}`;
 }
 
@@ -71,25 +70,21 @@ export function clock(time: string): string {
   return time.slice(0, 5);
 }
 
-/** "сегодня в 18:40", "вчера в 9:05", "3 дня назад", "2 ноября". */
+/** "today at 18:40", "yesterday at 09:05", "3 days ago", "2 November". */
 export function ago(moment: string, now: Date = new Date()): string {
   const then = new Date(moment);
   const days = Math.floor((startOfDay(now) - startOfDay(then)) / 86_400_000);
-  const hm = then.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  if (days <= 0) return `сегодня в ${hm}`;
-  if (days === 1) return `вчера в ${hm}`;
-  if (days < 7) return `${days} ${plural(days, "день", "дня", "дней")} назад`;
-  return `${then.getDate()} ${MONTHS_GENITIVE[then.getMonth()]}`;
+  const hm = then.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  if (days <= 0) return `today at ${hm}`;
+  if (days === 1) return `yesterday at ${hm}`;
+  if (days < 7) return `${days} ${plural(days, "day", "days")} ago`;
+  return `${then.getDate()} ${MONTHS[then.getMonth()]}`;
 }
 
 function startOfDay(moment: Date): number {
   return new Date(moment.getFullYear(), moment.getMonth(), moment.getDate()).getTime();
 }
 
-export function plural(count: number, one: string, few: string, many: string): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
+export function plural(count: number, one: string, other: string): string {
+  return count === 1 ? one : other;
 }

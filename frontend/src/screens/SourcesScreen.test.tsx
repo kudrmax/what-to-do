@@ -39,15 +39,15 @@ describe("source status", () => {
     setup([source(1, "Афиша", "new"), source(2, "Квизы", "favorite")]);
     const rows = await screen.findAllByRole("row");
     expect(within(rows[0]).getByText("Квизы")).toBeTruthy();
-    expect(within(rows[0]).getByRole("button", { name: "Убрать из избранного" }).getAttribute("aria-pressed")).toBe("true");
-    expect(within(rows[1]).getByRole("button", { name: "В избранное" }).getAttribute("aria-pressed")).toBe("false");
+    expect(within(rows[0]).getByRole("button", { name: "Remove from favorites" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(rows[1]).getByRole("button", { name: "Add to favorites" }).getAttribute("aria-pressed")).toBe("false");
   });
 
   it("toggles a source between new and favorite", async () => {
     const { mark } = setup([source(1, "Афиша", "new"), source(2, "Квизы", "favorite")]);
-    fireEvent.click(await screen.findByRole("button", { name: "В избранное" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add to favorites" }));
     await waitFor(() => expect(mark).toHaveBeenCalledWith(1, "favorite"));
-    fireEvent.click(screen.getByRole("button", { name: "Убрать из избранного" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove from favorites" }));
     await waitFor(() => expect(mark).toHaveBeenCalledWith(2, "new"));
   });
 });
@@ -75,8 +75,8 @@ function setupForm(preview: SitePreview) {
     </ApiContext.Provider>,
   );
   const submit = (link: string) => {
-    fireEvent.change(screen.getByLabelText("Ссылка"), { target: { value: link } });
-    fireEvent.click(screen.getByRole("button", { name: "Добавить" }));
+    fireEvent.change(screen.getByLabelText("Link"), { target: { value: link } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
   };
   return { previewSource, addSource, submit };
 }
@@ -86,21 +86,21 @@ describe("adding a source", () => {
     const { addSource, submit } = setupForm(SITE_PREVIEW);
     submit("https://polakohedonist.club/ru/events/a");
     const card = await screen.findByRole("region", { name: "Polako Hedonist" });
-    expect(within(card).getByText("На сайте 820 событий")).toBeTruthy();
-    expect(within(card).getByText("В приложение попадут события вашего города на ближайшие 30 дней")).toBeTruthy();
+    expect(within(card).getByText("820 events on the website")).toBeTruthy();
+    expect(within(card).getByText("The app will get events in your city for the next 30 days")).toBeTruthy();
     expect(within(card).getByText("Искусство быть нелепым")).toBeTruthy();
-    expect(within(card).getAllByText("среда, 18 ноября")).toHaveLength(2);
+    expect(within(card).getAllByText("Wednesday, 18 November")).toHaveLength(2);
     expect(within(card).getByText("19:00")).toBeTruthy();
     expect(within(card).getByRole("link", { name: "polakohedonist.club/ru/events/" }).getAttribute("href")).toBe("https://polakohedonist.club/ru/events/");
     expect(addSource).not.toHaveBeenCalled();
-    expect(screen.getAllByRole("button", { name: /Добавить/ }).map((b) => b.textContent)).toEqual(["Добавить сайт"]);
+    expect(screen.getAllByRole("button", { name: /Add/ }).map((b) => b.textContent)).toEqual(["Add website"]);
   });
 
   it("adds site after confirming preview", async () => {
     const { addSource, submit } = setupForm(SITE_PREVIEW);
     submit("https://polakohedonist.club/ru/events/a");
     const card = await screen.findByRole("region", { name: "Polako Hedonist" });
-    fireEvent.click(within(card).getByRole("button", { name: "Добавить сайт" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Add website" }));
     await waitFor(() => expect(addSource).toHaveBeenCalledWith({ link: "https://polakohedonist.club/ru/events/a", title: null }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Polako Hedonist" })).toBeNull());
   });
@@ -108,7 +108,7 @@ describe("adding a source", () => {
   it("cancel hides the preview without adding", async () => {
     const { addSource, submit } = setupForm(SITE_PREVIEW);
     submit("https://polakohedonist.club/ru/events/a");
-    fireEvent.click(within(await screen.findByRole("region", { name: "Polako Hedonist" })).getByRole("button", { name: "Отмена" }));
+    fireEvent.click(within(await screen.findByRole("region", { name: "Polako Hedonist" })).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("region", { name: "Polako Hedonist" })).toBeNull();
     expect(addSource).not.toHaveBeenCalled();
   });
@@ -127,9 +127,9 @@ describe("source kinds", () => {
     const rows = await screen.findAllByRole("row");
     const site = rows.find((row) => within(row).queryByText("Polako Hedonist"))!;
     expect(within(site).getByRole("link", { name: "polakohedonist.club/ru/events/" })).toBeTruthy();
-    expect(within(site).getByRole("img", { name: "Сайт" })).toBeTruthy();
+    expect(within(site).getByRole("img", { name: "Website" })).toBeTruthy();
     const channel = rows.find((row) => within(row).queryByText("Квизы"))!;
     expect(within(channel).getByRole("link", { name: "@channel2" })).toBeTruthy();
-    expect(within(channel).getByRole("img", { name: "Telegram-канал" })).toBeTruthy();
+    expect(within(channel).getByRole("img", { name: "Telegram channel" })).toBeTruthy();
   });
 });

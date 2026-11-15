@@ -19,7 +19,7 @@ export function AppShell({ screenPath, children }: { screenPath: string; childre
   const onMouseDown = useNativeWindow();
   return (
     <div className="shell" onMouseDown={onMouseDown}>
-      <nav className="shell__nav" aria-label="Разделы">
+      <nav className="shell__nav" aria-label="Sections">
         <CityMenu />
         {MENU.map((section) => (
           <NavLink key={section.path} to={section.path} className={linkClass(screenPath === section.path)}>
@@ -48,7 +48,7 @@ function CityMenu() {
       trigger={(open, toggle) => (
         <button type="button" className="city__button" aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
           <Icon name="pin" className="city__pin" />
-          <span className="city__name">{city?.name ?? "Город не выбран"}</span>
+          <span className="city__name">{city?.name ?? "No city selected"}</span>
           <Icon name="chevronDown" size={16} className="city__chevron" />
         </button>
       )}
@@ -74,7 +74,7 @@ function CityMenu() {
           <div className="popover__footer">
             <NavLink to={SECTIONS.settings.path} className="popover__item" onClick={close}>
               <Icon name="plus" size={16} />
-              Добавить город
+              Add city
             </NavLink>
           </div>
         </>

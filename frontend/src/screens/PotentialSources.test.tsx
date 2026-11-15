@@ -44,38 +44,38 @@ describe("potential sources", () => {
     expect(channel.getAttribute("href")).toBe("https://t.me/lectures_bg");
     const row = channel.closest("li") as HTMLElement;
     expect(within(row).getByRole("link", { name: "Канал 1" }).getAttribute("href")).toBe("https://t.me/source/1");
-    expect(within(row).getByLabelText("Пост переслан из этого канала")).toBeTruthy();
-    expect(within(row).getByLabelText("Пост или страница сайта ссылается на этот канал")).toBeTruthy();
-    expect(screen.getByText("Неинтересные").closest("details")?.open).toBe(false);
+    expect(within(row).getByLabelText("Post forwarded from this channel")).toBeTruthy();
+    expect(within(row).getByLabelText("A post or website page links to this channel")).toBeTruthy();
+    expect(screen.getByText("Dismissed").closest("details")?.open).toBe(false);
   });
 
   it("shows the first posts and the rest on request", async () => {
     setup([potential(1, "busy", false, 5)]);
     await screen.findByRole("link", { name: "@busy" });
     expect(screen.queryByRole("link", { name: "Канал 4" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Ещё 2 поста" }));
+    fireEvent.click(screen.getByRole("button", { name: "2 more posts" }));
     expect(screen.getByRole("link", { name: "Канал 5" })).toBeTruthy();
   });
 
   it("turns a channel into a source", async () => {
     const { adopt } = setup([potential(1, "lectures_bg", false)]);
-    fireEvent.click(await screen.findByRole("button", { name: "В источники" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add to sources" }));
     await waitFor(() => expect(adopt).toHaveBeenCalledWith(1));
   });
 
   it("keeps a channel that could not be added and says why", async () => {
     const { adopt } = setup([potential(1, "lectures_bg", false)]);
     adopt.mockRejectedValue(new ApiError(422, "Канал закрыт или у него выключен веб-просмотр"));
-    fireEvent.click(await screen.findByRole("button", { name: "В источники" }));
-    expect(await screen.findByText("Не получилось добавить: Канал закрыт или у него выключен веб-просмотр")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "В источники" })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Add to sources" }));
+    expect(await screen.findByText("Couldn’t add: Канал закрыт или у него выключен веб-просмотр")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add to sources" })).toBeTruthy();
   });
 
   it("puts an uninteresting channel away and brings it back", async () => {
     const { mark } = setup([potential(1, "lectures_bg", false), potential(2, "old_one", true)]);
-    fireEvent.click(await screen.findByRole("button", { name: "Неинтересно" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Not interesting" }));
     await waitFor(() => expect(mark).toHaveBeenCalledWith(1, true));
-    fireEvent.click(screen.getByRole("button", { name: "Вернуть" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     await waitFor(() => expect(mark).toHaveBeenCalledWith(2, false));
   });
 });

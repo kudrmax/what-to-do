@@ -52,5 +52,5 @@ export function EmptyState({ title, text, link, action }: { title: string; text?
 
 /** A list the backend could not give: says so and why, instead of an empty page. */
 export function LoadError({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
-  return <EmptyState title="Не получилось загрузить" text={errorText(error) ?? undefined} action={onRetry && { label: "Попробовать ещё раз", onClick: onRetry }} />;
+  return <EmptyState title="Couldn’t load" text={errorText(error) ?? undefined} action={onRetry && { label: "Try again", onClick: onRetry }} />;
 }

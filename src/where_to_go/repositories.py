@@ -323,7 +323,7 @@ class TagRepository:
         with self._db.session() as s:
             ordinary = {t.id: t for t in s.exec(select(Tag).where(Tag.is_fallback == False))}  # noqa: E712
             if sorted(ids) != sorted(ordinary):
-                raise ValueError("Порядок должен перечислять все теги, кроме «не распознано», по одному разу")
+                raise ValueError("The order must list every tag except the fallback tag, each once")
             for position, tag_id in enumerate(ids):
                 ordinary[tag_id].position = position
                 s.add(ordinary[tag_id])
@@ -337,7 +337,7 @@ class TagRepository:
             if tag is None:
                 raise KeyError(tag_id)
             if tag.is_fallback:
-                raise ValueError(f"Тег «{tag.name}» переименовать нельзя")
+                raise ValueError(f"The tag \"{tag.name}\" can't be renamed")
             old, tag.name = tag.name, name
             s.add(tag)
             for event in s.exec(select(Event)):

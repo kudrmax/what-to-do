@@ -24,7 +24,7 @@ class TelegramHandle:
         text = re.sub(r"^s/", "", text)
         text = text.lstrip("@").split("/")[0].split("?")[0]
         if not _HANDLE.match(text):
-            raise SourceError("Это не похоже на ссылку на публичный Telegram-канал")
+            raise SourceError("This doesn't look like a link to a public Telegram channel")
         return text
 
 
@@ -101,7 +101,7 @@ class TelegramPageParser:
             return None
         href = name.attributes.get("href") or ""
         origin = f" ({href})" if href.startswith("http") else ""
-        return f"Переслано из {name.text(strip=True)}{origin}"
+        return f"Forwarded from {name.text(strip=True)}{origin}"
 
 
 class HtmlText:
@@ -174,9 +174,9 @@ class TelegramChannelReader:
         try:
             response = await self._client.get(TelegramUrls.preview(handle), params=params, follow_redirects=False)
         except httpx.HTTPError as error:
-            raise SourceError(f"Telegram не ответил: {error.__class__.__name__}") from error
+            raise SourceError(f"Telegram didn't respond: {error.__class__.__name__}") from error
         parser = TelegramPageParser(response.text) if response.status_code == 200 else None
         if parser is None or not parser.is_channel():
-            raise SourceError("Канал закрыт или у него выключен веб-просмотр")
+            raise SourceError("The channel is private or has web preview turned off")
         return parser
 
