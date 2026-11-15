@@ -287,7 +287,7 @@ class RefreshService:
         try:
             await self._post_reader.read(batch, sources, context)
         except LlmError as error:
-            self.progress.errors.append(f"Claude не разобрал {len(batch)} постов: {error}")
+            self.progress.errors.append(f"Claude не разобрал часть новых постов и страниц ({len(batch)}): {error}")
             return
         self.progress.posts_read += len(batch)
 

@@ -19,7 +19,6 @@ const GOING: Plan[] = ["maybe", "sure", "went"];
 const UNMARKED_COLOR = "var(--line-strong)";
 
 const cards = (count: number) => `${formatNumber(count)} ${plural(count, "карточка", "карточки", "карточек")}`;
-const posts = (count: number) => `${formatNumber(count)} ${plural(count, "пост", "поста", "постов")}`;
 
 /** Counts of everything the app read and found in the active city, and of how the user marked it. */
 export function StatsScreen() {
@@ -32,7 +31,7 @@ export function StatsScreen() {
       ) : stats.isError ? (
         <LoadError error={stats.error} />
       ) : stats.data?.posts.read === 0 ? (
-        <EmptyState title="Пока нечего считать" text="Статистика появится после первого обновления: когда Claude прочитает посты каналов." />
+        <EmptyState title="Пока нечего считать" text="Статистика появится после первого обновления: когда Claude прочитает посты каналов и страницы сайтов." />
       ) : (
         stats.data && <Dashboard stats={stats.data} />
       )}
@@ -44,14 +43,14 @@ function Dashboard({ stats }: { stats: CityStats }) {
   return (
     <div className="stats">
       <div className="stats__tiles">
-        <StatTile icon="text" label="Постов прочитано" value={stats.posts.read} note={`в ${formatNumber(stats.posts.with_events)} ${plural(stats.posts.with_events, "посте", "постах", "постах")} есть события`} />
+        <StatTile icon="text" label="Прочитано постов и страниц" value={stats.posts.read} note={`в ${formatNumber(stats.posts.with_events)} из них есть события`} />
         <StatTile icon="image" label="Фото прочитано" value={stats.photos.read} note={`текст есть на ${formatNumber(stats.photos.with_text)}`} />
-        <StatTile icon="calendar" label="Событий найдено" value={stats.events.cards} note={`${cards(stats.events.merged)} из нескольких постов`} />
+        <StatTile icon="calendar" label="Событий найдено" value={stats.events.cards} note={`${cards(stats.events.merged)} из нескольких источников`} />
         <StatTile icon="bookmark" label="Отмечено" value={stats.marked} note={`${formatShare(stats.marked, stats.events.cards)} всех карточек`} />
       </div>
 
-      <Panel title="От поста до планов" hint="Пост может анонсировать несколько событий, а одно событие — прийти из нескольких постов: такие анонсы склеиваются в одну карточку.">
-        <BarList label="От поста до планов" rows={pipeline(stats)} />
+      <Panel title="От анонса до планов" hint="Пост или страница сайта может анонсировать несколько событий, а одно событие — прийти из нескольких источников: такие анонсы склеиваются в одну карточку.">
+        <BarList label="От анонса до планов" rows={pipeline(stats)} />
       </Panel>
 
       <div className="stats__pair">
@@ -63,9 +62,9 @@ function Dashboard({ stats }: { stats: CityStats }) {
         </Panel>
       </div>
 
-      <Panel title="Посты по неделям" hint="Сколько прочитанных постов опубликовано за неделю и в скольких из них нашлись события.">
+      <Panel title="Посты и страницы по неделям" hint="Сколько прочитанных постов и страниц сайтов появилось за неделю и в скольких из них нашлись события.">
         <ColumnChart
-          label="Посты по неделям"
+          label="Посты и страницы по неделям"
           series={[
             { label: "С событиями", className: "series-accent" },
             { label: "Без событий", className: "series-rest" },
@@ -74,7 +73,7 @@ function Dashboard({ stats }: { stats: CityStats }) {
             key: week.start,
             label: dayAndMonth(week.start),
             values: [week.posts_with_events, week.posts - week.posts_with_events],
-            tip: `Неделя с ${dayAndMonth(week.start)}: ${posts(week.posts)}, с событиями ${formatNumber(week.posts_with_events)}`,
+            tip: `Неделя с ${dayAndMonth(week.start)}: прочитано ${formatNumber(week.posts)}, с событиями ${formatNumber(week.posts_with_events)}`,
           }))}
         />
       </Panel>
@@ -106,8 +105,8 @@ function Panel({ title, hint, children }: { title: string; hint?: string; childr
 function pipeline(stats: CityStats) {
   const going = stats.plans.filter((p) => p.plan && GOING.includes(p.plan)).reduce((sum, p) => sum + p.count, 0);
   return [
-    { key: "posts", label: "Постов прочитано", value: stats.posts.read, tip: `Claude прочитал ${posts(stats.posts.read)}` },
-    { key: "announcements", label: "Анонсов в постах", value: stats.events.announcements, tip: "Каждое событие в каждом посте отдельно" },
+    { key: "posts", label: "Прочитано постов и страниц", value: stats.posts.read, tip: `Claude прочитал: ${formatNumber(stats.posts.read)}` },
+    { key: "announcements", label: "Анонсов в них", value: stats.events.announcements, tip: "Каждое событие в каждом посте и на каждой странице отдельно" },
     { key: "cards", label: "Карточек после склейки", value: stats.events.cards, tip: `Дубли склеены: ${formatNumber(stats.events.announcements - stats.events.cards)}` },
     { key: "marked", label: "Отмечено вами", value: stats.marked, tip: "С интересом или статусом" },
     { key: "going", label: "Собирались пойти", value: going, tip: "Возможно пойду, точно пойду и сходил" },
@@ -155,8 +154,8 @@ function SourceTable({ stats }: { stats: CityStats }) {
     <table className="source-stats">
       <thead>
         <tr>
-          <th>Канал</th>
-          <th>Постов</th>
+          <th>Источник</th>
+          <th>Прочитано</th>
           <th>Событий</th>
         </tr>
       </thead>
@@ -165,7 +164,7 @@ function SourceTable({ stats }: { stats: CityStats }) {
           <tr key={source.id}>
             <td className="source-stats__name">{source.title}</td>
             <td>
-              <MiniBar value={source.posts} max={maxPosts} tip={`${source.title}: ${posts(source.posts)}`} quiet />
+              <MiniBar value={source.posts} max={maxPosts} tip={`${source.title}: прочитано ${formatNumber(source.posts)}`} quiet />
             </td>
             <td>
               <MiniBar value={source.events} max={maxEvents} tip={`${source.title}: ${cards(source.events)}`} />

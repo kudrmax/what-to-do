@@ -12,7 +12,7 @@ const ORIGINS_SHOWN = 3;
 
 const VIA = {
   forward: { icon: "forward", tip: "Пост переслан из этого канала" },
-  link: { icon: "link", tip: "Пост ссылается на этот канал" },
+  link: { icon: "link", tip: "Пост или страница сайта ссылается на этот канал" },
 } as const;
 
 export function PotentialSources() {

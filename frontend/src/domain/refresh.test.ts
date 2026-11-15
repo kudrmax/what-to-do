@@ -31,7 +31,7 @@ const at = (seconds: number) => new Date(Date.parse(START) + seconds * 1000);
 
 describe("refresh label", () => {
   it("counts sources while collecting", () => {
-    expect(refreshLabel(status({ sources_to_collect: 11, sources_collected: 4 }))).toBe("Собираю посты: 4 из 11");
+    expect(refreshLabel(status({ sources_to_collect: 11, sources_collected: 4 }))).toBe("Собираю источники: 4 из 11");
   });
 
   it("counts site pages once a site is being downloaded", () => {
@@ -41,7 +41,7 @@ describe("refresh label", () => {
   });
 
   it("counts photos and posts as before", () => {
-    expect(refreshLabel(status({ stage: "reading", posts_to_read: 40, posts_read: 8 }))).toBe("Читаю посты: 8 из 40");
+    expect(refreshLabel(status({ stage: "reading", posts_to_read: 40, posts_read: 8 }))).toBe("Читаю посты и страницы: 8 из 40");
   });
 });
 

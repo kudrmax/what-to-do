@@ -25,10 +25,10 @@ function count(status: RefreshStatus): Count | null {
 }
 
 const STAGE_NAME: Record<RefreshStatus["stage"], string> = {
-  idle: "Собираю посты",
-  collecting: "Собираю посты",
+  idle: "Собираю источники",
+  collecting: "Собираю источники",
   photos: "Читаю фото",
-  reading: "Читаю посты",
+  reading: "Читаю посты и страницы",
   merging: "Склеиваю повторы",
   done: "Готово",
   failed: "Не получилось",
