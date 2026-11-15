@@ -467,6 +467,10 @@ class Mention(SQLModel, table=True):
         return self.post.source.title
 
     @property
+    def source_kind(self) -> SourceKind:
+        return self.post.source.kind
+
+    @property
     def post_url(self) -> str:
         return self.post.url
 
@@ -497,6 +501,7 @@ class MentionPublic(Public):
     locked: bool = Field(description="Placed by the user; Claude never moves it")
     source_id: int
     source_title: str
+    source_kind: SourceKind = Field(description="web: post_url is the event's page on the site")
     post_url: str
     post_text: str
     published_at: datetime

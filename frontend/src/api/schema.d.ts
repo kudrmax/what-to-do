@@ -1225,6 +1225,8 @@ export interface components {
             source_id: number;
             /** Source Title */
             source_title: string;
+            /** @description web: post_url is the event's page on the site */
+            source_kind: components["schemas"]["SourceKind"];
             /** Post Url */
             post_url: string;
             /** Post Text */

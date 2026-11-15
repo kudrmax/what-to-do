@@ -2536,6 +2536,10 @@
       "type": "string",
       "title": "Source Title"
      },
+     "source_kind": {
+      "$ref": "#/components/schemas/SourceKind",
+      "description": "web: post_url is the event's page on the site"
+     },
      "post_url": {
       "type": "string",
       "title": "Post Url"
@@ -2585,6 +2589,7 @@
      "locked",
      "source_id",
      "source_title",
+     "source_kind",
      "post_url",
      "post_text",
      "published_at",

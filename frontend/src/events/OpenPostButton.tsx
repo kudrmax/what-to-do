@@ -17,7 +17,7 @@ export function OpenPostButton({ mentions }: { mentions: Mention[] }) {
     <div className="open-post">
       <a className={`button open-post__main${others.length ? " open-post__main--split" : ""}`} href={main.post_url} target="_blank" rel="noreferrer" data-tip={main.source_title}>
         <Icon name="external" size={16} />
-        Открыть пост
+        {main.source_kind === "web" ? "Открыть на сайте" : "Открыть пост"}
       </a>
       {others.length > 0 && (
         <Popover
