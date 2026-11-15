@@ -148,7 +148,7 @@ async def test_probe_refuses_site_without_sitemap():
 async def test_probe_says_when_site_does_not_answer():
     respx.get(page_url("a")).mock(side_effect=httpx.ConnectError("down"))
     async with httpx.AsyncClient() as client:
-        with pytest.raises(SourceError, match="Сайт не отвечает"):
+        with pytest.raises(SourceError, match="Страница по ссылке не открывается"):
             await WebSiteProbe(client, SitemapReader(client), clock=lambda: NOW).probe(page_url("a"), BELGRADE)
 
 

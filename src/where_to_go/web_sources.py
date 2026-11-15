@@ -97,7 +97,7 @@ class WebSiteProbe:
         site, path = SiteAddress.parse(link)
         own = await self._fetcher.html(link.strip() if "://" in link else f"https://{link.strip()}")
         if own is None:
-            raise SourceError("Сайт не отвечает")
+            raise SourceError("Страница по ссылке не открывается")
         event = EventMarkup.read(own)
         if event is None:
             raise SourceError("На странице нет разметки события")
