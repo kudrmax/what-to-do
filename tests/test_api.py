@@ -1,10 +1,11 @@
+from datetime import UTC, datetime, timedelta
 import time
 
 import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from tests.helpers import photos_saying, channel_page, extraction_by_text, judge_same_titles, raw_event
+from tests.helpers import photos_saying, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.api import create_app
 from where_to_go.container import Container
 
@@ -288,3 +289,55 @@ def test_a_source_starts_new_and_can_become_favorite(client):
 
     assert client.put(f"/sources/{source['id']}/status", json={"status": "old"}).status_code == 422
     assert client.put("/sources/999/status", json={"status": "new"}).status_code == 404
+
+
+SOON = (datetime.now(UTC) + timedelta(days=5)).date().isoformat()
+
+
+def serve_event_site():
+    respx.get("https://site.test/robots.txt").respond(200, text="Sitemap: https://site.test/sitemap.xml\n")
+    respx.get("https://site.test/sitemap.xml").respond(200, text=sitemap(["https://site.test/ru/events/a", "https://site.test/ru/news/b"]))
+    respx.get("https://site.test/ru/events/a").respond(200, text=event_page(name="Джаз", startDate=f"{SOON}T19:00:00.000Z", text="19:00"))
+
+
+@respx.mock
+def test_preview_of_site_link(client):
+    respx.route(host="testserver").pass_through()
+    serve_event_site()
+    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    preview = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"}).json()
+    assert (preview["kind"], preview["title"], preview["handle"], preview["pages_found"]) == ("web", "Сайт афиши", "site.test/ru/events/", 1)
+    assert preview["examples"] == [{"title": "Джаз", "day": SOON, "time": "19:00", "url": "https://site.test/ru/events/a"}]
+    assert client.get("/sources").json() == []
+
+
+@respx.mock
+def test_site_is_added_once(client):
+    respx.route(host="testserver").pass_through()
+    serve_event_site()
+    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    source = client.post("/sources", json={"link": "https://site.test/ru/events/a"})
+    assert source.status_code == 201
+    assert (source.json()["kind"], source.json()["url"], source.json()["title"]) == ("web", "https://site.test/ru/events/", "Сайт афиши")
+    again = client.post("/sources", json={"link": "https://site.test/ru/events/a"})
+    assert again.status_code == 409 and again.json()["detail"] == "Этот сайт уже добавлен"
+    preview = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
+    assert preview.status_code == 409 and preview.json()["detail"] == "Этот сайт уже добавлен"
+
+
+@respx.mock
+def test_telegram_link_still_previews_as_channel(client):
+    respx.route(host="testserver").pass_through()
+    respx.get("https://t.me/s/quizbg").respond(200, text=channel_page("quizbg", []))
+    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    preview = client.post("/sources/preview", json={"link": "https://t.me/quizbg"}).json()
+    assert (preview["kind"], preview["handle"], preview["title"]) == ("telegram", "quizbg", "Канал quizbg")
+
+
+@respx.mock
+def test_site_without_event_markup_is_refused_in_preview(client):
+    respx.route(host="testserver").pass_through()
+    respx.get("https://site.test/ru/events/a").respond(200, text=event_page(markup=False))
+    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    response = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
+    assert response.status_code == 422 and response.json()["detail"] == "На странице нет разметки события"

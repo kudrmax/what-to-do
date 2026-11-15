@@ -10,6 +10,7 @@ function mention(id: number, title: string, fromOrganizer: boolean): Mention {
     locked: false,
     source_id: id,
     source_title: title,
+    source_kind: "telegram",
     post_url: `https://t.me/${title}/${id}`,
     post_text: "",
     published_at: "2026-11-03T10:00:00Z",
@@ -21,6 +22,11 @@ function mention(id: number, title: string, fromOrganizer: boolean): Mention {
 }
 
 describe("open post button", () => {
+  it("names a site page as a page, not a post", () => {
+    render(<OpenPostButton mentions={[{ ...mention(1, "Polako", false), source_kind: "web", post_url: "https://polakohedonist.club/ru/events/a" }]} />);
+    expect(screen.getByText("Открыть на сайте").closest("a")).toHaveAttribute("href", "https://polakohedonist.club/ru/events/a");
+  });
+
   it("is not shown without sources", () => {
     render(<OpenPostButton mentions={[]} />);
     expect(screen.queryByText("Открыть пост")).toBeNull();

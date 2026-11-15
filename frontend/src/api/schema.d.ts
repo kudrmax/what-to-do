@@ -87,11 +87,33 @@ export interface paths {
         put?: never;
         /**
          * Add Source
-         * @description Adds a public Telegram channel to the active city. Its posts are read on the next refresh.
+         * @description Adds a public Telegram channel or a website to the active city. Its posts or events are read on the next refresh.
          *
-         *     422: not a channel link, or the channel is closed or has no web preview. 409: already added.
+         *     422: not a channel or event page link, the channel is closed, or the site cannot be read. 409: already added.
          */
         post: operations["add_source_sources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sources/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Source
+         * @description What adding the link would add: a channel's title, or a website's name, its event pages and a few examples.
+         *
+         *     422: the link is not a channel, or the site has no list of pages or no event markup.
+         */
+        post: operations["preview_source_sources_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -729,7 +751,7 @@ export interface components {
             /**
              * Extraction Prompt
              * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
-             * @default You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.
+             * @default You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.
              *
              *     For every post return the events and places it announces. Most posts announce nothing: return empty lists for them.
              *
@@ -738,6 +760,9 @@ export interface components {
              *     - A digest post that lists many events becomes one item per event.
              *     - A place with no date goes to "places", never to "events".
              *     - A follow-up about an event announced earlier is an item too: a post that adds details (update_kind "details"), moves it ("reschedule") or cancels it ("cancellation"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.
+             *
+             *     Websites
+             *     - A website post is the facts of one event page: name, start, end, place, price, organizer, then the page's description. Its "channel" is the website: an afisha, never the event's organizer, so from_organizer is false.
              *
              *     Photos
              *     - Each post lists its photos by index: "shows" says what the photo is, "text" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
@@ -754,7 +779,7 @@ export interface components {
             /**
              * Matching Prompt
              * @description Instructions Claude gets for merging duplicates
-             * @default You merge duplicate event announcements collected from several Telegram channels.
+             * @default You merge duplicate event announcements collected from several Telegram channels and websites.
              *
              *     You get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.
              *
@@ -769,7 +794,7 @@ export interface components {
             /**
              * Photo Prompt
              * @description Instructions Claude gets for transcribing post photos
-             * @default You transcribe the photos of Telegram posts that announce events: posters, event cards, schedules, digests.
+             * @default You transcribe the photos of posts that announce events: posters, event cards, schedules, digests.
              *
              *     Every photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema.
              */
@@ -1200,6 +1225,8 @@ export interface components {
             source_id: number;
             /** Source Title */
             source_title: string;
+            /** @description web: post_url is the event's page on the site */
+            source_kind: components["schemas"]["SourceKind"];
             /** Post Url */
             post_url: string;
             /** Post Text */
@@ -1455,11 +1482,46 @@ export interface components {
             /** @description Merges duplicate announcements */
             matching_model?: components["schemas"]["ClaudeModel"] | null;
         };
+        /** SiteExample */
+        SiteExample: {
+            /** Title */
+            title: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Time */
+            time: string | null;
+            /** Url */
+            url: string;
+        };
+        /**
+         * SitePreview
+         * @description What adding a link would add: shown to the user before they confirm.
+         */
+        SitePreview: {
+            kind: components["schemas"]["SourceKind"];
+            /** Title */
+            title: string;
+            /** Handle */
+            handle: string;
+            /**
+             * Pages Found
+             * @default 0
+             */
+            pages_found: number;
+            /**
+             * Examples
+             * @default []
+             */
+            examples: components["schemas"]["SiteExample"][];
+        };
         /**
          * SourceKind
          * @enum {string}
          */
-        SourceKind: "telegram";
+        SourceKind: "telegram" | "web";
         /** SourcePublic */
         SourcePublic: {
             /** @default telegram */
@@ -1491,7 +1553,10 @@ export interface components {
             status: components["schemas"]["SourceStatus"];
             /** Id */
             id: number;
-            /** Url */
+            /**
+             * Url
+             * @description The channel on t.me, or the site's section with its events.
+             */
             readonly url: string;
         };
         /** SourceRename */
@@ -1503,7 +1568,7 @@ export interface components {
         SourceRequest: {
             /**
              * Link
-             * @description Any form of a public channel link: t.me/name, @name, name
+             * @description A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha
              * @example t.me/vstrechi_v_belgrade
              */
             link: string;
@@ -1863,6 +1928,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourcePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_source_sources_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePreview"];
                 };
             };
             /** @description Validation Error */

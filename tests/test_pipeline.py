@@ -5,9 +5,9 @@ import httpx
 import pytest
 import respx
 
-from tests.helpers import photos_saying, FakeLlm, channel_page, extraction_by_text, judge_same_titles, raw_event
+from tests.helpers import photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.container import Container
-from where_to_go.models import Booking, BookingKind, Mark, Mention, Plan, Source
+from where_to_go.models import Booking, BookingKind, Mark, Mention, Plan, Source, SourceKind, WebSite
 from where_to_go.llm import LlmError
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.refresh import Stage
@@ -523,3 +523,68 @@ async def test_a_card_keeps_where_to_sign_up_as_a_booking(tmp_path):
     [card] = container.events.in_city(1)
     assert card.booking == Booking(url="https://t.me/reg_bot", kind=BookingKind.REGISTRATION)
     await container.close()
+
+
+def add_event_site(container) -> Source:
+    source = container.sources.add(Source(city_id=1, kind=SourceKind.WEB, handle="site.test/ru/events/", title="Сайт"))
+    container.web.add_site(WebSite(source_id=source.id, sitemap_urls=["https://site.test/sitemap.xml"], prefix="https://site.test/ru/events/", times_are_local=True))
+    return source
+
+
+def serve_event_site(start: str):
+    respx.get("https://site.test/sitemap.xml").respond(200, text=sitemap(["https://site.test/ru/events/kafany"]))
+    respx.get("https://site.test/ru/events/kafany").respond(200, text=event_page(name="Лекция про кафаны", startDate=start, text="19:00"))
+
+
+@respx.mock
+async def test_web_source_events_reach_the_feed_and_merge_with_telegram(app):
+    container, extraction, _ = app
+    soon = (datetime.now(UTC) + timedelta(days=10)).date().isoformat()
+    extraction_by_site = extraction_by_text({"кафаны": [raw_event("Кафаны", soon, "19:00", photo=0)]})
+    container.post_reader._extractor._llm = extraction_by_site
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+    add_event_site(container)
+    serve_event_site(f"{soon}T19:00:00.000Z")
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    assert progress.stage is Stage.DONE, progress.errors
+    [card] = container.events.in_city(1)
+    assert len(card.source_ids) == 2
+    assert card.start_time.strftime("%H:%M") == "19:00"
+    site_prompt = next(prompt for _, prompt in extraction_by_site.calls if "Начало:" in prompt)
+    assert f"Начало: {soon} 19:00" in site_prompt and "<html" not in site_prompt
+
+
+@respx.mock
+async def test_web_posts_photos_are_not_transcribed_but_shown(app, tmp_path):
+    container, _, _ = app
+    photo_llm = container.photos._llm
+    respx.get(url__startswith="https://cdn.test/").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    serve_channels([], [])
+    soon = (datetime.now(UTC) + timedelta(days=10)).date().isoformat()
+    container.post_reader._extractor._llm = extraction_by_text({"кафаны": [raw_event("Кафаны", soon, "19:00")]})
+    add_event_site(container)
+    serve_event_site(f"{soon}T19:00:00.000Z")
+
+    container.refresh.start()
+    await container.refresh.wait()
+
+    assert photo_llm.calls == []
+    [card] = container.events.in_city(1)
+    assert card.image_path is not None
+
+
+@respx.mock
+async def test_unexpected_failure_of_one_source_does_not_stop_the_refresh(app):
+    container, _, _ = app
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+    container.sources.add(Source(city_id=1, kind=SourceKind.WEB, handle="broken.test/ru/events/", title="Сломанный"))
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    assert progress.stage is Stage.DONE
+    assert any(e.startswith("Сломанный: ") for e in progress.errors)
+    assert {e.original_title for e in container.events.in_city(1)} == {"Кафаны"}

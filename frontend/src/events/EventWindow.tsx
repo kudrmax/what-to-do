@@ -204,13 +204,14 @@ function PostLine({ event, day, mention, named, canSplit }: { event: EventCard; 
   const split = useSplit();
   const open = useOpenEvent();
   const posted = POSTED.format(new Date(mention.published_at));
+  const openLabel = mention.source_kind === "web" ? "Открыть страницу на сайте" : "Открыть пост в Telegram";
   return (
     <div className="post-line">
       {named && <span className="post-line__name">{mention.source_title}</span>}
       {mention.data.from_organizer && <span className="badge badge--accent">организатор</span>}
-      <span className="post-line__when">{named ? posted : `Пост от ${posted}`}</span>
+      <span className="post-line__when">{named ? posted : mention.source_kind === "web" ? `Найдено на сайте ${posted}` : `Пост от ${posted}`}</span>
       <span className="post-line__actions">
-        <a className="icon-button" href={mention.post_url} target="_blank" rel="noreferrer" aria-label="Открыть пост в Telegram" data-tip="Открыть пост в Telegram">
+        <a className="icon-button" href={mention.post_url} target="_blank" rel="noreferrer" aria-label={openLabel} data-tip={openLabel}>
           <Icon name="external" size={17} />
         </a>
         {canSplit &&

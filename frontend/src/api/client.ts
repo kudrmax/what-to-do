@@ -10,6 +10,7 @@ export type Settings = Schemas["AppSettings"];
 export type SettingsChange = Schemas["SettingsChange"];
 export type Source = Schemas["SourcePublic"];
 export type NewSource = Schemas["SourceRequest"];
+export type SitePreview = Schemas["SitePreview"];
 export type SourceStatus = Schemas["SourceStatus"];
 export type PotentialSource = Schemas["PotentialSourcePublic"];
 export type PotentialSourceOrigin = Schemas["PotentialSourceOrigin"];
@@ -71,6 +72,7 @@ export function createApi(baseUrl: string) {
     addCity: (body: NewCity) => answer(client.POST("/cities", { body })),
 
     sources: () => answer(client.GET("/sources")),
+    previewSource: (link: string) => answer(client.POST("/sources/preview", { body: { link } })),
     addSource: (body: NewSource) => answer(client.POST("/sources", { body })),
     renameSource: (id: number, title: string) => answer(client.PATCH("/sources/{source_id}", { ...source(id), body: { title } })),
     markSource: (id: number, status: SourceStatus) => answer(client.PUT("/sources/{source_id}/status", { ...source(id), body: { status } })),

@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.7.1"
+  "version": "1.9.1"
  },
  "paths": {
   "/settings": {
@@ -186,7 +186,7 @@
      "sources"
     ],
     "summary": "Add Source",
-    "description": "Adds a public Telegram channel to the active city. Its posts are read on the next refresh.\n\n422: not a channel link, or the channel is closed or has no web preview. 409: already added.",
+    "description": "Adds a public Telegram channel or a website to the active city. Its posts or events are read on the next refresh.\n\n422: not a channel or event page link, the channel is closed, or the site cannot be read. 409: already added.",
     "operationId": "add_source_sources_post",
     "requestBody": {
      "content": {
@@ -205,6 +205,48 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/SourcePublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/preview": {
+   "post": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Preview Source",
+    "description": "What adding the link would add: a channel's title, or a website's name, its event pages and a few examples.\n\n422: the link is not a channel, or the site has no list of pages or no event markup.",
+    "operationId": "preview_source_sources_preview_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SitePreview"
         }
        }
       }
@@ -1581,21 +1623,21 @@
       "minLength": 1,
       "title": "Extraction Prompt",
       "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
-      "default": "You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n- A poster shared by several events of a post, such as the poster of a lecture series, a festival or a programme, is the photo of every one of them.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
+      "default": "You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nWebsites\n- A website post is the facts of one event page: name, start, end, place, price, organizer, then the page's description. Its \"channel\" is the website: an afisha, never the event's organizer, so from_organizer is false.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n- A poster shared by several events of a post, such as the poster of a lecture series, a festival or a programme, is the photo of every one of them.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
      },
      "matching_prompt": {
       "type": "string",
       "minLength": 1,
       "title": "Matching Prompt",
       "description": "Instructions Claude gets for merging duplicates",
-      "default": "You merge duplicate event announcements collected from several Telegram channels.\n\nYou get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.\n\nSame event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.\nNot the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.\n\nAn announcement without a start_date is a follow-up its channel posted about one of its own events; the existing cards offered for it are that channel's. Pick the card it is about by title, description and venue; if none clearly fits, leave both fields null.\n\nNever set both same_as_card and same_as_announcement."
+      "default": "You merge duplicate event announcements collected from several Telegram channels and websites.\n\nYou get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.\n\nSame event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.\nNot the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.\n\nAn announcement without a start_date is a follow-up its channel posted about one of its own events; the existing cards offered for it are that channel's. Pick the card it is about by title, description and venue; if none clearly fits, leave both fields null.\n\nNever set both same_as_card and same_as_announcement."
      },
      "photo_prompt": {
       "type": "string",
       "minLength": 1,
       "title": "Photo Prompt",
       "description": "Instructions Claude gets for transcribing post photos",
-      "default": "You transcribe the photos of Telegram posts that announce events: posters, event cards, schedules, digests.\n\nEvery photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema."
+      "default": "You transcribe the photos of posts that announce events: posters, event cards, schedules, digests.\n\nEvery photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema."
      },
      "photo_model": {
       "$ref": "#/components/schemas/ClaudeModel",
@@ -2494,6 +2536,10 @@
       "type": "string",
       "title": "Source Title"
      },
+     "source_kind": {
+      "$ref": "#/components/schemas/SourceKind",
+      "description": "web: post_url is the event's page on the site"
+     },
      "post_url": {
       "type": "string",
       "title": "Post Url"
@@ -2543,6 +2589,7 @@
      "locked",
      "source_id",
      "source_title",
+     "source_kind",
      "post_url",
      "post_text",
      "published_at",
@@ -3045,10 +3092,85 @@
     "title": "SettingsChange",
     "description": "Only the fields that are sent change."
    },
+   "SiteExample": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "day": {
+      "type": "string",
+      "format": "date",
+      "title": "Day"
+     },
+     "time": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Time"
+     },
+     "url": {
+      "type": "string",
+      "title": "Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "day",
+     "time",
+     "url"
+    ],
+    "title": "SiteExample"
+   },
+   "SitePreview": {
+    "properties": {
+     "kind": {
+      "$ref": "#/components/schemas/SourceKind"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "handle": {
+      "type": "string",
+      "title": "Handle"
+     },
+     "pages_found": {
+      "type": "integer",
+      "title": "Pages Found",
+      "default": 0
+     },
+     "examples": {
+      "items": {
+       "$ref": "#/components/schemas/SiteExample"
+      },
+      "type": "array",
+      "title": "Examples",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind",
+     "title",
+     "handle",
+     "pages_found",
+     "examples"
+    ],
+    "title": "SitePreview",
+    "description": "What adding a link would add: shown to the user before they confirm."
+   },
    "SourceKind": {
     "type": "string",
     "enum": [
-     "telegram"
+     "telegram",
+     "web"
     ],
     "title": "SourceKind"
    },
@@ -3109,6 +3231,7 @@
      "url": {
       "type": "string",
       "title": "Url",
+      "description": "The channel on t.me, or the site's section with its events.",
       "readOnly": true
      }
     },
@@ -3146,7 +3269,7 @@
       "type": "string",
       "minLength": 1,
       "title": "Link",
-      "description": "Any form of a public channel link: t.me/name, @name, name",
+      "description": "A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha",
       "examples": [
        "t.me/vstrechi_v_belgrade"
       ]
