@@ -4,11 +4,12 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from enum import StrEnum
+from zoneinfo import ZoneInfo
 
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import City, Post, Public, Source
+from where_to_go.models import City, Post, Public, Source, SourceKind
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
@@ -27,6 +28,7 @@ from where_to_go.repositories import (
     TagRepository,
 )
 from where_to_go.telegram import SourceError, TelegramChannelReader
+from where_to_go.web_sources import WebSiteReader
 
 log = logging.getLogger(__name__)
 
@@ -140,6 +142,7 @@ class RefreshService:
         mentions: MentionRepository,
         events: EventRepository,
         reader: TelegramChannelReader,
+        web_reader: WebSiteReader,
         images: ImageStore,
         photos: PhotoTranscriber,
         post_reader: PostReader,
@@ -155,6 +158,7 @@ class RefreshService:
         self._mentions = mentions
         self._events = events
         self._reader = reader
+        self._web_reader = web_reader
         self._images = images
         self._post_reader = post_reader
         self._linker = linker
@@ -190,16 +194,18 @@ class RefreshService:
         sources = {s.id: s for s in self._sources.in_city(city.id)}
 
         self.progress.stage = Stage.COLLECTING
-        await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s) for s in sources.values()])
+        zone = ZoneInfo(city.timezone)
+        await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s, zone) for s in sources.values()])
 
         context = self._post_reader.context(city)
         posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts)
 
         self.progress.stage = Stage.PHOTOS
-        photos = self._photos.untranscribed(posts)
+        with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text
+        photos = self._photos.untranscribed(with_photos)
         self.progress.photos_to_read = len(photos)
         await self._bounded(self.PHOTO_CONCURRENCY, [self._transcribe(batch) for batch in self._photos.batches(photos)])
-        unreadable = set(self._photos.untranscribed(posts))
+        unreadable = set(self._photos.untranscribed(with_photos))
         posts = [p for p in posts if unreadable.isdisjoint(PhotoTranscriber.shown(p))]
 
         self.progress.stage = Stage.READING
@@ -215,9 +221,12 @@ class RefreshService:
             self.progress.errors.append(f"Не получилось склеить события: {error}")
         self._sources.recount_events(self._events)
 
-    async def _collect(self, source: Source) -> None:
+    async def _collect(self, source: Source, zone: ZoneInfo) -> None:
         try:
-            found = await self._reader.new_posts(source.handle, self._posts.known_ids(source.id), self._settings.load().recent_posts)
+            if source.kind == SourceKind.WEB:
+                found = await self._web_reader.collect(source, zone)
+            else:
+                found = await self._reader.new_posts(source.handle, self._posts.known_ids(source.id), self._settings.load().recent_posts)
         except SourceError as error:
             self._sources.record_error(source.id, str(error))
             self.progress.errors.append(f"{source.title}: {error}")

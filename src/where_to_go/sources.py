@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from zoneinfo import ZoneInfo
+
 from where_to_go.linking import EventCards
 from where_to_go.models import (
     ChannelLink,
@@ -11,8 +13,9 @@ from where_to_go.models import (
     Source,
     SourceKind,
 )
-from where_to_go.repositories import EventRepository, PotentialSourceRepository, SourceRepository
-from where_to_go.telegram import SourceError, TelegramChannelReader, TelegramHandle
+from where_to_go.repositories import EventRepository, PotentialSourceRepository, SourceRepository, WebRepository
+from where_to_go.telegram import SourceError, SourceLink, TelegramChannelReader, TelegramHandle
+from where_to_go.web_sources import SitePreview, WebSiteProbe
 
 
 class DuplicateSourceError(SourceError):
@@ -20,20 +23,52 @@ class DuplicateSourceError(SourceError):
 
 
 class SourceCatalog:
-    """Adding and removing channels, with what follows from it for the cards."""
+    """Adding and removing sources — Telegram channels and websites — with what follows from it for the cards."""
 
-    def __init__(self, sources: SourceRepository, events: EventRepository, cards: EventCards, reader: TelegramChannelReader) -> None:
+    def __init__(
+        self,
+        sources: SourceRepository,
+        events: EventRepository,
+        cards: EventCards,
+        reader: TelegramChannelReader,
+        probe: WebSiteProbe,
+        web: WebRepository,
+    ) -> None:
         self._sources = sources
         self._events = events
         self._cards = cards
         self._reader = reader
+        self._probe = probe
+        self._web = web
+
+    async def preview(self, city: City, link: str) -> SitePreview:
+        """What adding the link would add, without adding it."""
+        if SourceLink.is_telegram(link):
+            handle = TelegramHandle.parse(link)
+            return SitePreview(kind=SourceKind.TELEGRAM, title=await self._reader.title(handle), handle=handle)
+        preview, _ = await self._probe.probe(link, ZoneInfo(city.timezone))
+        return preview
 
     async def add(self, city: City, link: str, title: str | None) -> Source:
+        if not SourceLink.is_telegram(link):
+            return await self._add_site(city, link, title)
         handle = TelegramHandle.parse(link)
-        if any(s.handle.lower() == handle.lower() for s in self._sources.in_city(city.id)):
-            raise DuplicateSourceError("Этот канал уже добавлен")
+        self._refuse_duplicate(city, SourceKind.TELEGRAM, handle, "Этот канал уже добавлен")
         name = (title or "").strip() or await self._reader.title(handle)
         return self._sources.add(Source(city_id=city.id, kind=SourceKind.TELEGRAM, handle=handle, title=name))
+
+    async def _add_site(self, city: City, link: str, title: str | None) -> Source:
+        preview, site = await self._probe.probe(link, ZoneInfo(city.timezone))
+        self._refuse_duplicate(city, SourceKind.WEB, preview.handle, "Этот сайт уже добавлен")
+        name = (title or "").strip() or preview.title
+        source = self._sources.add(Source(city_id=city.id, kind=SourceKind.WEB, handle=preview.handle, title=name))
+        site.source_id = source.id
+        self._web.add_site(site)
+        return source
+
+    def _refuse_duplicate(self, city: City, kind: SourceKind, handle: str, message: str) -> None:
+        if any(s.kind == kind and s.handle.lower() == handle.lower() for s in self._sources.in_city(city.id)):
+            raise DuplicateSourceError(message)
 
     def delete(self, source_id: int) -> None:
         """The source's posts go with it; cards only it announced disappear, shared ones lose its post."""
@@ -96,7 +131,7 @@ class PotentialSources:
         return source
 
     def _known_handles(self, city_id: int) -> set[str]:
-        return {s.handle.lower() for s in self._sources.in_city(city_id)}
+        return {s.handle.lower() for s in self._sources.in_city(city_id) if s.kind == SourceKind.TELEGRAM}
 
     @classmethod
     def _handle(cls, raw: str) -> str | None:

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 
 from where_to_go.llm import JsonLlm
-from where_to_go.models import ChannelReference, City, EventReading, ExtractedEvent, ExtractedPlace, PhotoText, Post, Reading, Source
+from where_to_go.models import ChannelReference, City, EventReading, ExtractedEvent, ExtractedPlace, PhotoText, Post, Reading, Source, SourceKind
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.reading_rules import ReadingRules
 
@@ -74,7 +74,7 @@ class PostExtractor:
         answer = await self._llm.complete_json(system, self._prompt(photos, sources, context.city), Reading.model_json_schema())
         by_id = {item.get("post_id"): item for item in answer.get("posts", []) if isinstance(item, dict)}
         allowed = set(context.tags) | {context.fallback_tag}
-        return [self._convert(p, by_id.get(p.post.id, {}), allowed, context.fallback_tag) for p in photos]
+        return [self._convert(p, by_id.get(p.post.id, {}), allowed, context.fallback_tag, sources[p.post.source_id]) for p in photos]
 
     @staticmethod
     def _prompt(photos: list[PostPhotos], sources: dict[int, Source], city: City) -> str:
@@ -92,15 +92,21 @@ class PostExtractor:
         return "Posts:\n" + json.dumps(items, ensure_ascii=False, indent=1)
 
     @classmethod
-    def _convert(cls, photos: PostPhotos, item: dict[str, Any], allowed: set[str], fallback: str) -> ExtractedPost:
+    def _convert(cls, photos: PostPhotos, item: dict[str, Any], allowed: set[str], fallback: str, source: Source) -> ExtractedPost:
         readings = [r for r in (cls._event(raw, allowed, fallback) for raw in item.get("events", [])) if r is not None]
         places = [p for p in (cls._place(raw) for raw in item.get("places", [])) if p is not None]
+        poster = cls._poster(photos.post, source)
         events = [
-            (ExtractedEvent.model_validate(r.model_dump(exclude={"photo"})), r.photo if r.photo in photos.texts else None)
+            (ExtractedEvent.model_validate(r.model_dump(exclude={"photo"})), r.photo if r.photo in photos.texts else poster)
             for r in readings
         ]
         channels = [c for c in (cls._channel(raw) for raw in item.get("channels", [])) if c is not None]
         return ExtractedPost(photos.post.id, events, places, channels)
+
+    @staticmethod
+    def _poster(post: Post, source: Source) -> int | None:
+        """An event page's picture is that event's poster; a channel post's photo is the one Claude points to."""
+        return 0 if source.kind == SourceKind.WEB and post.image_paths else None
 
     @staticmethod
     def _event(raw: Any, allowed: set[str], fallback: str) -> EventReading | None:

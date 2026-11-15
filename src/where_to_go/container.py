@@ -35,6 +35,8 @@ from where_to_go.resolution import EventResolver
 from where_to_go.sources import PotentialSources, SourceCatalog
 from where_to_go.statistics import Statistics
 from where_to_go.telegram import TelegramChannelReader
+from where_to_go.web import SitemapReader
+from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 
 PROVISIONAL_TAGS = [
     "Концерт",
@@ -113,7 +115,8 @@ class Container:
         photo_llm = photo_llm or ClaudeJsonLlm(lambda: settings.load().photo_model)
         linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards)
         photo_texts = PhotoTextRepository(db)
-        catalog = SourceCatalog(sources, events, cards, reader)
+        sitemaps = SitemapReader(http)
+        catalog = SourceCatalog(sources, events, cards, reader, WebSiteProbe(http, sitemaps), web)
         potential_sources = PotentialSources(PotentialSourceRepository(db), sources, catalog)
         photos = PhotoTranscriber(photo_llm, images, photo_texts, lambda: settings.load().photo_prompt)
         post_mentions = PostMentions(mentions, cards)
@@ -137,6 +140,7 @@ class Container:
             mentions=mentions,
             events=events,
             reader=reader,
+            web_reader=WebSiteReader(http, sitemaps, web, posts),
             images=images,
             photos=photos,
             post_reader=post_reader,

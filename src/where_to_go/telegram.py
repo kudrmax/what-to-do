@@ -28,6 +28,16 @@ class TelegramHandle:
         return text
 
 
+class SourceLink:
+    @staticmethod
+    def is_telegram(link: str) -> bool:
+        """t.me and telegram.me links, @name and a bare name; any other web address is a website."""
+        text = link.strip()
+        if re.match(r"^(https?://)?(www\.)?(t\.me|telegram\.me)/", text, re.IGNORECASE):
+            return True
+        return "/" not in text and "." not in text
+
+
 class TelegramPageParser:
     """Reads the public web preview of a channel (t.me/s/<handle>)."""
 

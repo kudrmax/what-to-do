@@ -49,6 +49,7 @@ from where_to_go.settings import AppSettings, SettingsChange
 from where_to_go.statistics import CityStats
 from where_to_go.sources import DuplicateSourceError
 from where_to_go.telegram import SourceError
+from where_to_go.web_sources import SitePreview
 
 DESCRIPTION = """
 Local backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards
@@ -84,7 +85,11 @@ TAG_HELP = {
 
 
 class SourceRequest(SQLModel):
-    link: str = Field(min_length=1, description="Any form of a public channel link: t.me/name, @name, name", schema_extra={"examples": ["t.me/vstrechi_v_belgrade"]})
+    link: str = Field(
+        min_length=1,
+        description="A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha",
+        schema_extra={"examples": ["t.me/vstrechi_v_belgrade"]},
+    )
     title: str | None = Field(default=None, description="Empty: the channel's own title is used")
 
 
@@ -198,14 +203,25 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     @app.post("/sources", response_model=SourcePublic, status_code=201, tags=[ApiTag.SOURCES])
     async def add_source(body: SourceRequest, c: ContainerDep, city: CityDep):
-        """Adds a public Telegram channel to the active city. Its posts are read on the next refresh.
+        """Adds a public Telegram channel or a website to the active city. Its posts or events are read on the next refresh.
 
-        422: not a channel link, or the channel is closed or has no web preview. 409: already added.
+        422: not a channel or event page link, the channel is closed, or the site cannot be read. 409: already added.
         """
         try:
             return await c.catalog.add(city, body.link, body.title)
         except DuplicateSourceError as error:
             raise HTTPException(409, str(error)) from None
+        except SourceError as error:
+            raise HTTPException(422, str(error)) from None
+
+    @app.post("/sources/preview", response_model=SitePreview, tags=[ApiTag.SOURCES])
+    async def preview_source(body: SourceRequest, c: ContainerDep, city: CityDep):
+        """What adding the link would add: a channel's title, or a website's name, its event pages and a few examples.
+
+        422: the link is not a channel, or the site has no list of pages or no event markup.
+        """
+        try:
+            return await c.catalog.preview(city, body.link)
         except SourceError as error:
             raise HTTPException(422, str(error)) from None
 

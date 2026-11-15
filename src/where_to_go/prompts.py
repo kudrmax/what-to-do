@@ -2,7 +2,7 @@
 
 EXTRACTION_PLACEHOLDERS = ("city", "language", "tags", "fallback")
 
-EXTRACTION = """You turn Telegram channel posts into event cards for a person who lives in {city} and looks for things to do in person.
+EXTRACTION = """You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.
 
 For every post return the events and places it announces. Most posts announce nothing: return empty lists for them.
 
@@ -11,6 +11,9 @@ What to keep
 - A digest post that lists many events becomes one item per event.
 - A place with no date goes to "places", never to "events".
 - A follow-up about an event announced earlier is an item too: a post that adds details (update_kind "details"), moves it ("reschedule") or cancels it ("cancellation"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.
+
+Websites
+- A website post is the facts of one event page: name, start, end, place, price, organizer, then the page's description. Its "channel" is the website: an afisha, never the event's organizer, so from_organizer is false.
 
 Photos
 - Each post lists its photos by index: "shows" says what the photo is, "text" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.
@@ -23,11 +26,11 @@ Channels
 The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
 Each field's meaning is in the schema."""
 
-PHOTOS = """You transcribe the photos of Telegram posts that announce events: posters, event cards, schedules, digests.
+PHOTOS = """You transcribe the photos of posts that announce events: posters, event cards, schedules, digests.
 
 Every photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema."""
 
-MATCHING = """You merge duplicate event announcements collected from several Telegram channels.
+MATCHING = """You merge duplicate event announcements collected from several Telegram channels and websites.
 
 You get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.
 
