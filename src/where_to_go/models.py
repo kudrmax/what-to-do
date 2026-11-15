@@ -386,6 +386,7 @@ class WebPage(SQLModel, table=True):
     end_day: Day | None = None
     facts: str | None = Field(default=None, description="What Claude reads for this event")
     locality: str | None = Field(default=None, description="The town the page names, as it names it")
+    has_facts: bool = Field(default=False, sa_column_kwargs={"server_default": "0"}, description="Pages kept by 1.10.0–1.10.1 have none")
     start_time: time | None = None
     venue: str | None = None
     address: str | None = None

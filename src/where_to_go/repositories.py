@@ -172,7 +172,7 @@ class WebRepository:
     def page_facts(self, page_id: int) -> PageFacts | None:
         with self._db.session() as s:
             page = s.get(WebPage, page_id)
-        if page is None or not page.is_event or page.start_day is None:
+        if page is None or not page.is_event or not page.has_facts or page.start_day is None:
             return None
         return PageFacts(
             start_date=page.start_day,
