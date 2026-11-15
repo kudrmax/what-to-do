@@ -8,7 +8,10 @@ import { FilterBar } from "../events/FilterBar";
 import { NothingFound } from "../events/NothingFound";
 import { useEventFilters } from "../events/useEventFilters";
 import { RefreshButton } from "../events/RefreshButton";
+import { ReviewDeck } from "../events/ReviewDeck";
+import { useFeedView } from "../events/useFeedView";
 import { Icon } from "../ui/Icon";
+import { Segmented } from "../ui/Segmented";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 
@@ -16,6 +19,7 @@ import { NoCity } from "./NoCity";
 export function FeedScreen() {
   const { city, today } = useActiveCity();
   const filters = useEventFilters();
+  const { view, setView } = useFeedView(filters);
   const from = filters.params.get("from");
   const start = from ?? today ?? undefined;
   const sources = useSources(city !== null);
@@ -32,14 +36,32 @@ export function FeedScreen() {
     </FilterBar>
   );
 
+  const actions = city && (
+    <div className="screen__actions">
+      <Segmented
+        tabs
+        label="Вид"
+        options={[
+          { id: "list", label: "Лента" },
+          { id: "review", label: "Разбор" },
+        ]}
+        value={view}
+        onChange={setView}
+      />
+      <RefreshButton />
+    </div>
+  );
+
   return (
-    <Screen title={SECTIONS.feed.title} action={city && <RefreshButton />} toolbar={toolbar}>
+    <Screen title={SECTIONS.feed.title} action={actions} toolbar={toolbar}>
       {!city ? (
         <NoCity />
       ) : sources.data?.length === 0 ? (
         <EmptyState title="Нет источников" text="Добавьте Telegram-каналы с афишами, потом нажмите «Обновить»." link={{ to: SECTIONS.sources.path, label: "Добавить источники" }} />
       ) : feed.isError ? (
         <LoadError error={feed.error} />
+      ) : view === "review" ? (
+        today && feed.data && <ReviewDeck occurrences={feed.data} today={today} />
       ) : feed.data?.length === 0 && filters.query.search ? (
         <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.plans, query: { start: today ?? undefined, plans: SHOWN_PLANS.going } }} />
       ) : feed.data?.length === 0 ? (
