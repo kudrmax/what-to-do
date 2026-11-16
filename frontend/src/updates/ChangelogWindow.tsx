@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { ChangelogEntry } from "../api/client";
+import { conventions } from "../domain/locale";
 import { Modal } from "../ui/Modal";
 import "./updates.css";
 
@@ -13,9 +14,7 @@ const TITLES: Record<ChangelogMode, string> = {
   history: "Changelog",
 };
 
-const RELEASE_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" });
-
-const releaseDay = (isoDay: string) => RELEASE_DAY.format(new Date(`${isoDay}T00:00:00`));
+const releaseDay = (isoDay: string) => new Intl.DateTimeFormat(conventions().locale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${isoDay}T00:00:00`));
 
 /** Releases the way the Obsidian changelog shows them: version and day, the summary, the sections. */
 export function ChangelogWindow({ mode, entries, onClose, action, note }: { mode: ChangelogMode; entries: ChangelogEntry[]; onClose: () => void; action?: ReactNode; note?: ReactNode }) {

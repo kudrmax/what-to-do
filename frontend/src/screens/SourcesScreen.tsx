@@ -4,12 +4,13 @@ import type { SitePreview, Source } from "../api/client";
 import { useAddSource, useDeleteSource, useMarkSource, usePauseSource, usePreviewSource, useRenameSource, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
-import { ago, longDate, plural } from "../domain/dates";
+import { ago, clock, longDate, plural } from "../domain/dates";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { InlineEdit } from "../ui/InlineEdit";
 import { Screen } from "../ui/Screen";
+import { FindingSources } from "./FindingSources";
 import { NoCity } from "./NoCity";
 import { PotentialSources } from "./PotentialSources";
 import "./SourcesScreen.css";
@@ -110,7 +111,7 @@ function SitePreviewCard({ site, adding, onAdd, onCancel }: { site: SitePreview;
               </a>
               <span className="site-preview__when">
                 <span>{longDate(example.day)}</span>
-                {example.time && <span className="site-preview__time">{example.time}</span>}
+                {example.time && <span className="site-preview__time">{clock(example.time)}</span>}
               </span>
             </li>
           ))}
@@ -130,9 +131,9 @@ function SitePreviewCard({ site, adding, onAdd, onCancel }: { site: SitePreview;
 
 export function SourceList() {
   const sources = useSources();
-  if (!sources.data?.length) {
-    return <p className="muted">No sources yet. Add a Telegram channel or a website with event listings, then click Refresh in Upcoming.</p>;
-  }
+  const { city } = useActiveCity();
+  if (sources.data?.length === 0 && city) return <FindingSources city={city.name} />;
+  if (!sources.data?.length) return null;
   return (
     <div className="sources-table" role="table" aria-label="Sources">
       {favoritesFirst(sources.data).map((source) => (

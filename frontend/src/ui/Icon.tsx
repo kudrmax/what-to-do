@@ -8,6 +8,18 @@ const PATHS = {
     </>
   ),
   chevronDown: <path d="M6 9l6 6 6-6" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  language: (
+    <>
+      <path d="M3 5h10M8 3v2M10.5 5c-1 4-3.5 7.5-7 9.5M5.5 9c1.4 2.6 3.6 4.6 6.5 6" />
+      <path d="M13 21l4-9 4 9M14.4 18h5.2" />
+    </>
+  ),
   grip: (
     <>
       <circle cx="9" cy="6" r="1" />

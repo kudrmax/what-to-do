@@ -5,7 +5,9 @@ import type { components, paths } from "./schema";
 type Schemas = components["schemas"];
 
 export type City = Schemas["CityPublic"];
-export type NewCity = Schemas["CityBase"];
+export type NewCity = Schemas["CityRequest"];
+export type CityChange = Schemas["CityChange"];
+export type CityContents = Schemas["CityContents"];
 export type Settings = Schemas["AppSettings"];
 export type SettingsChange = Schemas["SettingsChange"];
 export type Source = Schemas["SourcePublic"];
@@ -70,6 +72,9 @@ export function createApi(baseUrl: string) {
 
     cities: () => answer(client.GET("/cities")),
     addCity: (body: NewCity) => answer(client.POST("/cities", { body })),
+    changeCity: (id: number, body: CityChange) => answer(client.PATCH("/cities/{city_id}", { params: { path: { city_id: id } }, body })),
+    cityContents: (id: number) => answer(client.GET("/cities/{city_id}/contents", { params: { path: { city_id: id } } })),
+    deleteCity: (id: number) => answer(client.DELETE("/cities/{city_id}", { params: { path: { city_id: id } } })),
 
     sources: () => answer(client.GET("/sources")),
     previewSource: (link: string) => answer(client.POST("/sources/preview", { body: { link } })),

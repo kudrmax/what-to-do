@@ -2,6 +2,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { EventCard } from "../api/client";
 import { usePrefetchMentions, useTags } from "../api/queries";
+import { useCardLanguage } from "../api/useActiveCity";
 import { formatPrice } from "../domain/price";
 import { orderTags } from "../domain/tags";
 import { EventPhoto } from "./EventPhoto";
@@ -59,6 +60,7 @@ export function EventCardSummary({ event, shownTags = [] }: { event: EventCard; 
   const tags = orderTags(event.tags, useTags().data);
   const tag = tags.find((t) => shownTags.includes(t)) ?? tags[0];
   const price = event.is_cancelled ? null : formatPrice(event.price, event.currency);
+  const { lang } = useCardLanguage();
   return (
     <>
       <div className="card__meta">
@@ -67,8 +69,12 @@ export function EventCardSummary({ event, shownTags = [] }: { event: EventCard; 
         {tag && <span className="badge">{tag}</span>}
         {event.is_cancelled ? <span className="badge badge--accent card__end">Cancelled</span> : price && <span className="card__price card__end">{price}</span>}
       </div>
-      <h3 className="card__title">{event.title}</h3>
-      <p className="card__text">{event.description}</p>
+      <h3 className="card__title" lang={lang}>
+        {event.title}
+      </h3>
+      <p className="card__text" lang={lang}>
+        {event.description}
+      </p>
     </>
   );
 }

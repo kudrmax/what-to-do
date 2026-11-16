@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange, SourceStatus, Tag } from "./client";
+import type { Api, CityChange, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange, SourceStatus, Tag } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -91,6 +91,9 @@ export const useMerge = () => useApiMutation((api, { id, otherId }: { id: number
 export const useSplit = () => useApiMutation((api, { id, mentionId }: { id: number; mentionId: number }) => api.split(id, mentionId), STALE.cards);
 export const useChangeSettings = () => useApiMutation((api, change: SettingsChange) => api.changeSettings(change), STALE.city);
 export const useAddCity = () => useApiMutation((api, city: NewCity) => api.addCity(city), STALE.city);
+export const useChangeCity = () => useApiMutation((api, { id, change }: { id: number; change: CityChange }) => api.changeCity(id, change), STALE.city);
+export const useDeleteCity = () => useApiMutation((api, id: number) => api.deleteCity(id), STALE.city);
+export const useCityContents = (id: number) => useApiQuery(["cities", id, "contents"], (api) => api.cityContents(id));
 export const usePotentialSources = () => useApiQuery(keys.potentialSources, (api) => api.potentialSources());
 export const useMarkPotentialSource = () =>
   useApiMutation((api, { id, processed }: { id: number; processed: boolean }) => api.markPotentialSource(id, processed), STALE.potentialSources);

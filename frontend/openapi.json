@@ -2,8 +2,8 @@
  "openapi": "3.1.0",
  "info": {
   "title": "What To Do",
-  "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.14.2"
+  "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
+  "version": "1.15.3"
  },
  "paths": {
   "/settings": {
@@ -120,13 +120,13 @@
      "settings"
     ],
     "summary": "Add City",
-    "description": "Adds a city. The first city becomes active; later ones are activated with `PATCH /settings`.",
+    "description": "Adds a city. The first city becomes active; later ones are activated with `PATCH /settings`.\nThe first city of an empty app also brings the default tags, in its card language (English unless Russian).\n\n409: a city of this name is there already. 422: unknown time zone.",
     "operationId": "add_city_cities_post",
     "requestBody": {
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/CityBase"
+        "$ref": "#/components/schemas/CityRequest"
        }
       }
      },
@@ -139,6 +139,136 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/CityPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/cities/{city_id}": {
+   "patch": {
+    "tags": [
+     "settings"
+    ],
+    "summary": "Change City",
+    "description": "Changes the fields that are sent. A new card language reads the city's recent posts again at its next refresh.\n\n409: another city has this name. 422: unknown time zone.",
+    "operationId": "change_city_cities__city_id__patch",
+    "parameters": [
+     {
+      "name": "city_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "City Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CityChange"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CityPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "settings"
+    ],
+    "summary": "Delete City",
+    "description": "Deletes the city with its sources, their posts, its cards and marks. Another city becomes active, if there is one.\n\n409: a refresh is running.",
+    "operationId": "delete_city_cities__city_id__delete",
+    "parameters": [
+     {
+      "name": "city_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "City Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/cities/{city_id}/contents": {
+   "get": {
+    "tags": [
+     "settings"
+    ],
+    "summary": "City Contents",
+    "description": "What deleting the city would delete with it.",
+    "operationId": "city_contents_cities__city_id__contents_get",
+    "parameters": [
+     {
+      "name": "city_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "City Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CityContents"
         }
        }
       }
@@ -602,7 +732,7 @@
      "tags"
     ],
     "summary": "Add Tag",
-    "description": "Adds a tag. Claude uses it for posts read from now on.",
+    "description": "Adds a tag. Claude uses it for posts read from now on. 409: there is a tag of this name already.",
     "operationId": "add_tag_tags_post",
     "requestBody": {
      "content": {
@@ -644,7 +774,7 @@
      "tags"
     ],
     "summary": "Rename Tag",
-    "description": "Renames a tag everywhere, on existing cards too. 422 for the fallback tag.",
+    "description": "Renames a tag everywhere, on existing cards too; the fallback tag as well. 422: another tag has this name.",
     "operationId": "rename_tag_tags__tag_id__patch",
     "parameters": [
      {
@@ -924,11 +1054,11 @@
       "required": false,
       "schema": {
        "type": "string",
-       "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout",
+       "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter, one typo is forgiven, and the Cyrillic letters that differ only by dots count as one. When nothing is found, the words are tried once more as if typed with the Russian and English keyboard layouts swapped",
        "default": "",
        "title": "Search"
       },
-      "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout"
+      "description": "Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter, one typo is forgiven, and the Cyrillic letters that differ only by dots count as one. When nothing is found, the words are tried once more as if typed with the Russian and English keyboard layouts swapped"
      }
     ],
     "responses": {
@@ -1388,7 +1518,7 @@
      "refresh"
     ],
     "summary": "Start Refresh",
-    "description": "Starts a refresh of the active city's sources in the background and returns at once.\nA second call while one runs returns the running one.",
+    "description": "Starts a refresh of the active city's sources (only that city's) in the background and returns at once.\nA second call while one runs returns the running one.",
     "operationId": "start_refresh_refresh_post",
     "responses": {
      "202": {
@@ -1668,13 +1798,6 @@
       "title": "Active City Id",
       "description": "null until the first city is added"
      },
-     "description_language": {
-      "type": "string",
-      "minLength": 1,
-      "title": "Description Language",
-      "description": "Language Claude writes titles and descriptions in",
-      "default": "русский"
-     },
      "recent_posts": {
       "type": "integer",
       "maximum": 300.0,
@@ -1687,7 +1810,7 @@
       "type": "string",
       "maxLength": 2000,
       "title": "Priority Wish",
-      "description": "What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged",
+      "description": "What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged",
       "default": ""
      },
      "extraction_prompt": {
@@ -1730,7 +1853,6 @@
     "type": "object",
     "required": [
      "active_city_id",
-     "description_language",
      "recent_posts",
      "priority_wish",
      "extraction_prompt",
@@ -1829,31 +1951,84 @@
     ],
     "title": "ChannelLink"
    },
-   "CityBase": {
+   "CityChange": {
     "properties": {
      "name": {
-      "type": "string",
-      "minLength": 1,
-      "title": "Name",
-      "examples": [
-       "Belgrade"
-      ]
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name"
+     },
+     "country": {
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Country"
      },
      "timezone": {
-      "type": "string",
-      "title": "Timezone",
-      "description": "IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it",
-      "examples": [
-       "Europe/Belgrade"
-      ]
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Timezone"
+     },
+     "card_language": {
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Card Language"
+     }
+    },
+    "type": "object",
+    "title": "CityChange",
+    "description": "Only the fields that are sent change."
+   },
+   "CityContents": {
+    "properties": {
+     "sources": {
+      "type": "integer",
+      "title": "Sources"
+     },
+     "events": {
+      "type": "integer",
+      "title": "Events"
+     },
+     "marked_events": {
+      "type": "integer",
+      "title": "Marked Events",
+      "description": "Cards the user rated or planned to go to"
      }
     },
     "type": "object",
     "required": [
-     "name",
-     "timezone"
+     "sources",
+     "events",
+     "marked_events"
     ],
-    "title": "CityBase"
+    "title": "CityContents",
+    "description": "What deleting a city deletes with it."
    },
    "CityPublic": {
     "properties": {
@@ -1862,15 +2037,34 @@
       "minLength": 1,
       "title": "Name",
       "examples": [
-       "Belgrade"
+       "London"
+      ]
+     },
+     "country": {
+      "type": "string",
+      "title": "Country",
+      "description": "Tells apart cities of the same name for Claude and for maps; empty only in cities added before 1.16",
+      "default": "",
+      "examples": [
+       "United Kingdom"
       ]
      },
      "timezone": {
       "type": "string",
       "title": "Timezone",
-      "description": "IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it",
+      "description": "IANA time zone, e.g. Europe/London; «today» in the feed is counted in it",
       "examples": [
-       "Europe/Belgrade"
+       "Europe/London"
+      ]
+     },
+     "card_language": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Card Language",
+      "description": "Language Claude writes card titles and descriptions in; changing it reads the recent posts again",
+      "default": "English",
+      "examples": [
+       "English"
       ]
      },
      "id": {
@@ -1881,10 +2075,58 @@
     "type": "object",
     "required": [
      "name",
+     "country",
      "timezone",
+     "card_language",
      "id"
     ],
     "title": "CityPublic"
+   },
+   "CityRequest": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Name",
+      "examples": [
+       "London"
+      ]
+     },
+     "country": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Country",
+      "description": "Tells apart cities of the same name for Claude and for maps; empty only in cities added before 1.16",
+      "examples": [
+       "United Kingdom"
+      ]
+     },
+     "timezone": {
+      "type": "string",
+      "title": "Timezone",
+      "description": "IANA time zone, e.g. Europe/London; «today» in the feed is counted in it",
+      "examples": [
+       "Europe/London"
+      ]
+     },
+     "card_language": {
+      "type": "string",
+      "minLength": 1,
+      "title": "Card Language",
+      "description": "Language Claude writes card titles and descriptions in; changing it reads the recent posts again",
+      "default": "English",
+      "examples": [
+       "English"
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "country",
+     "timezone"
+    ],
+    "title": "CityRequest"
    },
    "CityStats": {
     "properties": {
@@ -2192,7 +2434,7 @@
        }
       ],
       "title": "Currency",
-      "description": "ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0"
+      "description": "ISO 4217 code of the price, e.g. GBP or EUR; null when price is null or 0"
      },
      "tags": {
       "items": {
@@ -2283,6 +2525,7 @@
        }
       ],
       "title": "Map Url",
+      "description": "The address, or the venue, with the city and country unless the address names the city already.",
       "readOnly": true
      }
     },
@@ -2472,7 +2715,7 @@
        }
       ],
       "title": "Currency",
-      "description": "ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0"
+      "description": "ISO 4217 code of the price, e.g. GBP or EUR; null when price is null or 0"
      },
      "tags": {
       "items": {
@@ -3127,19 +3370,6 @@
       "title": "Active City Id",
       "description": "null until the first city is added"
      },
-     "description_language": {
-      "anyOf": [
-       {
-        "type": "string",
-        "minLength": 1
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Description Language",
-      "description": "Language Claude writes titles and descriptions in"
-     },
      "recent_posts": {
       "anyOf": [
        {
@@ -3165,7 +3395,7 @@
        }
       ],
       "title": "Priority Wish",
-      "description": "What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged"
+      "description": "What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged"
      },
      "extraction_prompt": {
       "anyOf": [
@@ -3443,7 +3673,7 @@
       "title": "Link",
       "description": "A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha",
       "examples": [
-       "t.me/vstrechi_v_belgrade"
+       "t.me/londonevents"
       ]
      },
      "title": {
@@ -3610,7 +3840,7 @@
      "is_fallback": {
       "type": "boolean",
       "title": "Is Fallback",
-      "description": "Put by Claude when no tag fits; always last, cannot be renamed"
+      "description": "Put by Claude when no tag fits; always last"
      },
      "hidden": {
       "type": "boolean",
@@ -3855,7 +4085,7 @@
   },
   {
    "name": "sources",
-   "description": "Telegram channels of the active city"
+   "description": "Telegram channels and websites of the active city"
   },
   {
    "name": "tags",
