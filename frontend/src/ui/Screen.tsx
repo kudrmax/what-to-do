@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { errorText } from "./errors";
+import { Icon } from "./Icon";
 import "./Screen.css";
 
 export function Screen({ title, action, toolbar, children, narrow }: { title: string; action?: ReactNode; toolbar?: ReactNode; children: ReactNode; narrow?: boolean }) {
@@ -27,6 +28,41 @@ export function Section({ title, hint, children }: { title: string; hint?: strin
         {hint && <p className="screen-section__hint">{hint}</p>}
       </div>
       {children}
+    </section>
+  );
+}
+
+/** A part of a section with its own heading, such as one setting among several. */
+export function Subsection({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="subsection">
+      <div className="subsection__head">
+        <h3 className="subsection__title">{title}</h3>
+        {hint && <p className="screen-section__hint">{hint}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** A section closed until asked for: things most people never need to see. */
+export function CollapsibleSection({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const body = useId();
+  return (
+    <section className="screen-section collapsible">
+      <div className="screen-section__head">
+        <h2 className="section-title">
+          <button type="button" className="collapsible__toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen(!open)}>
+            {title}
+            <Icon name="chevronDown" size={18} className="collapsible__chevron" />
+          </button>
+        </h2>
+        <p className="screen-section__hint">{hint}</p>
+      </div>
+      <div id={body} className="collapsible__body" hidden={!open}>
+        {children}
+      </div>
     </section>
   );
 }
