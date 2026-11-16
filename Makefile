@@ -22,16 +22,16 @@ $(PY_DEPS_STAMP): uv.lock pyproject.toml
 up: $(PY_DEPS_STAMP)  ## Build the interface if its sources changed and start the app
 	@$(CLI) up
 
-down:  ## Stop the app and everything it started
+down: $(PY_DEPS_STAMP)  ## Stop the app and everything it started
 	@$(CLI) down
 
 restart: $(PY_DEPS_STAMP)  ## Stop the app and start it again as it ran
 	@$(CLI) restart
 
-status:  ## Whether the app runs, its address, version and data folder
+status: $(PY_DEPS_STAMP)  ## Whether the app runs, its address, version and data folder
 	@$(CLI) status
 
-logs:  ## Logs of the app and of its updates in one stream
+logs: $(PY_DEPS_STAMP)  ## Logs of the app and of its updates in one stream
 	@$(CLI) logs
 
 update: $(PY_DEPS_STAMP)  ## Update to the latest release and restart the app
@@ -40,7 +40,7 @@ update: $(PY_DEPS_STAMP)  ## Update to the latest release and restart the app
 build: $(PY_DEPS_STAMP)  ## Build the interface if its sources changed
 	@$(CLI) build
 
-uninstall:  ## Stop the app and remove it from this computer
+uninstall: $(PY_DEPS_STAMP)  ## Stop the app and remove it from this computer
 	@$(CLI) uninstall
 
 ##@ Development
