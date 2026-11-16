@@ -71,7 +71,17 @@ export function dayHeading(day: IsoDay, today: IsoDay): { title: string; subtitl
 /** "1–30 November" or "28 October – 5 November", in the order the region writes them; never with years, even across one. */
 export function dateRange(start: IsoDay, end: IsoDay): string {
   if (parts(start).year !== parts(end).year) return `${dayAndMonth(start)}\u2009–\u2009${dayAndMonth(end)}`;
-  return dayFormat({ day: "numeric", month: "long" }).formatRange(utc(start), utc(end));
+  const pieces = dayFormat({ day: "numeric", month: "long" }).formatRangeToParts(utc(start), utc(end));
+  return pieces.map((piece, i) => (isRangeDash(piece) ? rangeDash(pieces[i - 1], pieces[i + 1]) : piece.value)).join("");
+}
+
+/** ICU versions space the range dash differently; it is set here the same way everywhere. */
+function isRangeDash(piece: Intl.DateTimeRangeFormatPart): boolean {
+  return piece.type === "literal" && piece.source === "shared" && piece.value.trim() === "–";
+}
+
+function rangeDash(before?: Intl.DateTimeRangeFormatPart, after?: Intl.DateTimeRangeFormatPart): string {
+  return before?.type === "day" && after?.type === "day" ? "–" : "\u2009–\u2009";
 }
 
 function timeFormat(): Intl.DateTimeFormat {

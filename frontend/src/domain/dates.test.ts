@@ -45,7 +45,7 @@ describe("dates in the person's region", () => {
   it("an American browser gets month first, a 12-hour clock and weeks from Sunday", () => {
     setConventions(new LocaleConventions("en-US"));
     expect(longDate("2026-11-09")).toBe("Monday, November 9");
-    expect(dateRange("2026-11-01", "2026-11-30")).toBe("November 1\u2009–\u200930");
+    expect(dateRange("2026-11-01", "2026-11-30")).toBe("November 1–30");
     expect(clock("19:05:00")).toBe("7:05 PM");
     expect(clock("09:00")).toBe("9:00 AM");
     expect(weekStart("2026-11-11")).toBe("2026-11-08");
