@@ -13,7 +13,7 @@ from where_to_go.models import City, ExtractedEvent, Post, Public, Source, Sourc
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
-from where_to_go.llm import LlmError
+from where_to_go.llm import ClaudeSignedOutError, LlmError
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
@@ -70,6 +70,7 @@ class RefreshProgress(Public):
     posts_read: int = 0
     events_touched: int = Field(default=0, description="Cards created or updated")
     errors: list[str] = Field(default_factory=list, description="Human-readable, ready to show")
+    claude_signed_out: bool = Field(default=False, description="Claude Code has no login: nothing was read; the user must sign in first")
 
     @computed_field
     @property
@@ -85,6 +86,14 @@ class RefreshProgress(Public):
 
     def fetched(self) -> None:
         self.pages_fetched += 1
+
+    def claude_failed(self, error: LlmError, message: str) -> None:
+        """One line per failure, except a missing login: it fails every call alike and is said once."""
+        if not isinstance(error, ClaudeSignedOutError):
+            self.errors.append(message)
+        elif not self.claude_signed_out:
+            self.claude_signed_out = True
+            self.errors.append(str(error))
 
 
 class PostReader:
@@ -272,7 +281,7 @@ class RefreshService:
             self.progress.announcements_to_merge = len(unassigned)
             self.progress.events_touched = len(await self._linker.link(city.id, unassigned, self._merged))
         except LlmError as error:
-            self.progress.errors.append(f"Couldn't merge events: {error}")
+            self.progress.claude_failed(error, f"Couldn't merge events: {error}")
         self._sources.recount_events(self._events)
 
     def _merged(self, count: int) -> None:
@@ -308,7 +317,7 @@ class RefreshService:
         try:
             await self._photos.transcribe(batch)
         except LlmError as error:
-            self.progress.errors.append(f"Claude couldn't read {_count(len(batch), 'photo')}; their posts will be read next time: {error}")
+            self.progress.claude_failed(error, f"Claude couldn't read {_count(len(batch), 'photo')}; their posts will be read next time: {error}")
             return
         self.progress.photos_read += len(batch)
 
@@ -316,7 +325,7 @@ class RefreshService:
         try:
             await self._post_reader.read(batch, sources, context)
         except LlmError as error:
-            self.progress.errors.append(f"Claude couldn't read some of the new posts and pages ({len(batch)}): {error}")
+            self.progress.claude_failed(error, f"Claude couldn't read some of the new posts and pages ({len(batch)}): {error}")
             return
         self.progress.posts_read += len(batch)
 

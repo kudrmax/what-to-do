@@ -9,16 +9,16 @@ import subprocess
 import tomllib
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Callable, Protocol
 
 from pydantic import BaseModel
 
+from where_to_go.launcher.paths import PROJECT_DIR
 from where_to_go.updating import UpdateRunner
 
 logger = logging.getLogger(__name__)
 
-PROJECT_DIR = Path(__file__).resolve().parents[2]
 CHANGELOG_FILE = "CHANGELOG.md"
 CHANGELOG_IMAGES_DIR = PurePosixPath("docs/images/changelog")
 
@@ -360,16 +360,24 @@ class WhatsNew:
 
 
 class UpdateCommands:
-    """What a person types in a terminal to restart or update this copy by hand."""
+    """What a person types in a terminal to restart or update this copy by hand: the copy's own command,
+    by its full path, so it works from any folder; on Windows in the syntax of PowerShell."""
 
-    def __init__(self, project_dir: Path) -> None:
+    def __init__(self, project_dir: PurePath, windows: bool = os.name == "nt") -> None:
         self._project_dir = project_dir
+        self._windows = windows
 
     def restart(self) -> str:
-        return f"cd {shlex.quote(str(self._project_dir))} && make down && make up"
+        return self._command("restart")
 
     def update(self) -> str:
-        return f"cd {shlex.quote(str(self._project_dir))} && make update"
+        return self._command("update")
+
+    def _command(self, name: str) -> str:
+        if self._windows:
+            cli = str(PureWindowsPath(self._project_dir) / ".venv" / "Scripts" / "where-to-go.exe")
+            return f'& "{cli}" {name}' if " " in cli else f"{cli} {name}"
+        return f"{shlex.quote(str(PurePosixPath(self._project_dir) / '.venv' / 'bin' / 'where-to-go'))} {name}"
 
 
 @dataclass
