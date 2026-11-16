@@ -9,7 +9,7 @@ from dateutil.rrule import rrulestr
 from sqlmodel import Field, SQLModel
 
 from where_to_go.models import Event, EventKind, EventPublic, Plan, Public
-from where_to_go.repositories import EventRepository
+from where_to_go.repositories import EventRepository, SourceRepository
 from where_to_go.search import SearchQuery
 
 PlanFilter = StrEnum("PlanFilter", {"NONE": "none", **{plan.name: plan.value for plan in Plan}})
@@ -66,10 +66,12 @@ class Feed:
 
     Without an end the feed reaches the last dated event the city has; recurring events repeat up to there
     (and at least four weeks ahead, so a city of regular events alone is not empty).
+    Unmarked cards only paused sources announce are left out.
     """
 
-    def __init__(self, events: EventRepository) -> None:
+    def __init__(self, events: EventRepository, sources: SourceRepository) -> None:
         self._events = events
+        self._sources = sources
 
     def occurrences(self, city_id: int, criteria: FeedFilter) -> list[Occurrence]:
         found = self._lay_out(city_id, criteria)
@@ -82,9 +84,10 @@ class Feed:
 
     def _lay_out(self, city_id: int, criteria: FeedFilter) -> list[Occurrence]:
         end = criteria.end or self._reach(city_id, criteria.start)
+        paused = self._sources.paused_ids(city_id)
         result = []
         for event in self._events.near(city_id, criteria.start, end):
-            if criteria.accepts(event):
+            if not event.is_dropped_with(paused) and criteria.accepts(event):
                 public = EventPublic.model_validate(event)
                 result.extend(Occurrence(date=day, event=public) for day in self._days(event, criteria.start, end))
         return sorted(result, key=self._order)

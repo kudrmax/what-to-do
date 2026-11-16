@@ -243,7 +243,7 @@ class RefreshService:
         city = self._cities.active()
         if city is None:
             raise RuntimeError("no active city selected")
-        sources = {s.id: s for s in self._sources.in_city(city.id)}
+        sources = {s.id: s for s in self._sources.in_city(city.id) if not s.paused}
 
         self.progress.enter(Stage.COLLECTING)
         self.progress.sources_to_collect = len(sources)

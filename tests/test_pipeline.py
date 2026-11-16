@@ -668,3 +668,22 @@ async def test_refresh_counts_announcements_as_it_merges_them(app):
     progress = await container.refresh.wait()
 
     assert (progress.announcements_merged, progress.announcements_to_merge) == (3, 3)
+
+
+@respx.mock
+async def test_paused_source_is_not_read_and_keeps_its_cards(app):
+    container, _, _ = app
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+    container.refresh.start()
+    await container.refresh.wait()
+    kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
+    container.sources.change(kafana.id, paused=True)
+    kafana_channel = respx.get("https://t.me/s/kafana").respond(200, text=channel_page("kafana", [(1, RECENT, "лекция про кафаны"), (2, LATER, "дайджест недели")]))
+    calls_before = kafana_channel.call_count
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    assert progress.stage is Stage.DONE, progress.errors
+    assert kafana_channel.call_count == calls_before
+    assert {e.original_title for e in container.events.in_city(1)} == {"Кафаны"}
