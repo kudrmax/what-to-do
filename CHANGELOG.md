@@ -2,6 +2,16 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.14.3 — 2026-11-16
+
+Long tooltips fit in the window.
+
+### Fixed
+- A long tooltip wraps onto several lines instead of running off the window. This was most visible on **For you**, whose tooltip quotes what you wrote in **Settings**.
+![](docs/images/changelog/1.14.3/tooltip.png)
+- In **Review**, the tooltip on a card's **For you** badge is no longer cut off at the card's edge.
+- In a small window, a **Review** card fits its answers and no longer cuts the description in the middle of a line.
+
 ## 1.14.2 — 2026-11-16
 
 Tooltips are shown in full.
