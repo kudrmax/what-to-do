@@ -2,6 +2,15 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.18.0 — 2026-11-17
+
+Settings are tidied up: what everyone needs comes first, expert knobs wait under Advanced.
+
+### Clearer settings
+Settings now read top to bottom from what matters most: **Cities**, **Appearance**, **Your feed** (what you look for first and the tags) and **App**. Each group says in plain words what it does and when to change it. Recent posts per channel, Claude models and Claude prompts moved under **Advanced**, which stays closed until you open it and is safe to ignore. Every setting works and is stored as before.
+![](docs/images/changelog/1.18.0/settings-before-after.png)
+![](docs/images/changelog/1.18.0/settings-advanced.png)
+
 ## 1.17.0 — 2026-11-17
 
 What To Do now has a dark theme.
