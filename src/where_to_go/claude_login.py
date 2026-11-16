@@ -53,17 +53,17 @@ class ClaudeLogin:
     # What the CLI answers a call with when nobody is logged in.
     SIGNED_OUT_MARKERS = ("not logged in", "please run /login", "invalid api key", "oauth token has expired")
 
-    def __init__(self, cli: Path | None = None) -> None:
+    def __init__(self, cli: list[str] | None = None) -> None:
         self._cli = cli
 
     def check(self) -> ClaudeSignIn:
-        cli = self._cli or self.find_cli()
-        if cli is None:
+        cli = self._cli or self._found_cli()
+        if not cli:
             return ClaudeSignIn.UNKNOWN
         environ = ClaudeCliEnvironment.cleaned(os.environ)
         try:
             completed = subprocess.run(
-                [str(cli), "auth", "status"], capture_output=True, text=True, timeout=self.TIMEOUT_S, stdin=subprocess.DEVNULL, env=environ
+                [*cli, "auth", "status"], capture_output=True, text=True, timeout=self.TIMEOUT_S, stdin=subprocess.DEVNULL, env=environ
             )
             answer = json.loads(completed.stdout)
         except (OSError, subprocess.TimeoutExpired, ValueError):
@@ -76,6 +76,11 @@ class ClaudeLogin:
     def means_signed_out(cls, message: str) -> bool:
         lowered = message.lower()
         return any(marker in lowered for marker in cls.SIGNED_OUT_MARKERS)
+
+    @classmethod
+    def _found_cli(cls) -> list[str]:
+        cli = cls.find_cli()
+        return [str(cli)] if cli else []
 
     @staticmethod
     def find_cli() -> Path | None:

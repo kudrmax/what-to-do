@@ -21,8 +21,8 @@ function status(overrides: Partial<UpdateStatus> = {}): UpdateStatus {
     available: true,
     entries: [ENTRY],
     check_failed: false,
-    restart_command: "cd /app && make down && make up",
-    update_command: "cd /app && make update",
+    restart_command: "/app/.venv/bin/where-to-go restart",
+    update_command: "/app/.venv/bin/where-to-go update",
     ...overrides,
   };
 }
@@ -78,7 +78,7 @@ describe("updates", () => {
     });
     expect(spies.startUpdate).toHaveBeenCalled();
     expect(screen.getByRole("alertdialog", { name: "Updating the app" })).toBeTruthy();
-    expect(screen.getByText("cd /app && make down && make up")).toBeTruthy();
+    expect(screen.getByText("/app/.venv/bin/where-to-go restart")).toBeTruthy();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
     });
@@ -105,7 +105,7 @@ describe("updates", () => {
     await onePoll();
     expect(screen.getByRole("alertdialog", { name: "Update failed" })).toBeTruthy();
     expect(screen.getByText("npm ERR")).toBeTruthy();
-    expect(screen.getByText("cd /app && make update")).toBeTruthy();
+    expect(screen.getByText("/app/.venv/bin/where-to-go update")).toBeTruthy();
   });
 
   it("shows what's new once and remembers it was seen", async () => {
