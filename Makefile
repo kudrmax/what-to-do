@@ -30,10 +30,20 @@ DATA_ARG = $(if $(DATA_DIR),--data "$(DATA_DIR)")
 # The working folder of process $$pid: dev, prod and worktree processes have the same name.
 PID_CWD = lsof -a -p $$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p'
 
+# Defines `descendants <pid>`: every process the given one started, at any depth.
+DESCENDANTS = descendants() { for child in $$(pgrep -P $$1); do echo $$child; descendants $$child; done; }
+
+# Stops the process and, once it is gone, whatever it started and left running: a Claude call
+# outliving the app would keep reading after it was closed.
 define kill_by_pid
 	@if [ -f $(1) ]; then \
 	    pid=$$(cat $(1)); \
-	    if kill -0 $$pid 2>/dev/null; then kill $$pid; echo "Stopped $(2) (PID $$pid)"; fi; \
+	    if kill -0 $$pid 2>/dev/null; then \
+	        $(DESCENDANTS); kids=$$(descendants $$pid); \
+	        kill $$pid; echo "Stopped $(2) (PID $$pid)"; \
+	        for i in $$(seq 1 $(PORT_WAIT_TICKS)); do kill -0 $$pid 2>/dev/null || break; sleep 0.25; done; \
+	        for kid in $$kids; do kill $$kid 2>/dev/null && echo "Stopped what $(2) left running (PID $$kid)"; done; \
+	    fi; \
 	    rm -f $(1); \
 	fi
 endef

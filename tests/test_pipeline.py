@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 
@@ -498,6 +499,39 @@ async def test_a_stop_while_storing_a_post_keeps_none_of_it_and_the_post_is_read
     [event] = container.events.in_city(1)
     assert len(container.mentions.of_post(1)) == 1 and event.source_ids == [1]
     await container.close()
+
+
+class ReadsForever:
+    """Claude that never answers, so the refresh is caught in the middle of a call."""
+
+    def __init__(self) -> None:
+        self.called = asyncio.Event()
+        self.cancelled = False
+
+    async def complete_json(self, system, prompt, schema, images=()):
+        self.called.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+
+
+@respx.mock
+async def test_closing_the_server_stops_claude_mid_refresh_and_the_post_is_read_again(tmp_path):
+    claude = ReadsForever()
+    container = await build(tmp_path, claude, judge_same_titles())
+    serve_channels([(1, RECENT, "лекция про кафаны")], [])
+
+    container.refresh.start()
+    await asyncio.wait_for(claude.called.wait(), timeout=5)
+    await asyncio.wait_for(container.close(), timeout=5)
+
+    assert claude.cancelled
+    assert not container.refresh.progress.running
+    restarted = Container.build(tmp_path, http=httpx.AsyncClient())
+    assert [p.id for p in restarted.posts.unprocessed([1])] == [1]
+    await restarted.close()
 
 
 def test_a_transaction_saves_everything_or_nothing(tmp_path):

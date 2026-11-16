@@ -5,6 +5,7 @@ import logging
 from datetime import UTC, datetime
 from enum import StrEnum
 
+import anyio
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
@@ -199,11 +200,13 @@ class RefreshService:
         self._linker = linker
         self.progress = RefreshProgress()
         self._task: asyncio.Task | None = None
+        self._cancel: anyio.CancelScope | None = None
 
     def start(self) -> RefreshProgress:
         if not self.progress.running:
             self.progress = RefreshProgress(stage=Stage.COLLECTING, started_at=datetime.now(UTC), stage_started_at=datetime.now(UTC))
-            self._task = asyncio.create_task(self._run_safely())
+            self._cancel = anyio.CancelScope()
+            self._task = asyncio.create_task(self._run_safely(self._cancel))
         return self.progress
 
     async def wait(self) -> RefreshProgress:
@@ -211,10 +214,24 @@ class RefreshService:
             await self._task
         return self.progress
 
-    async def _run_safely(self) -> None:
+    async def stop(self) -> None:
+        """Cancels a refresh in progress and waits until Claude's processes are gone;
+        posts already read stay saved, the rest are read next time.
+
+        An anyio cancel, not task.cancel(): the Claude SDK finishes stopping its process only then."""
+        if self._task is None or self._cancel is None or self._task.done():
+            return
+        self._cancel.cancel()
+        await asyncio.wait({self._task})
+
+    async def _run_safely(self, cancel: anyio.CancelScope) -> None:
         try:
-            await self.run()
-            self.progress.stage = Stage.DONE
+            with cancel:
+                await self.run()
+                self.progress.stage = Stage.DONE
+            if cancel.cancelled_caught:
+                self.progress.errors.append("Refresh stopped: the app was closed")
+                self.progress.stage = Stage.FAILED
         except Exception as error:
             log.exception("refresh failed")
             self.progress.errors.append(f"Refresh stopped: {error}")
@@ -305,10 +322,20 @@ class RefreshService:
 
     @staticmethod
     async def _bounded(limit: int, jobs: list) -> None:
-        semaphore = asyncio.Semaphore(limit)
+        """An anyio task group, not asyncio.gather: gather would pass a stop to Claude's calls as task.cancel(),
+        which cuts short the SDK's stopping of its process and leaves it running."""
+        limiter = anyio.CapacityLimiter(limit)
 
         async def guarded(job):
-            async with semaphore:
-                await job
+            try:
+                async with limiter:
+                    await job
+            finally:
+                job.close()  # a job stopped before its turn never ran
 
-        await asyncio.gather(*(guarded(j) for j in jobs))
+        try:
+            async with anyio.create_task_group() as group:
+                for job in jobs:
+                    group.start_soon(guarded, job)
+        except BaseExceptionGroup as failed:
+            raise failed.exceptions[0] from None

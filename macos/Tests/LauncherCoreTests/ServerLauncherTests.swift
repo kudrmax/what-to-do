@@ -53,7 +53,7 @@ final class ServerLauncherTests: XCTestCase {
         guard case .failed = outcome else { return XCTFail("expected failure, got \(outcome)") }
     }
 
-    func testStopsOnlyProcessesItStarted() async {
+    func testStopsServersItStarted() async {
         let runner = FakeRunner()
         let launcher = makeLauncher(probe: FakeProbe(upAfter: 1), runner: runner)
 
@@ -64,42 +64,15 @@ final class ServerLauncherTests: XCTestCase {
         XCTAssertEqual(observed4, ["make up", "make down"])
     }
 
-    func testLeavesForeignProcessesRunning() async {
+    func testStopsServersThatWereAlreadyRunning() async {
         let runner = FakeRunner()
         let launcher = makeLauncher(probe: FakeProbe(upAfter: 0), runner: runner)
 
         _ = await launcher.start()
-        let owns = await launcher.ownsServers
         await launcher.stop()
 
-        XCTAssertFalse(owns)
         let observed5 = await runner.commands
-        XCTAssertEqual(observed5, [])
-    }
-
-    func testAdoptedRunningServersAreStoppedOnQuit() async {
-        let runner = FakeRunner()
-        let launcher = makeLauncher(probe: FakeProbe(upAfter: 0), runner: runner, adoptRunningServers: true)
-
-        let outcome = await launcher.start()
-        let owns = await launcher.ownsServers
-        await launcher.stop()
-
-        XCTAssertEqual(outcome, .ready)
-        XCTAssertTrue(owns)
-        let observed = await runner.commands
-        XCTAssertEqual(observed, ["make down"])
-    }
-
-    func testAdoptingStartsServersThatAreDown() async {
-        let runner = FakeRunner()
-        let launcher = makeLauncher(probe: FakeProbe(upAfter: 1), runner: runner, adoptRunningServers: true)
-
-        _ = await launcher.start()
-        await launcher.stop()
-
-        let observed = await runner.commands
-        XCTAssertEqual(observed, ["make up", "make down"])
+        XCTAssertEqual(observed5, ["make down"])
     }
 
     func testStopsProcessesStartedEvenIfServerNeverCameUp() async {
@@ -172,7 +145,7 @@ final class ServerLauncherTests: XCTestCase {
 
         guard case .failed = outcome else { return XCTFail("expected failure, got \(outcome)") }
         let observed13 = await runner.commands
-        XCTAssertEqual(observed13, [])
+        XCTAssertEqual(observed13, ["make down"])
     }
 
     func testOutputTailIsReadable() async {
@@ -184,14 +157,13 @@ final class ServerLauncherTests: XCTestCase {
         XCTAssertEqual(outcome, .failed(message: "The server didn’t start (exit code 1)", outputTail: "Building\nboom"))
     }
 
-    private func makeLauncher(probe: FakeProbe, runner: FakeRunner, adoptRunningServers: Bool = false) -> ServerLauncher {
+    private func makeLauncher(probe: FakeProbe, runner: FakeRunner) -> ServerLauncher {
         ServerLauncher(
             projectDir: projectDir,
             probe: probe,
             runner: runner,
             sleeper: InstantSleeper(),
-            policy: LaunchPolicy(pollInterval: .milliseconds(1), attempts: 10, outputTailLines: 20),
-            adoptRunningServers: adoptRunningServers
+            policy: LaunchPolicy(pollInterval: .milliseconds(1), attempts: 10, outputTailLines: 20)
         )
     }
 }
