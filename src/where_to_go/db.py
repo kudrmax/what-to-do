@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from where_to_go import models  # noqa: F401  (registers the tables)
+from where_to_go.migrations import AFTER_NEW_COLUMN
 
 
 class Database:
@@ -62,7 +63,7 @@ class Database:
 
     def _add_new_columns(self) -> None:
         """create_all makes missing tables only; a column added to a model is added to its existing table here.
-        A required one needs a server default to fill the rows already there."""
+        A required one needs a server default to fill the rows already there; a migration may then fill it from other data."""
         with self.engine.begin() as connection:
             for table in SQLModel.metadata.sorted_tables:
                 present = {row[1] for row in connection.exec_driver_sql(f'PRAGMA table_info("{table.name}")')}
@@ -75,6 +76,9 @@ class Database:
                     kind = column.type.compile(dialect=self.engine.dialect)
                     rule = f" NOT NULL DEFAULT '{default}'" if default is not None else ""
                     connection.exec_driver_sql(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}{rule}')
+                    migration = AFTER_NEW_COLUMN.get(f"{table.name}.{column.name}")
+                    if migration is not None:
+                        migration(connection)
 
 
 def _sqlite_pragmas(connection, _record) -> None:

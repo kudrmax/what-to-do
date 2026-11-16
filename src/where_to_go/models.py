@@ -38,6 +38,12 @@ class TelegramUrls:
     def post(cls, handle: str, number: int) -> str:
         return f"{cls.BASE}/{handle}/{number}"
 
+    @classmethod
+    def handle_of_post(cls, url: str) -> str | None:
+        """The channel a post link names: https://t.me/<handle>/<number>."""
+        parts = url.removeprefix(cls.BASE + "/").split("/")
+        return parts[0] if url.startswith(cls.BASE + "/") and len(parts) == 2 and parts[1].isdigit() else None
+
 
 class EventKind(StrEnum):
     SINGLE = "single"
@@ -158,7 +164,7 @@ class EventFacts(SQLModel):
         description="The price as a number: 0 when free, the lowest one when the post gives several, null when it does not say "
         "or the entry is a donation of any size",
     )
-    currency: str | None = Field(default=None, description="ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0")
+    currency: str | None = Field(default=None, description="ISO 4217 code of the price, e.g. GBP or EUR; null when price is null or 0")
     tags: list[str] = json_field(list[str], default_factory=list, description="One or two tags from the allowed list")
     is_priority: bool = Field(
         default=False,
@@ -283,6 +289,11 @@ class Event(EventCard, table=True):
 
 class EventPublic(EventCard, Public):
     id: int
+    city_label: str | None = Field(default=None, exclude=True)
+
+    @classmethod
+    def of(cls, event: Event, city: City | None) -> EventPublic:
+        return cls.model_validate(event).model_copy(update={"city_label": city.label if city else None})
 
     @computed_field
     @property
@@ -298,18 +309,54 @@ class EventPublic(EventCard, Public):
     @computed_field
     @property
     def map_url(self) -> str | None:
+        """The address, or the venue, with the city and country unless the address names the city already."""
         target = self.address or self.venue
-        return f"https://www.google.com/maps/search/?api=1&query={quote_plus(target)}" if target else None
+        if not target:
+            return None
+        return f"https://www.google.com/maps/search/?api=1&query={quote_plus(CityLabel.pinpoint(target, self.city_label))}"
 
 
 # ---------- cities, sources, posts, tags ----------
 
 
+class CityLabel:
+    """A city as maps and Claude need it: «London, United Kingdom»."""
+
+    @staticmethod
+    def of(name: str, country: str) -> str:
+        return ", ".join(part for part in (name.strip(), country.strip()) if part)
+
+    @staticmethod
+    def pinpoint(place: str, label: str | None) -> str:
+        """A place with its city added, unless it names the city already: an address alone may be in any city."""
+        if not label:
+            return place
+        city = label.split(",")[0].strip()
+        return place if city.casefold() in place.casefold() else f"{place}, {label}"
+
+
 class CityBase(SQLModel):
-    name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Belgrade"]})
-    timezone: str = Field(
-        description="IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it", schema_extra={"examples": ["Europe/Belgrade"]}
+    name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["London"]})
+    country: str = Field(
+        default="",
+        sa_column_kwargs={"server_default": ""},
+        description="Tells apart cities of the same name for Claude and for maps; empty only in cities added before 1.16",
+        schema_extra={"examples": ["United Kingdom"]},
     )
+    timezone: str = Field(
+        description="IANA time zone, e.g. Europe/London; «today» in the feed is counted in it", schema_extra={"examples": ["Europe/London"]}
+    )
+    card_language: str = Field(
+        default="English",
+        min_length=1,
+        sa_column_kwargs={"server_default": "English"},
+        description="Language Claude writes card titles and descriptions in; changing it reads the recent posts again",
+        schema_extra={"examples": ["English"]},
+    )
+
+    @property
+    def label(self) -> str:
+        return CityLabel.of(self.name, self.country)
 
 
 class City(CityBase, table=True):
@@ -320,6 +367,27 @@ class City(CityBase, table=True):
 
 class CityPublic(CityBase, Public):
     id: int
+
+
+class CityRequest(CityBase):
+    country: str = Field(min_length=1, description=CityBase.model_fields["country"].description, schema_extra={"examples": ["United Kingdom"]})
+
+
+class CityChange(SQLModel):
+    """Only the fields that are sent change."""
+
+    name: str | None = Field(default=None, min_length=1)
+    country: str | None = Field(default=None, min_length=1)
+    timezone: str | None = None
+    card_language: str | None = Field(default=None, min_length=1)
+
+
+class CityContents(Public):
+    """What deleting a city deletes with it."""
+
+    sources: int
+    events: int
+    marked_events: int = Field(description="Cards the user rated or planned to go to")
 
 
 class SourceBase(SQLModel):
@@ -382,6 +450,11 @@ class WebSite(SQLModel, table=True):
     sitemap_urls: list[str] = json_field(list[str], default_factory=list, description="The site's sitemaps that list its events")
     prefix: str = Field(description="The site and the section its event pages are in: https://site/ru/events/")
     times_are_local: bool = Field(default=False, description="The site labels its local time as UTC")
+    times_settled: bool = Field(
+        default=True,
+        sa_column_kwargs={"server_default": "1"},
+        description="False while no page has told how the site labels its time: in a city on UTC in winter both readings agree",
+    )
     horizon_days: int = 30
 
 
@@ -484,7 +557,7 @@ class Tag(TagBase, table=True):
 
 class TagPublic(TagBase, Public):
     id: int
-    is_fallback: bool = Field(description="Put by Claude when no tag fits; always last, cannot be renamed")
+    is_fallback: bool = Field(description="Put by Claude when no tag fits; always last")
     hidden: bool = Field(description="Blacklisted: the feed leaves out cards with this tag unless the user marked them")
 
 
@@ -602,7 +675,7 @@ class PlacePublic(ExtractedPlace, Public):
 class ChannelReference(SQLModel):
     """Another Telegram channel a post points to; a channel the user might want to add."""
 
-    handle: str = Field(description='The channel\'s username without "@", e.g. "belgrade_afisha"; from a t.me link or an @mention')
+    handle: str = Field(description='The channel\'s username without "@", e.g. "london_events"; from a t.me link or an @mention')
     via: ChannelLink = Field(description="forward: the post is forwarded from that channel; link: the post links to it or mentions it")
 
 

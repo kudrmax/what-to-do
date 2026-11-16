@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -19,13 +19,16 @@ from where_to_go.about import APP_NAME, VERSION
 from where_to_go.api import releases as release_routes
 from where_to_go.api.errors import validation_error
 from where_to_go.calendar_file import EventCalendarFile
+from where_to_go.cities import BusyCityError, CityError, DuplicateCityError
 from where_to_go.container import Container
 from where_to_go.feed import FeedFilter, Occurrence, PlanFilter
 from where_to_go.models import (
     IMAGE_ROUTE,
     City,
-    CityBase,
+    CityChange,
+    CityContents,
     CityPublic,
+    CityRequest,
     DevNoteBase,
     DevNotePublic,
     Event,
@@ -60,9 +63,9 @@ and merges the same event announced by several channels into one card.
 add channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.
 
 **Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).
-Without a city these answer 409.
+Without a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.
 
-**Errors** come as `{"detail": "<text in Russian, ready to show>"}`.
+**Errors** come as `{"detail": "<text ready to show>"}`.
 """
 
 
@@ -77,7 +80,7 @@ class ApiTag(StrEnum):
 
 TAG_HELP = {
     ApiTag.SETTINGS: "Settings and cities",
-    ApiTag.SOURCES: "Telegram channels of the active city",
+    ApiTag.SOURCES: "Telegram channels and websites of the active city",
     ApiTag.TAGS: "The fixed list of tags Claude may put on cards",
     ApiTag.EVENTS: "The feed, a card, marks, manual merge and split",
     ApiTag.REFRESH: "Collect new posts and turn them into cards",
@@ -89,7 +92,7 @@ class SourceRequest(SQLModel):
     link: str = Field(
         min_length=1,
         description="A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha",
-        schema_extra={"examples": ["t.me/vstrechi_v_belgrade"]},
+        schema_extra={"examples": ["t.me/londonevents"]},
     )
     title: str | None = Field(default=None, description="Empty: the channel's own title is used")
 
@@ -128,6 +131,22 @@ def _source(source_id: int, c: ContainerDep) -> Source:
         return c.sources.get(source_id)
     except KeyError:
         raise HTTPException(404, "Source not found") from None
+
+
+@contextmanager
+def _city_errors() -> Iterator[None]:
+    try:
+        yield
+    except KeyError:
+        raise HTTPException(404, "City not found") from None
+    except (DuplicateCityError, BusyCityError) as error:
+        raise HTTPException(409, str(error)) from None
+    except CityError as error:
+        raise HTTPException(422, str(error)) from None
+
+
+def _public(c: Container, event: Event) -> EventPublic:
+    return EventPublic.of(event, c.cities.get(event.city_id))
 
 
 def _event(event_id: int, c: ContainerDep) -> Event:
@@ -187,13 +206,35 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         return c.cities.all()
 
     @app.post("/cities", response_model=CityPublic, status_code=201, tags=[ApiTag.SETTINGS])
-    def add_city(body: CityBase, c: ContainerDep):
-        """Adds a city. The first city becomes active; later ones are activated with `PATCH /settings`."""
-        try:
-            ZoneInfo(body.timezone)
-        except (ZoneInfoNotFoundError, ValueError):
-            raise HTTPException(422, "Unknown time zone") from None
-        return c.cities.add(body.name.strip(), body.timezone)
+    def add_city(body: CityRequest, c: ContainerDep):
+        """Adds a city. The first city becomes active; later ones are activated with `PATCH /settings`.
+        The first city of an empty app also brings the default tags, in its card language (English unless Russian).
+
+        409: a city of this name is there already. 422: unknown time zone."""
+        with _city_errors():
+            return c.city_catalog.add(body)
+
+    @app.patch("/cities/{city_id}", response_model=CityPublic, tags=[ApiTag.SETTINGS])
+    def change_city(city_id: int, body: CityChange, c: ContainerDep):
+        """Changes the fields that are sent. A new card language reads the city's recent posts again at its next refresh.
+
+        409: another city has this name. 422: unknown time zone."""
+        with _city_errors():
+            return c.city_catalog.change(city_id, body)
+
+    @app.get("/cities/{city_id}/contents", response_model=CityContents, tags=[ApiTag.SETTINGS])
+    def city_contents(city_id: int, c: ContainerDep):
+        """What deleting the city would delete with it."""
+        with _city_errors():
+            return c.city_catalog.contents(city_id)
+
+    @app.delete("/cities/{city_id}", status_code=204, tags=[ApiTag.SETTINGS])
+    def delete_city(city_id: int, c: ContainerDep):
+        """Deletes the city with its sources, their posts, its cards and marks. Another city becomes active, if there is one.
+
+        409: a refresh is running."""
+        with _city_errors():
+            c.city_catalog.delete(city_id)
 
     # ---------- sources ----------
 
@@ -284,12 +325,15 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     @app.post("/tags", response_model=TagPublic, status_code=201, tags=[ApiTag.TAGS])
     def add_tag(body: TagBase, c: ContainerDep):
-        """Adds a tag. Claude uses it for posts read from now on."""
-        return c.tags.add(body.name.strip())
+        """Adds a tag. Claude uses it for posts read from now on. 409: there is a tag of this name already."""
+        try:
+            return c.tags.add(body.name.strip())
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from None
 
     @app.patch("/tags/{tag_id}", response_model=TagPublic, tags=[ApiTag.TAGS])
     def rename_tag(tag_id: int, body: TagBase, c: ContainerDep):
-        """Renames a tag everywhere, on existing cards too. 422 for the fallback tag."""
+        """Renames a tag everywhere, on existing cards too; the fallback tag as well. 422: another tag has this name."""
         try:
             return c.tags.rename(tag_id, body.name.strip())
         except KeyError:
@@ -331,8 +375,8 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             str,
             Query(
                 description="Words to find in the title, description, venue, address and tags. Each word may be any part "
-                "of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are "
-                "tried as typed in the other keyboard layout"
+                "of a word, case does not matter, one typo is forgiven, and the Cyrillic letters that differ only by dots count as one. "
+                "When nothing is found, the words are tried once more as if typed with the Russian and English keyboard layouts swapped"
             ),
         ] = "",
     ):
@@ -351,12 +395,12 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             plans=frozenset(plans),
             search=SearchQuery(search),
         )
-        return c.feed.occurrences(city.id, criteria)
+        return c.feed.occurrences(city, criteria)
 
     @app.get("/events/{event_id}", response_model=EventPublic, tags=[ApiTag.EVENTS])
-    def event_card(event: EventDep):
+    def event_card(c: ContainerDep, event: EventDep):
         """One card."""
-        return event
+        return _public(c, event)
 
     @app.get("/events/{event_id}/mentions", response_model=list[MentionPublic], tags=[ApiTag.EVENTS])
     def event_mentions(c: ContainerDep, event: EventDep):
@@ -384,7 +428,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     @app.put("/events/{event_id}/mark", response_model=EventPublic, tags=[ApiTag.EVENTS])
     def set_mark(body: Mark, c: ContainerDep, event: EventDep):
         """Sets interest and plan of a card. Both fields are written as sent: null clears a value."""
-        return c.events.set_mark(event.id, body)
+        return _public(c, c.events.set_mark(event.id, body))
 
     @app.post("/events/{event_id}/dev-notes", response_model=DevNotePublic, status_code=201, tags=[ApiTag.EVENTS])
     def add_dev_note(body: DevNoteBase, c: ContainerDep, event: EventDep):
@@ -403,14 +447,14 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             c.cards.merge(event.id, body.other_event_id)
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
-        return c.events.get(event.id)
+        return _public(c, c.events.get(event.id))
 
     @app.post("/events/{event_id}/split", response_model=EventPublic, tags=[ApiTag.EVENTS])
     def split(body: SplitRequest, c: ContainerDep, event: EventDep):
         """Moves one mention out into a card of its own and returns the new card.
         Claude never undoes a manual split. 422: the card has a single source."""
         try:
-            return c.events.get(c.cards.split(event.id, body.mention_id))
+            return _public(c, c.events.get(c.cards.split(event.id, body.mention_id)))
         except KeyError:
             raise HTTPException(404, "This event has no such source") from None
         except ValueError as error:
@@ -433,7 +477,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     @app.post("/refresh", response_model=RefreshProgress, status_code=202, tags=[ApiTag.REFRESH])
     async def start_refresh(c: ContainerDep, city: CityDep):
-        """Starts a refresh of the active city's sources in the background and returns at once.
+        """Starts a refresh of the active city's sources (only that city's) in the background and returns at once.
         A second call while one runs returns the running one."""
         return c.refresh.start()
 

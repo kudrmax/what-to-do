@@ -173,7 +173,8 @@ class EventClock:
     """Turns a page's start and end into the city's wall clock.
 
     Some sites label their local time as UTC («19:00Z» for an event at 19:00 in Belgrade): for them the hours
-    are taken as written. Whether a site does so is decided once, when it is added, from what its pages show.
+    are taken as written. Whether a site does so is decided from what its pages show: when it is added, or, if no
+    page told yet (in a city on UTC both readings agree all winter), at the first refresh whose pages tell.
     """
 
     def __init__(self, times_are_local: bool, zone: ZoneInfo) -> None:
@@ -210,6 +211,11 @@ class EventClock:
     def decide(votes: list[bool | None]) -> bool:
         """Local only when some page says so and none says otherwise: by default the offset is believed."""
         return True in votes and False not in votes
+
+    @staticmethod
+    def settled(votes: list[bool | None]) -> bool:
+        """Some page told one way or the other; until then the offset is believed and the question stays open."""
+        return any(vote is not None for vote in votes)
 
 
 def in_horizon(start: datetime | date, end: datetime | date | None, today: date, days: int) -> bool:

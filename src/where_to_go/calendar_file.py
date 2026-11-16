@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from icalendar import Calendar, Event as CalendarEvent, vRecur
 
 from where_to_go.about import APP_NAME, VERSION
-from where_to_go.models import City, Event, EventKind
+from where_to_go.models import City, CityLabel, Event, EventKind
 
 ASSUMED_DURATION = timedelta(hours=2)
 """Posts give a start time only; a calendar entry needs an end."""
@@ -19,6 +19,7 @@ class EventCalendarFile:
 
     def __init__(self, event: Event, city: City, post_url: str | None) -> None:
         self._event = event
+        self._city = city
         self._zone = ZoneInfo(city.timezone)
         self._post_url = post_url
 
@@ -28,7 +29,7 @@ class EventCalendarFile:
 
     def render(self) -> bytes:
         calendar = Calendar()
-        calendar.add("prodid", f"-//{APP_NAME}//{VERSION}//RU")
+        calendar.add("prodid", f"-//{APP_NAME}//{VERSION}//EN")
         calendar.add("version", "2.0")
         calendar.add_component(self._entry())
         calendar.add_missing_timezones()
@@ -47,7 +48,7 @@ class EventCalendarFile:
             entry.add("rrule", vRecur.from_ical(event.rrule))
         place = ", ".join(dict.fromkeys(p for p in (event.venue, event.address) if p))
         if place:
-            entry.add("location", place)
+            entry.add("location", CityLabel.pinpoint(place, self._city.label))
         entry.add("description", "\n\n".join(p for p in (event.description, self._post_url) if p))
         if self._post_url:
             entry.add("url", self._post_url)

@@ -21,7 +21,6 @@ class AppSettings(BaseModel):
     model_config = ConfigDict(extra="ignore", json_schema_serialization_defaults_required=True)
 
     active_city_id: int | None = Field(default=None, description="null until the first city is added")
-    description_language: str = Field(default="русский", min_length=1, description="Language Claude writes titles and descriptions in")
     recent_posts: int = Field(
         default=20,
         ge=1,
@@ -31,8 +30,8 @@ class AppSettings(BaseModel):
     priority_wish: str = Field(
         default="",
         max_length=2000,
-        description="What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; "
-        "empty: nothing is flagged",
+        description="What the user looks for first, in their own words, in every city. While reading posts Claude flags the events "
+        "that fit it; empty: nothing is flagged",
     )
     extraction_prompt: str = Field(
         default=prompts.EXTRACTION,
