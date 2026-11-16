@@ -27,6 +27,7 @@ const keys = {
 /** What a change makes stale: the cards, or everything that depends on the active city. */
 const STALE = {
   cards: [keys.feed, keys.event, keys.stats],
+  sourceCards: [keys.sources, keys.feed, keys.event, keys.stats],
   sources: [keys.sources, keys.potentialSources],
   potentialSources: [keys.potentialSources],
   tags: [keys.tags, keys.feed, keys.event],
@@ -99,6 +100,8 @@ export const useAddSource = () => useApiMutation((api, source: NewSource) => api
 export const useRenameSource = () => useApiMutation((api, { id, title }: { id: number; title: string }) => api.renameSource(id, title), STALE.sources);
 export const useMarkSource = () =>
   useApiMutation((api, { id, status }: { id: number; status: SourceStatus }) => api.markSource(id, status), STALE.sources);
+export const usePauseSource = () =>
+  useApiMutation((api, { id, paused }: { id: number; paused: boolean }) => api.pauseSource(id, paused), STALE.sourceCards);
 export const useDeleteSource = () => useApiMutation((api, id: number) => api.deleteSource(id), STALE.city);
 export const useAddTag = () => useApiMutation((api, name: string) => api.addTag(name), STALE.tags);
 export const useHideTag = () => useApiMutation((api, { id, hidden }: { id: number; hidden: boolean }) => api.hideTag(id, hidden), STALE.tags);

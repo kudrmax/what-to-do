@@ -113,6 +113,10 @@ class SourceRepository:
         with self._db.session() as s:
             return list(s.exec(select(Source).where(Source.city_id == city_id).order_by(Source.title)))
 
+    def paused_ids(self, city_id: int) -> set[int]:
+        with self._db.session() as s:
+            return set(s.exec(select(Source.id).where(Source.city_id == city_id, col(Source.paused).is_(True))))
+
     def change(self, source_id: int, **fields: Any) -> Source:
         with self._db.session() as s:
             source = s.get(Source, source_id)

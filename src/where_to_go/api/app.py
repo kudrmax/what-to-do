@@ -37,6 +37,7 @@ from where_to_go.models import (
     PotentialSourcePublic,
     Source,
     SourcePublic,
+    SourcePause,
     SourceStatusChange,
     TagBase,
     TagOrder,
@@ -236,6 +237,11 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def mark_source(body: SourceStatusChange, c: ContainerDep, source: SourceDep):
         """Sets the user's mark on a source: new or favorite. It changes nothing in the refresh or the feed."""
         return c.sources.change(source.id, status=body.status)
+
+    @app.put("/sources/{source_id}/paused", response_model=SourcePublic, tags=[ApiTag.SOURCES])
+    def pause_source(body: SourcePause, c: ContainerDep, source: SourceDep):
+        """Pauses or resumes a source. Refresh skips a paused one, so no new posts come from it; its cards stay."""
+        return c.sources.change(source.id, paused=body.paused)
 
     @app.delete("/sources/{source_id}", status_code=204, tags=[ApiTag.SOURCES])
     def delete_source(c: ContainerDep, source: SourceDep):

@@ -102,6 +102,15 @@
   color: var(--accent-strong);
 }
 
+.state--paused {
+  background: var(--bg-muted);
+  color: var(--text-2);
+}
+
+.sources-table__row--paused :is(.sources-table__name, .sources-table__value) {
+  opacity: 0.55;
+}
+
 .state--new {
   background: var(--bg-muted);
   color: var(--text-muted);

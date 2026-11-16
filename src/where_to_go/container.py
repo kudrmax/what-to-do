@@ -177,7 +177,7 @@ class Container:
             originals=OriginalPosts(photo_texts),
             cards=cards,
             linker=linker,
-            feed=Feed(events),
+            feed=Feed(events, sources),
             post_reader=post_reader,
             refresh=refresh,
             releases=Releases.build(project_dir, data_dir, release_source),

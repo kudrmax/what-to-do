@@ -164,6 +164,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sources/{source_id}/paused": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pause Source
+         * @description Pauses or resumes a source. Refresh skips a paused one, so no new posts come from it; its cards stay.
+         */
+        put: operations["pause_source_sources__source_id__paused_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/potential-sources": {
         parameters: {
             query?: never;
@@ -1583,6 +1603,11 @@ export interface components {
          * @enum {string}
          */
         SourceKind: "telegram" | "web";
+        /** SourcePause */
+        SourcePause: {
+            /** Paused */
+            paused: boolean;
+        };
         /** SourcePublic */
         SourcePublic: {
             /** @default telegram */
@@ -1612,6 +1637,12 @@ export interface components {
              * @default new
              */
             status: components["schemas"]["SourceStatus"];
+            /**
+             * Paused
+             * @description Skipped by refresh: no new posts, its cards stay
+             * @default false
+             */
+            paused: boolean;
             /** Id */
             id: number;
             /**
@@ -2111,6 +2142,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SourceStatusChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_source_sources__source_id__paused_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourcePause"];
             };
         };
         responses: {
