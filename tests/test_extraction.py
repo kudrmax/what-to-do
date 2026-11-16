@@ -121,9 +121,36 @@ async def test_prompt_gives_local_publication_time_tags_and_language():
     assert item["photos"] == []
 
 
-def test_posts_are_read_in_batches():
-    batches = extractor(FakeLlm(lambda *_: {})).batches([post(i) for i in range(20)])
-    assert [len(b) for b in batches] == [8, 8, 4]
+def sized(post_id: int, length: int, images: int = 0) -> Post:
+    item = post(post_id, images)
+    item.text = "x" * length
+    return item
+
+
+def batch_ids(posts: list[Post], texts: dict[str, PhotoText] | None = None) -> list[list[int]]:
+    return [[p.id for p in batch] for batch in extractor(FakeLlm(lambda *_: {})).batches(posts, texts or {})]
+
+
+def test_short_posts_are_read_eight_at_a_time():
+    assert [len(b) for b in batch_ids([post(i) for i in range(20)])] == [8, 8, 4]
+
+
+def test_a_batch_holds_no_more_text_than_claude_reads_in_full():
+    """Two digests in one call made Claude skip a third to all of a digest's events; alone it reads every one."""
+    limit = PostExtractor.BATCH_CHARS
+    posts = [sized(1, 1500), sized(2, 1500), sized(3, limit - 1000), sized(4, 900), sized(5, limit - 500)]
+    assert batch_ids(posts) == [[1, 2], [3, 4], [5]]
+
+
+def test_a_post_longer_than_a_batch_is_read_alone():
+    posts = [sized(1, 100), sized(2, PostExtractor.BATCH_CHARS * 2), sized(3, 100)]
+    assert batch_ids(posts) == [[1], [2], [3]]
+
+
+def test_text_on_a_post_photos_counts_toward_its_size():
+    """A digest is often a collage of posters with a one-line caption."""
+    collage = {"0.jpg": PhotoText(image="0.jpg", text="x" * PostExtractor.BATCH_CHARS, shows="collage", read_with="r")}
+    assert batch_ids([sized(1, 100), sized(2, 10, images=1), sized(3, 100)], collage) == [[1], [2], [3]]
 
 
 async def test_the_prompt_comes_from_settings():
