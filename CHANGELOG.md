@@ -2,6 +2,15 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.15.2 — 2026-11-16
+
+A **Review** card shows what a card in the list shows.
+
+### Fixed
+- A **Review** card no longer adds its own details. It shows the time, one tag, the price, the title and the description, just as the list does, and no longer the place or extra tags. The day sits above the card, as a heading in the list does.
+- The rating row on a **Review** card lost its **Interest** label and gained the **Note to developer** button the list card has.
+![](docs/images/changelog/1.15.2/review-card.png)
+
 ## 1.15.1 — 2026-11-16
 
 Digests are read in full.
