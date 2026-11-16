@@ -2,6 +2,14 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.15.0 — 2026-11-16
+
+Sources can be paused instead of deleted.
+
+### Pause a source
+A source you no longer want new events from can be paused with the pause button next to **Delete** in **Sources**. **Refresh** skips a paused source, and its events you have not marked leave **Upcoming**, **Calendar** and **Stats**. Events you have rated or planned stay, and so do events another source also announces. Press the play button to resume it: its hidden events come back.
+![](docs/images/changelog/1.15.0/pause.png)
+
 ## 1.14.3 — 2026-11-16
 
 Long tooltips fit in the window.
