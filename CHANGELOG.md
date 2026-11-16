@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.15.3 — 2026-11-16
+
+The window always opens the version you installed.
+
+### Fixed
+- After an update the app window could keep showing the previous version for up to a few hours, even after quitting and reopening the app or pressing **Restart for update**: new features were missing and recent ones could even disappear until you pressed Cmd+R. The window now checks with the app on every start and always opens the installed version.
+
 ## 1.15.2 — 2026-11-16
 
 A **Review** card shows what a card in the list shows.
