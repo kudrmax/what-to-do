@@ -1,7 +1,7 @@
 """The app speaks English: its interface, messages and documentation have no Russian letters.
 
-Russian stays only where it is the user's data or what reads that data: the default tags, the prompts,
-the language Claude describes events in, and the search that forgives a wrong keyboard layout.
+Russian stays only where it is the user's data or what reads that data: the Russian default tags, the prompts,
+the card language installs had before it became the city's, and the search that forgives a wrong keyboard layout.
 Tests and their fixtures are data too.
 """
 
@@ -23,7 +23,7 @@ ALLOWED: dict[str, object] = {
     "src/where_to_go/prompts.py": WHOLE_FILE,
     "src/where_to_go/search.py": WHOLE_FILE,
     "scripts/migrate_first_schema.py": WHOLE_FILE,
-    "src/where_to_go/container.py": (
+    "src/where_to_go/cities.py": (
         '"Концерт"',
         '"Вечеринка"',
         '"Лекция"',
@@ -38,9 +38,12 @@ ALLOWED: dict[str, object] = {
         '"Прогулка"',
         '"Маркет"',
         '"Детям"',
-        '"не распознано"',
+        '"Другое"',
+        '"русский"',
+        '"русский язык"',
+        '"по-русски"',
     ),
-    "src/where_to_go/settings.py": ('default="русский"',),
+    "src/where_to_go/migrations.py": ('LEGACY_CARD_LANGUAGE = "русский"',),
     "scripts/common.py": ('"Белград"',),
     ".claude/skills/release/SKILL.md": ('"выпускай релиз"', '"сделай релиз"'),
 }

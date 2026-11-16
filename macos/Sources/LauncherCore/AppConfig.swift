@@ -11,6 +11,7 @@ public struct AppConfig: Sendable {
     public static let menuBarIconKey = "WTGMenuBarIcon"
 
     public let projectDir: URL
+    public let port: Int
     /// The server listens only on 127.0.0.1. `localhost` may resolve to ::1 first, where any
     /// other program can listen on the same port and answer instead of the app.
     public let serverURL: URL
@@ -30,6 +31,7 @@ public struct AppConfig: Sendable {
             throw AppConfigError(description: "\(Self.portKey) in Info.plist is not a port number")
         }
         projectDir = URL(fileURLWithPath: dir, isDirectory: true)
+        self.port = port
         serverURL = URL(string: "http://127.0.0.1:\(port)/")!
         showsMenuBarIcon = infoDictionary[Self.menuBarIconKey] as? Bool ?? false
     }

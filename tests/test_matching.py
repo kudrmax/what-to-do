@@ -4,7 +4,7 @@ import pytest
 
 from tests.helpers import FakeLlm, mention
 from where_to_go.db import Database
-from where_to_go.models import EventFacts, EventKind, UpdateKind
+from where_to_go.models import City, EventFacts, EventKind, UpdateKind
 from where_to_go.matching import CandidateFinder, DuplicateJudge, MatchDecision
 from where_to_go.repositories import CityRepository, EventRepository, SettingsRepository
 
@@ -16,7 +16,7 @@ def judge_answer(*decisions):
 @pytest.fixture
 def events():
     db = Database(":memory:")
-    CityRepository(db, SettingsRepository(db)).add("Белград", "Europe/Belgrade")
+    CityRepository(db, SettingsRepository(db)).add(City(name="Белград", timezone="Europe/Belgrade"))
     yield EventRepository(db)
     db.close()
 

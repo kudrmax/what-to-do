@@ -12,7 +12,7 @@ macos_dir=${0:A:h:h}
 
 command -v trash >/dev/null || { echo "ERROR: 'trash' not found (macOS 15+ has it, or: brew install trash)"; exit 1; }
 if [[ $(git -C "$project_dir" rev-parse --git-dir) != $(git -C "$project_dir" rev-parse --git-common-dir) ]]; then
-    echo "ERROR: make app is for the dev and prod copies, not a worktree: the app would run make up on the dev port."
+    echo "ERROR: make app is for the dev and prod copies, not a worktree: the app would start the server on that copy's port."
     exit 1
 fi
 install_dir="$HOME/Applications"

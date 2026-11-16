@@ -6,11 +6,12 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from tests.helpers import FakeLlm, channel_page, judge_same_titles, photos_saying
+from tests.helpers import BELGRADE, add_city, FakeLlm, channel_page, judge_same_titles, photos_saying
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.api import create_app
 from where_to_go.container import Container
-from where_to_go.models import Source
+from where_to_go.models import ChannelLink, Source
+from where_to_go.repositories import PotentialSourceRepository
 from where_to_go.refresh import Stage
 from where_to_go.telegram import SourceError, TelegramPageParser
 
@@ -43,7 +44,7 @@ def forward(handle: str) -> dict:
 
 async def build(tmp_path, extraction) -> Container:
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
-    city = container.cities.add("Белград", "Europe/Belgrade")
+    city = add_city(container, "Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
     container.sources.add(Source(city_id=city.id, handle="afisha", title="Афиша"))
     return container
@@ -180,7 +181,7 @@ def test_potential_sources_are_listed_and_marked_through_the_api(tmp_path):
         respx.route(host="testserver").pass_through()
         respx.get("https://t.me/s/kafana").respond(200, text=channel_page("kafana", [(1, RECENT, "ссылка")]))
         respx.get(url__startswith="https://cdn.test/").respond(200, content=b"x", headers={"content-type": "image/jpeg"})
-        client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+        client.post("/cities", json=BELGRADE)
         client.post("/sources", json={"link": "kafana"})
         client.post("/refresh")
         while client.get("/refresh").json()["running"]:
@@ -252,4 +253,32 @@ async def test_a_channel_already_added_meanwhile_is_just_marked_processed(tmp_pa
 
     assert source.title == "Лекции"
     assert container.potential_sources.in_city(1) == []
+    await container.close()
+
+
+@respx.mock
+async def test_a_renamed_channel_never_suggests_itself_under_its_new_name(tmp_path):
+    """t.me/s/kafana serves the posts of a channel renamed to kafana_new: links to itself are not leads."""
+    container = await build(tmp_path, pointing({"ссылка": [link("kafana_new"), link("new_one")]}))
+    respx.get(url__startswith="https://cdn.test/").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://t.me/s/kafana").respond(200, text=channel_page("kafana_new", [(1, RECENT, "ссылка на себя")]))
+    respx.get("https://t.me/s/afisha").respond(200, text=channel_page("afisha", []))
+
+    await refresh(container)
+
+    assert handles(container) == ["new_one"]
+    await container.close()
+
+
+@respx.mock
+async def test_a_lead_found_before_the_fix_disappears_once_its_channel_is_known_to_be_a_source(tmp_path):
+    container = await build(tmp_path, pointing({}))
+    respx.get(url__startswith="https://cdn.test/").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://t.me/s/kafana").respond(200, text=channel_page("kafana_new", [(1, RECENT, "пост")]))
+    respx.get("https://t.me/s/afisha").respond(200, text=channel_page("afisha", [(2, RECENT, "пост")]))
+    await refresh(container)
+    afisha_post = next(p for p in container.posts.to_read([2], "other", 20, datetime.now(UTC).date()))
+    PotentialSourceRepository(container.db).note(1, afisha_post.id, {"kafana_new": ChannelLink.LINK})
+
+    assert handles(container) == []
     await container.close()

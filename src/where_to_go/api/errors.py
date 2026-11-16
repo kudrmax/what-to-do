@@ -34,5 +34,5 @@ def _plain(value: Any) -> Any:
 
 
 async def validation_error(_: Request, exc: RequestValidationError | ValidationError) -> JSONResponse:
-    """A request or a value the models refuse; errors keep the API's one shape, {"detail": "<Russian text>"}."""
+    """A request or a value the models refuse; errors keep the API's one shape, {"detail": "<text ready to show>"}."""
     return JSONResponse(status_code=422, content={"detail": _message(exc.errors()[0])})

@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from enum import StrEnum
+from zoneinfo import ZoneInfo
 
 import anyio
 from pydantic import computed_field
@@ -13,7 +14,7 @@ from where_to_go.models import City, ExtractedEvent, Post, Public, Source, Sourc
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
-from where_to_go.llm import LlmError
+from where_to_go.llm import ClaudeSignedOutError, LlmError
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
@@ -70,6 +71,7 @@ class RefreshProgress(Public):
     posts_read: int = 0
     events_touched: int = Field(default=0, description="Cards created or updated")
     errors: list[str] = Field(default_factory=list, description="Human-readable, ready to show")
+    claude_signed_out: bool = Field(default=False, description="Claude Code has no login: nothing was read; the user must sign in first")
 
     @computed_field
     @property
@@ -85,6 +87,14 @@ class RefreshProgress(Public):
 
     def fetched(self) -> None:
         self.pages_fetched += 1
+
+    def claude_failed(self, error: LlmError, message: str) -> None:
+        """One line per failure, except a missing login: it fails every call alike and is said once."""
+        if not isinstance(error, ClaudeSignedOutError):
+            self.errors.append(message)
+        elif not self.claude_signed_out:
+            self.claude_signed_out = True
+            self.errors.append(str(error))
 
 
 class PostReader:
@@ -126,7 +136,6 @@ class PostReader:
         return ExtractionContext(
             city=city,
             prompt=settings.extraction_prompt,
-            language=settings.description_language,
             tags=[t.name for t in tags if not t.is_fallback],
             fallback_tag=self._tags.fallback(),
             priority_wish=settings.priority_wish,
@@ -250,7 +259,8 @@ class RefreshService:
         await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s, city) for s in sources.values()])
 
         context = self._post_reader.context(city)
-        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts)
+        today = datetime.now(ZoneInfo(city.timezone)).date()
+        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts, today)
 
         self.progress.enter(Stage.PHOTOS)
         with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text
@@ -272,7 +282,7 @@ class RefreshService:
             self.progress.announcements_to_merge = len(unassigned)
             self.progress.events_touched = len(await self._linker.link(city.id, unassigned, self._merged))
         except LlmError as error:
-            self.progress.errors.append(f"Couldn't merge events: {error}")
+            self.progress.claude_failed(error, f"Couldn't merge events: {error}")
         self._sources.recount_events(self._events)
 
     def _merged(self, count: int) -> None:
@@ -308,7 +318,7 @@ class RefreshService:
         try:
             await self._photos.transcribe(batch)
         except LlmError as error:
-            self.progress.errors.append(f"Claude couldn't read {_count(len(batch), 'photo')}; their posts will be read next time: {error}")
+            self.progress.claude_failed(error, f"Claude couldn't read {_count(len(batch), 'photo')}; their posts will be read next time: {error}")
             return
         self.progress.photos_read += len(batch)
 
@@ -316,7 +326,7 @@ class RefreshService:
         try:
             await self._post_reader.read(batch, sources, context)
         except LlmError as error:
-            self.progress.errors.append(f"Claude couldn't read some of the new posts and pages ({len(batch)}): {error}")
+            self.progress.claude_failed(error, f"Claude couldn't read some of the new posts and pages ({len(batch)}): {error}")
             return
         self.progress.posts_read += len(batch)
 

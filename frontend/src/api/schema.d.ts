@@ -64,8 +64,59 @@ export interface paths {
         /**
          * Add City
          * @description Adds a city. The first city becomes active; later ones are activated with `PATCH /settings`.
+         *     The first city of an empty app also brings the default tags, in its card language (English unless Russian).
+         *
+         *     409: a city of this name is there already. 422: unknown time zone.
          */
         post: operations["add_city_cities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cities/{city_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete City
+         * @description Deletes the city with its sources, their posts, its cards and marks. Another city becomes active, if there is one.
+         *
+         *     409: a refresh is running.
+         */
+        delete: operations["delete_city_cities__city_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change City
+         * @description Changes the fields that are sent. A new card language reads the city's recent posts again at its next refresh.
+         *
+         *     409: another city has this name. 422: unknown time zone.
+         */
+        patch: operations["change_city_cities__city_id__patch"];
+        trace?: never;
+    };
+    "/cities/{city_id}/contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * City Contents
+         * @description What deleting the city would delete with it.
+         */
+        get: operations["city_contents_cities__city_id__contents_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -262,7 +313,7 @@ export interface paths {
         put?: never;
         /**
          * Add Tag
-         * @description Adds a tag. Claude uses it for posts read from now on.
+         * @description Adds a tag. Claude uses it for posts read from now on. 409: there is a tag of this name already.
          */
         post: operations["add_tag_tags_post"];
         delete?: never;
@@ -286,7 +337,7 @@ export interface paths {
         head?: never;
         /**
          * Rename Tag
-         * @description Renames a tag everywhere, on existing cards too. 422 for the fallback tag.
+         * @description Renames a tag everywhere, on existing cards too; the fallback tag as well. 422: another tag has this name.
          */
         patch: operations["rename_tag_tags__tag_id__patch"];
         trace?: never;
@@ -551,10 +602,30 @@ export interface paths {
         put?: never;
         /**
          * Start Refresh
-         * @description Starts a refresh of the active city's sources in the background and returns at once.
+         * @description Starts a refresh of the active city's sources (only that city's) in the background and returns at once.
          *     A second call while one runs returns the running one.
          */
         post: operations["start_refresh_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claude/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Claude Sign In
+         * @description Whether Claude Code, which reads the posts, is signed in; `hint` says how to sign in.
+         */
+        get: operations["claude_sign_in_claude_sign_in_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -757,12 +828,6 @@ export interface components {
              */
             active_city_id: number | null;
             /**
-             * Description Language
-             * @description Language Claude writes titles and descriptions in
-             * @default русский
-             */
-            description_language: string;
-            /**
              * Recent Posts
              * @description How many latest posts of every channel are read; raising it reads older posts on the next refresh
              * @default 20
@@ -770,7 +835,7 @@ export interface components {
             recent_posts: number;
             /**
              * Priority Wish
-             * @description What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             * @description What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged
              * @default
              */
             priority_wish: string;
@@ -885,35 +950,91 @@ export interface components {
          * @enum {string}
          */
         ChannelLink: "link" | "forward";
-        /** CityBase */
-        CityBase: {
+        /**
+         * CityChange
+         * @description Only the fields that are sent change.
+         */
+        CityChange: {
+            /** Name */
+            name?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /** Card Language */
+            card_language?: string | null;
+        };
+        /**
+         * CityContents
+         * @description What deleting a city deletes with it.
+         */
+        CityContents: {
+            /** Sources */
+            sources: number;
+            /** Events */
+            events: number;
             /**
-             * Name
-             * @example Belgrade
+             * Marked Events
+             * @description Cards the user rated or planned to go to
              */
-            name: string;
-            /**
-             * Timezone
-             * @description IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it
-             * @example Europe/Belgrade
-             */
-            timezone: string;
+            marked_events: number;
         };
         /** CityPublic */
         CityPublic: {
             /**
              * Name
-             * @example Belgrade
+             * @example London
              */
             name: string;
             /**
+             * Country
+             * @description Tells apart cities of the same name for Claude and for maps; empty only in cities added before 1.16
+             * @default
+             * @example United Kingdom
+             */
+            country: string;
+            /**
              * Timezone
-             * @description IANA time zone, e.g. Europe/Belgrade; «today» in the feed is counted in it
-             * @example Europe/Belgrade
+             * @description IANA time zone, e.g. Europe/London; «today» in the feed is counted in it
+             * @example Europe/London
              */
             timezone: string;
+            /**
+             * Card Language
+             * @description Language Claude writes card titles and descriptions in; changing it reads the recent posts again
+             * @default English
+             * @example English
+             */
+            card_language: string;
             /** Id */
             id: number;
+        };
+        /** CityRequest */
+        CityRequest: {
+            /**
+             * Name
+             * @example London
+             */
+            name: string;
+            /**
+             * Country
+             * @description Tells apart cities of the same name for Claude and for maps; empty only in cities added before 1.16
+             * @example United Kingdom
+             */
+            country: string;
+            /**
+             * Timezone
+             * @description IANA time zone, e.g. Europe/London; «today» in the feed is counted in it
+             * @example Europe/London
+             */
+            timezone: string;
+            /**
+             * Card Language
+             * @description Language Claude writes card titles and descriptions in; changing it reads the recent posts again
+             * @default English
+             * @example English
+             */
+            card_language: string;
         };
         /** CityStats */
         CityStats: {
@@ -956,6 +1077,17 @@ export interface components {
          * @enum {string}
          */
         ClaudeModel: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
+        /**
+         * ClaudeSignIn
+         * @enum {string}
+         */
+        ClaudeSignIn: "signed_in" | "signed_out" | "unknown";
+        /** ClaudeSignInView */
+        ClaudeSignInView: {
+            state: components["schemas"]["ClaudeSignIn"];
+            /** Hint */
+            hint: string;
+        };
         /** Conflict */
         Conflict: {
             field: components["schemas"]["ConflictField"];
@@ -1060,7 +1192,7 @@ export interface components {
             price: number | null;
             /**
              * Currency
-             * @description ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0
+             * @description ISO 4217 code of the price, e.g. GBP or EUR; null when price is null or 0
              */
             currency: string | null;
             /**
@@ -1099,7 +1231,10 @@ export interface components {
              * @description The venue and the address as one line, or whichever is known.
              */
             readonly place: string | null;
-            /** Map Url */
+            /**
+             * Map Url
+             * @description The address, or the venue, with the city and country unless the address names the city already.
+             */
             readonly map_url: string | null;
         };
         /** EventStats */
@@ -1186,7 +1321,7 @@ export interface components {
             price?: number | null;
             /**
              * Currency
-             * @description ISO 4217 code of the price, e.g. RSD or EUR; null when price is null or 0
+             * @description ISO 4217 code of the price, e.g. GBP or EUR; null when price is null or 0
              */
             currency?: string | null;
             /**
@@ -1513,6 +1648,12 @@ export interface components {
              * @description Human-readable, ready to show
              */
             errors: string[];
+            /**
+             * Claude Signed Out
+             * @description Claude Code has no login: nothing was read; the user must sign in first
+             * @default false
+             */
+            claude_signed_out: boolean;
             /** Running */
             readonly running: boolean;
         };
@@ -1527,18 +1668,13 @@ export interface components {
              */
             active_city_id?: number | null;
             /**
-             * Description Language
-             * @description Language Claude writes titles and descriptions in
-             */
-            description_language?: string | null;
-            /**
              * Recent Posts
              * @description How many latest posts of every channel are read; raising it reads older posts on the next refresh
              */
             recent_posts?: number | null;
             /**
              * Priority Wish
-             * @description What the user looks for first, in their own words. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             * @description What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged
              */
             priority_wish?: string | null;
             /**
@@ -1661,7 +1797,7 @@ export interface components {
             /**
              * Link
              * @description A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha
-             * @example t.me/vstrechi_v_belgrade
+             * @example t.me/londonevents
              */
             link: string;
             /**
@@ -1738,7 +1874,7 @@ export interface components {
             id: number;
             /**
              * Is Fallback
-             * @description Put by Claude when no tag fits; always last, cannot be renamed
+             * @description Put by Claude when no tag fits; always last
              */
             is_fallback: boolean;
             /**
@@ -1956,7 +2092,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CityBase"];
+                "application/json": components["schemas"]["CityRequest"];
             };
         };
         responses: {
@@ -1967,6 +2103,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CityPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_city_cities__city_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                city_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_city_cities__city_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                city_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CityChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CityPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    city_contents_cities__city_id__contents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                city_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CityContents"];
                 };
             };
             /** @description Validation Error */
@@ -2459,7 +2690,7 @@ export interface operations {
                 hide_multiday?: boolean;
                 /** @description Only events Claude flagged as fitting the priority wish from settings */
                 only_priority?: boolean;
-                /** @description Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter and the Russian letters ie and yo count as one, one typo is forgiven; when nothing is found, the words are tried as typed in the other keyboard layout */
+                /** @description Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter, one typo is forgiven, and the Cyrillic letters that differ only by dots count as one. When nothing is found, the words are tried once more as if typed with the Russian and English keyboard layouts swapped */
                 search?: string;
             };
             header?: never;
@@ -2806,6 +3037,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefreshProgress"];
+                };
+            };
+        };
+    };
+    claude_sign_in_claude_sign_in_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaudeSignInView"];
                 };
             };
         };

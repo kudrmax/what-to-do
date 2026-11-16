@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime
 
+from tests.helpers import add_city
 from where_to_go.container import Container
 from where_to_go.models import CollectedPost, EventFacts, EventKind, ExtractedEvent, Mark, PhotoText, Plan, Source
 from where_to_go.repositories import PhotoTextRepository
@@ -14,8 +15,8 @@ def facts(title: str, tags: list[str]) -> EventFacts:
 
 def test_counts_what_the_city_gave(tmp_path):
     c = Container.build(tmp_path)
-    city = c.cities.add("Белград", "Europe/Belgrade")
-    other = c.cities.add("Нови-Сад", "Europe/Belgrade")
+    city = add_city(c, "Белград", "Europe/Belgrade")
+    other = add_city(c, "Нови-Сад", "Europe/Belgrade")
     bar = c.sources.add(Source(handle="bar", title="Бар", city_id=city.id))
     club = c.sources.add(Source(handle="club", title="Клуб", city_id=city.id))
     elsewhere = c.sources.add(Source(handle="ns", title="НС", city_id=other.id))
@@ -59,7 +60,7 @@ def test_counts_what_the_city_gave(tmp_path):
 
 def test_an_empty_city_has_zero_everywhere(tmp_path):
     c = Container.build(tmp_path)
-    stats = c.statistics.of_city(c.cities.add("Белград", "Europe/Belgrade"), NOW)
+    stats = c.statistics.of_city(add_city(c, "Белград", "Europe/Belgrade"), NOW)
     assert stats.posts.read == stats.events.cards == stats.marked == 0
     assert stats.tags == stats.sources == []
     assert [(w.start, w.posts) for w in stats.weeks] == [(date(2026, 11, 9), 0)]
@@ -67,7 +68,7 @@ def test_an_empty_city_has_zero_everywhere(tmp_path):
 
 def test_weeks_go_back_no_further_than_the_limit(tmp_path):
     c = Container.build(tmp_path)
-    city = c.cities.add("Белград", "Europe/Belgrade")
+    city = add_city(c, "Белград", "Europe/Belgrade")
     source = c.sources.add(Source(handle="bar", title="Бар", city_id=city.id))
     c.posts.add_new(source.id, CollectedPost(external_id=1, url="u", published_at=datetime(2025, 1, 1, tzinfo=UTC), text="т"), [])
     c.posts.mark_processed(c.posts.unprocessed([source.id])[0].id, "rules")

@@ -1,12 +1,12 @@
 import asyncio
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
 import respx
 
-from tests.helpers import photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
+from tests.helpers import BELGRADE, add_city, photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.container import Container
 from where_to_go.models import Booking, BookingKind, Mark, Mention, Plan, Source, SourceKind, WebSite
 from where_to_go.llm import LlmError
@@ -30,7 +30,7 @@ async def app(tmp_path):
     judge = judge_same_titles()
     http = httpx.AsyncClient()
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, photo_llm=photos_saying(), http=http)
-    city = container.cities.add("Белград", "Europe/Belgrade")
+    city = add_city(container, "Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
     container.sources.add(Source(city_id=city.id, handle="afisha", title="Афиша"))
     yield container, extraction, judge
@@ -127,7 +127,7 @@ class FailingOnce:
 
 async def build(tmp_path, extraction, judge):
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge, photo_llm=photos_saying(), http=httpx.AsyncClient())
-    city = container.cities.add("Белград", "Europe/Belgrade")
+    city = add_city(container, "Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
     container.sources.add(Source(city_id=city.id, handle="afisha", title="Афиша"))
     return container
@@ -182,7 +182,7 @@ async def test_refresh_without_city_fails_visibly(tmp_path):
 @respx.mock
 async def test_only_sources_of_the_active_city_are_refreshed(tmp_path):
     container = await build(tmp_path, extraction_by_text({}), judge_same_titles())
-    other = container.cities.add("Бангкок", "Asia/Bangkok")
+    other = add_city(container, "Бангкок", "Asia/Bangkok")
     container.sources.add(Source(city_id=other.id, handle="bkk", title="Бангкок афиша"))
     serve_channels([], [])
     bangkok = respx.get("https://t.me/s/bkk").respond(200, text=channel_page("bkk", []))
@@ -417,7 +417,7 @@ async def test_only_the_latest_posts_of_a_channel_and_not_hand_curated_ones_are_
 
     assert progress.posts_to_read == 1  # post 2: post 1 is older than the latest three, 3 and 4 were merged by hand
     kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
-    assert [p.external_id for p in container.posts.to_read([kafana.id], "other rules", 3)] == [2]
+    assert [p.external_id for p in container.posts.to_read([kafana.id], "other rules", 3, date.today())] == [2]
 
 
 @respx.mock
@@ -537,12 +537,12 @@ async def test_closing_the_server_stops_claude_mid_refresh_and_the_post_is_read_
 def test_a_transaction_saves_everything_or_nothing(tmp_path):
     container = Container.build(tmp_path, extraction_llm=FakeLlm([]), matching_llm=FakeLlm([]), photo_llm=photos_saying(), http=httpx.AsyncClient())
     with pytest.raises(ProcessDied), container.db.transaction():
-        container.cities.add("Белград", "Europe/Belgrade")
+        add_city(container, "Белград", "Europe/Belgrade")
         raise ProcessDied
     assert container.cities.all() == []
     with container.db.transaction():
-        container.cities.add("Белград", "Europe/Belgrade")
-        container.cities.add("Нови-Сад", "Europe/Belgrade")
+        add_city(container, "Белград", "Europe/Belgrade")
+        add_city(container, "Нови-Сад", "Europe/Belgrade")
     assert len(Container.build(tmp_path, http=httpx.AsyncClient()).cities.all()) == 2
 
 

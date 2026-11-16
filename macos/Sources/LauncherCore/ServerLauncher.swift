@@ -19,17 +19,16 @@ public enum LaunchOutcome: Equatable, Sendable {
     case failed(message: String, outputTail: String)
 }
 
-/// Brings the local server up through `make`, and always takes it down on exit, whoever started it:
-/// a server left behind keeps a refresh running and Claude reading after the app is gone.
+/// Brings the local server up through the copy's command line, and always takes it down on exit, whoever
+/// started it: a server left behind keeps a refresh running and Claude reading after the app is gone.
 ///
-/// Starts are single-flight, and stopping waits for an in-flight `make up`: killing it midway
+/// Starts are single-flight, and stopping waits for an in-flight `up`: killing it midway
 /// would leave whatever it already spawned running with nobody to stop it.
 public actor ServerLauncher {
-    static let upCommand = "make up"
-    static let downCommand = "make down"
     private static let ansiEscape = "\u{1B}\\[[0-9;?]*[A-Za-z]"
 
     private let projectDir: URL
+    private let commands: ServerCommands
     private let probe: HealthProbe
     private let runner: CommandRunner
     private let sleeper: Sleeper
@@ -39,12 +38,14 @@ public actor ServerLauncher {
 
     public init(
         projectDir: URL,
+        commands: ServerCommands,
         probe: HealthProbe,
         runner: CommandRunner,
         sleeper: Sleeper,
         policy: LaunchPolicy
     ) {
         self.projectDir = projectDir
+        self.commands = commands
         self.probe = probe
         self.runner = runner
         self.sleeper = sleeper
@@ -71,7 +72,7 @@ public actor ServerLauncher {
     private func performStart() async -> LaunchOutcome {
         if await probe.isUp() { return .ready }
 
-        let result = await runner.run(Self.upCommand, in: projectDir)
+        let result = await runner.run(commands.up, in: projectDir)
         guard result.exitCode == 0 else {
             return .failed(message: "The server didn’t start (exit code \(result.exitCode))", outputTail: tail(of: result.output))
         }
@@ -85,7 +86,7 @@ public actor ServerLauncher {
 
     private func performStop() async {
         _ = await inFlightStart?.value
-        _ = await runner.run(Self.downCommand, in: projectDir)
+        _ = await runner.run(commands.down, in: projectDir)
     }
 
     private func tail(of output: String) -> String {

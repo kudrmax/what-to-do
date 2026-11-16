@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 import respx
 
-from tests.helpers import FakeLlm, channel_page, extraction_by_text, judge_same_titles, photos_saying, raw_event
+from tests.helpers import BELGRADE, add_city, FakeLlm, channel_page, extraction_by_text, judge_same_titles, photos_saying, raw_event
 from tests.test_pipeline import LATER, RECENT, FailingOnce, serve_channels
 from where_to_go.container import Container
 from where_to_go.db import Database
@@ -100,7 +100,7 @@ def test_photos_and_posts_are_read_by_sonnet_and_duplicates_merged_by_haiku_by_d
 
 async def build(tmp_path, extraction, photo_llm):
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge_same_titles(), photo_llm=photo_llm, http=httpx.AsyncClient())
-    city = container.cities.add("Белград", "Europe/Belgrade")
+    city = add_city(container, "Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
     container.sources.add(Source(city_id=city.id, handle="afisha", title="Афиша"))
     return container

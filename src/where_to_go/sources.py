@@ -10,8 +10,9 @@ from where_to_go.models import (
     PotentialSourcePublic,
     Source,
     SourceKind,
+    TelegramUrls,
 )
-from where_to_go.repositories import EventRepository, PotentialSourceRepository, SourceRepository
+from where_to_go.repositories import EventRepository, PostRepository, PotentialSourceRepository, SourceRepository
 from where_to_go.source_types import SourceType, SourceTypes
 from where_to_go.telegram import SourceError, TelegramHandle
 from where_to_go.web_sources import SitePreview
@@ -64,13 +65,16 @@ class PotentialSources:
 
     BOT_SUFFIX = "bot"
 
-    def __init__(self, potential: PotentialSourceRepository, sources: SourceRepository, catalog: SourceCatalog) -> None:
+    def __init__(self, potential: PotentialSourceRepository, sources: SourceRepository, posts: PostRepository, catalog: SourceCatalog) -> None:
         self._potential = potential
         self._sources = sources
+        self._posts = posts
         self._catalog = catalog
 
     def note(self, city_id: int, post: Post, references: list[ChannelReference]) -> None:
-        known = self._known_handles(city_id) | {post.source.handle.lower()}
+        """The post's own channel is never a lead, under the handle it was added by or the one it posts under now."""
+        own = {post.source.handle, TelegramUrls.handle_of_post(post.url) or post.source.handle}
+        known = self._known_handles(city_id) | {handle.lower() for handle in own}
         found: dict[str, tuple[str, ChannelLink]] = {}
         for reference in references:
             handle = self._handle(reference.handle)
@@ -112,7 +116,8 @@ class PotentialSources:
         return source
 
     def _known_handles(self, city_id: int) -> set[str]:
-        return {s.handle.lower() for s in self._sources.in_city(city_id) if s.kind == SourceKind.TELEGRAM}
+        channels = [s for s in self._sources.in_city(city_id) if s.kind == SourceKind.TELEGRAM]
+        return {s.handle.lower() for s in channels} | self._posts.own_handles(s.id for s in channels)
 
     @classmethod
     def _handle(cls, raw: str) -> str | None:

@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from tests.helpers import judge_same_titles
 from where_to_go.api import create_app
 from where_to_go.container import Container
+from where_to_go.launcher.paths import PROJECT_DIR
 from where_to_go.releases import (
-    PROJECT_DIR,
     AppVersion,
     Changelog,
     InstalledRelease,
@@ -69,8 +69,8 @@ class FakeReleases:
 def project(tmp_path: Path, version: str = "1.0.0", changelog: str = CHANGELOG) -> Path:
     folder = tmp_path / "project"
     folder.mkdir()
-    (folder / "pyproject.toml").write_text(f'[project]\nname = "x"\nversion = "{version}"\n')
-    (folder / "CHANGELOG.md").write_text(changelog)
+    (folder / "pyproject.toml").write_text(f'[project]\nname = "x"\nversion = "{version}"\n', encoding="utf-8")
+    (folder / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
     return folder
 
 
@@ -124,7 +124,19 @@ def test_a_newer_release_brings_its_changes(tmp_path):
     status = check(tmp_path, FakeReleases(AppVersion(1, 2, 0)), Clock()).status(force=False)
     assert (status.current, status.latest, status.available) == ("1.0.0", "1.2.0", True)
     assert [entry.version for entry in status.entries] == ["1.2.0", "1.1.0"]
-    assert status.update_command.endswith("&& make update")
+    assert status.update_command.endswith(" update")
+    assert "make" not in status.update_command
+
+
+def test_by_hand_commands_run_the_copys_own_command_line_from_any_folder():
+    commands = UpdateCommands(PurePosixPath("/home/max/what to do"), windows=False)
+    assert commands.restart() == "'/home/max/what to do/.venv/bin/where-to-go' restart"
+    assert commands.update() == "'/home/max/what to do/.venv/bin/where-to-go' update"
+
+
+def test_by_hand_commands_on_windows_are_powershell():
+    assert UpdateCommands(PureWindowsPath("C:/Users/Max Smith/wtd"), windows=True).restart() == '& "C:\\Users\\Max Smith\\wtd\\.venv\\Scripts\\where-to-go.exe" restart'
+    assert UpdateCommands(PureWindowsPath("C:/wtd"), windows=True).update() == "C:\\wtd\\.venv\\Scripts\\where-to-go.exe update"
 
 
 def test_releases_are_asked_once_a_day_unless_forced(tmp_path):
@@ -219,7 +231,7 @@ def test_images_point_under_the_interface_api(tmp_path):
     folder = project(tmp_path)
     interface = tmp_path / "dist"
     (interface / "assets").mkdir(parents=True)
-    (interface / "index.html").write_text("<html></html>")
+    (interface / "index.html").write_text("<html></html>", encoding="utf-8")
     api = create_app(lambda: Container.build(tmp_path / "data", matching_llm=judge_same_titles(), project_dir=folder, release_source=FakeReleases(AppVersion(1, 2, 0))))
     with TestClient(AppWithInterface.build(api, interface)) as test_client:
         html = test_client.get("/api/updates").json()["entries"][0]["sections"][0]["html"]

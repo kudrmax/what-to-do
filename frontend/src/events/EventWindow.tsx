@@ -3,8 +3,9 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 
 import type { EventCard, Mention } from "../api/client";
 import { useApi, useEvent, useFeed, useMentions, useMerge, useSplit, useTags } from "../api/queries";
+import { useCardLanguage } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
-import { dayAndMonth, longDate } from "../domain/dates";
+import { clock, dayAndMonth, longDate, momentDay, momentText } from "../domain/dates";
 import { formatPrice } from "../domain/price";
 import { describeRecurrence } from "../domain/recurrence";
 import { orderTags } from "../domain/tags";
@@ -72,6 +73,7 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
   const tags = orderTags(event.tags, useTags().data);
   const price = formatPrice(event.price, event.currency);
   const when = describeRecurrence(event.rrule) ?? (event.kind === "multiday" ? "Come any day" : longDate(day));
+  const { lang } = useCardLanguage();
   return (
     <header className="details__head">
       <div className="details__badges">
@@ -83,7 +85,9 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
         ))}
         {event.is_cancelled && <span className="badge badge--accent">Cancelled</span>}
       </div>
-      <h2 className={`details__title${event.is_cancelled ? " details__title--cancelled" : ""}`}>{event.title}</h2>
+      <h2 className={`details__title${event.is_cancelled ? " details__title--cancelled" : ""}`} lang={lang}>
+        {event.title}
+      </h2>
 
       <div className="details__facts">
         <div className="fact">
@@ -110,7 +114,7 @@ function Head({ event, day, mentions }: { event: EventCard; day: string; mention
         <p key={conflict.field} className="note" role="note">
           <Icon name="alert" />
           {conflict.field === "start_time"
-            ? `Sources disagree on the time: ${conflict.values.join(" or ")}`
+            ? `Sources disagree on the time: ${conflict.values.map(clock).join(" or ")}`
             : `Sources disagree on the date: ${conflict.values.map(dayAndMonth).join(" or ")}`}
         </p>
       ))}
@@ -151,6 +155,7 @@ function Description({ event, day, mentions, load, onView }: { event: EventCard;
 function Summary({ event, mentions, onView }: { event: EventCard; mentions: Mention[]; onView: View }) {
   const poster = event.image_url;
   const text = poster ? (mentions.flatMap((m) => m.photos).find((p) => p.url === poster)?.text ?? null) : null;
+  const { lang } = useCardLanguage();
   return (
     <>
       {poster && (
@@ -158,7 +163,9 @@ function Summary({ event, mentions, onView }: { event: EventCard; mentions: Ment
           <Thumb url={poster} label="Enlarge poster" onClick={() => onView([{ url: poster, text }], 0)} />
         </div>
       )}
-      <p className="details__description">{event.description}</p>
+      <p className="details__description" lang={lang}>
+        {event.description}
+      </p>
     </>
   );
 }
@@ -176,7 +183,7 @@ function Originals({ event, day, mentions, load, onView }: { event: EventCard; d
           {mentions.map((mention) => (
             <button key={mention.id} type="button" role="tab" className="chip" aria-pressed={mention.id === shown.id} aria-selected={mention.id === shown.id} onClick={() => setChosen(mention.id)}>
               {mention.source_title}
-              {repeated.has(mention.source_title) && <span className="post-choice__date">{POSTED_DAY.format(new Date(mention.published_at))}</span>}
+              {repeated.has(mention.source_title) && <span className="post-choice__date">{momentDay(mention.published_at)}</span>}
             </button>
           ))}
         </div>
@@ -199,13 +206,10 @@ function OriginalsMissing({ load }: { load: MentionsLoad }) {
   return <p className="details__description details__description--muted">{load.loading ? "Loading original…" : "This event has no sources left."}</p>;
 }
 
-const POSTED = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-const POSTED_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
-
 function PostLine({ event, day, mention, named, canSplit }: { event: EventCard; day: string; mention: Mention; named: boolean; canSplit: boolean }) {
   const split = useSplit();
   const open = useOpenEvent();
-  const posted = POSTED.format(new Date(mention.published_at));
+  const posted = momentText(mention.published_at);
   const openLabel = mention.source_kind === "web" ? "Open page on website" : "Open post in Telegram";
   return (
     <div className="post-line">

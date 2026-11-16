@@ -35,7 +35,7 @@ const STATS: CityStats = {
 function setup(stats: CityStats) {
   const api = createApi("");
   vi.spyOn(api, "settings").mockResolvedValue({ active_city_id: 1 } as Settings);
-  vi.spyOn(api, "cities").mockResolvedValue([{ id: 1, name: "Белград", timezone: "Europe/Belgrade" }]);
+  vi.spyOn(api, "cities").mockResolvedValue([{ id: 1, name: "Белград", country: "Сербия", timezone: "Europe/Belgrade", card_language: "русский" }]);
   vi.spyOn(api, "stats").mockResolvedValue(stats);
   render(
     <ApiContext.Provider value={api}>

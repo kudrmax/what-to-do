@@ -8,4 +8,4 @@ from pathlib import Path
 from where_to_go.api import create_app
 
 schema = create_app(lambda: None).openapi()
-Path(sys.argv[1]).write_text(json.dumps(schema, ensure_ascii=False, indent=1) + "\n")
+Path(sys.argv[1]).write_text(json.dumps(schema, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

@@ -1,5 +1,4 @@
-const NUMBER = new Intl.NumberFormat("en-GB");
-const PERCENT = new Intl.NumberFormat("en-GB", { style: "percent", maximumFractionDigits: 0 });
+import { conventions } from "../domain/locale";
 
-export const formatNumber = (value: number) => NUMBER.format(value);
-export const formatShare = (part: number, whole: number) => PERCENT.format(whole ? part / whole : 0);
+export const formatNumber = (value: number) => new Intl.NumberFormat(conventions().locale).format(value);
+export const formatShare = (part: number, whole: number) => new Intl.NumberFormat(conventions().locale, { style: "percent", maximumFractionDigits: 0 }).format(whole ? part / whole : 0);

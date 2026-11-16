@@ -4,19 +4,23 @@ version = "1.15.3"
 description = "Local backend of «What To Do»: Telegram event announcements turned into event cards by Claude"
 readme = "README.md"
 authors = [
-    { name = "Maksim Kudryashov", email = "mdmkudryashov@avito.ru" }
+    { name = "Maksim Kudryashov" }
 ]
 requires-python = ">=3.13"
 dependencies = [
     "anyio>=4.16.0",
     "claude-agent-sdk>=0.2.180",
     "fastapi>=0.162.2",
+    "filelock>=4.2.10",
     "httpx>=0.28.1",
     "icalendar>=7.3.0",
     "markdown-it-py>=4.2.0",
+    "platformdirs>=4.14.5",
+    "psutil>=7.2.2",
     "pydantic>=2.14.3",
     "python-dateutil>=4.0.0",
     "selectolax>=1.0.2",
+    "send2trash>=2.2.0",
     "sqlmodel>=0.0.48",
     "uvicorn[standard]>=0.54.0",
 ]

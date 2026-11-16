@@ -8,7 +8,7 @@ from enum import StrEnum
 from dateutil.rrule import rrulestr
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import Event, EventKind, EventPublic, Plan, Public
+from where_to_go.models import City, Event, EventKind, EventPublic, Plan, Public
 from where_to_go.repositories import EventRepository, SourceRepository
 from where_to_go.search import SearchQuery
 
@@ -73,22 +73,22 @@ class Feed:
         self._events = events
         self._sources = sources
 
-    def occurrences(self, city_id: int, criteria: FeedFilter) -> list[Occurrence]:
-        found = self._lay_out(city_id, criteria)
+    def occurrences(self, city: City, criteria: FeedFilter) -> list[Occurrence]:
+        found = self._lay_out(city, criteria)
         if found or not criteria.search:
             return found
-        return self._lay_out(city_id, replace(criteria, search=criteria.search.in_other_layout()))
+        return self._lay_out(city, replace(criteria, search=criteria.search.in_other_layout()))
 
     def earliest(self, city_id: int) -> date | None:
         return min((e.start_date for e in self._events.in_city(city_id)), default=None)
 
-    def _lay_out(self, city_id: int, criteria: FeedFilter) -> list[Occurrence]:
-        end = criteria.end or self._reach(city_id, criteria.start)
-        paused = self._sources.paused_ids(city_id)
+    def _lay_out(self, city: City, criteria: FeedFilter) -> list[Occurrence]:
+        end = criteria.end or self._reach(city.id, criteria.start)
+        paused = self._sources.paused_ids(city.id)
         result = []
-        for event in self._events.near(city_id, criteria.start, end):
+        for event in self._events.near(city.id, criteria.start, end):
             if not event.is_dropped_with(paused) and criteria.accepts(event):
-                public = EventPublic.model_validate(event)
+                public = EventPublic.of(event, city)
                 result.extend(Occurrence(date=day, event=public) for day in self._days(event, criteria.start, end))
         return sorted(result, key=self._order)
 

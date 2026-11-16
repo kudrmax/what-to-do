@@ -1,9 +1,10 @@
-"""Answers the page on the copy's port while `make update` has the app stopped, so the page
+"""Answers the page on the copy's port while an update has the app stopped, so the page
 can show how far the update got.
 
-update.sh starts it after `make down`; `make up` stops it right before the app takes the
-port, and update.sh stops it on every other way out. It runs on the system Python with the
-standard library only: the copy's .venv may be reinstalled under it.
+The updater (src/where_to_go/launcher/updater.py) starts it after stopping the app;
+`where-to-go up` stops it right before the app takes the port, and the updater stops it on
+every other way out. It runs on the base Python with the standard library only: the copy's
+.venv may be reinstalled under it.
 
 `GET /api/update/state` answers as the app does, from the same files; anything else is
 503, so the page keeps waiting for the real server.
@@ -24,7 +25,7 @@ PROGRESS_SEPARATOR = "\t"
 UPDATE_STATES = ("idle", "running", "failed", "done")
 STEP_STATUSES = ("done", "current", "pending", "failed")
 IDLE = "idle"
-DEFAULT_HOST = "127.0.0.1"  # the address `make up` gives the app
+DEFAULT_HOST = "127.0.0.1"  # the address `where-to-go up` gives the app
 
 
 @dataclass(frozen=True)
@@ -34,7 +35,7 @@ class Step:
 
 
 class UpdateFiles:
-    """What update.sh wrote about the run, read the way the app's update runner reads it."""
+    """What the updater wrote about the run, read the way the app's update runner reads it."""
 
     def __init__(self, project_dir: Path) -> None:
         self._project_dir = project_dir

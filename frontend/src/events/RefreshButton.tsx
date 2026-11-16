@@ -1,25 +1,42 @@
 import { useRefresh } from "../api/queries";
+import { useActiveCity } from "../api/useActiveCity";
 import { refreshLabel, timeLeft } from "../domain/refresh";
 import { Icon } from "../ui/Icon";
+import { InlineCode } from "../ui/InlineCode";
 import "./RefreshButton.css";
+
+/** The backend's own line for a missing login; the note below says it with the steps instead. */
+const SIGN_IN_ERROR = "Sign in to Claude Code";
 
 /** Starts a refresh, shows its stage while it runs and what went wrong when it ends. */
 export function RefreshButton() {
   const refresh = useRefresh();
-  const errors = refresh.running ? [] : (refresh.status?.errors ?? []);
+  const signedOut = !refresh.running && (refresh.status?.claude_signed_out ?? false);
+  const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(signedOut && error.startsWith(SIGN_IN_ERROR)));
+  const { city } = useActiveCity();
   const label = refresh.running ? refreshLabel(refresh.status) : "Refresh";
   const left = refresh.running ? timeLeft(refresh.status) : null;
   return (
     <div className="refresh">
-      <button type="button" className="button refresh__button" onClick={refresh.start} disabled={refresh.running} aria-busy={refresh.running} data-tip="Collect what’s new from channels and websites and read it">
+      <button type="button" className="button refresh__button" onClick={refresh.start} disabled={refresh.running} aria-busy={refresh.running} data-tip={`Collect what’s new from the channels and websites of ${city?.name ?? "the city"}, and read it`}>
         <Icon name="refresh" size={16} strokeWidth={2.2} className={refresh.running ? "refresh__spin" : undefined} />
         {label}
         {left && <span className="refresh__left">{left}</span>}
       </button>
+      {signedOut && (
+        <div className="note refresh__sign-in" role="alert">
+          <strong>Claude Code isn’t signed in, so nothing was read.</strong>
+          <span>
+            Run <code>claude</code> in a terminal, type <code>/login</code> and follow the steps, then press Refresh again.
+          </span>
+        </div>
+      )}
       {errors.length > 0 && (
         <div className="note refresh__errors" role="status">
           {errors.map((error) => (
-            <span key={error}>{error}</span>
+            <span key={error}>
+              <InlineCode text={error} />
+            </span>
           ))}
         </div>
       )}

@@ -419,6 +419,10 @@ textarea.input {
   border-color: var(--accent);
 }
 
+.input::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
 .input[aria-invalid="true"] {
   border-color: var(--accent-strong);
 }
@@ -502,4 +506,13 @@ a.button:hover {
 
 .inline-edit__input {
   height: 32px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
