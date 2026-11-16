@@ -48,10 +48,10 @@ describe("useNativeWindow in the macOS app", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps the window light, as the page is", () => {
+  it("lets the window follow the page’s theme, the system by default", () => {
     renderShell();
 
-    expect(theme).toHaveBeenCalledWith("light");
+    expect(theme).toHaveBeenCalledWith("system");
   });
 
   it("opens the settings screen from the app menu", () => {

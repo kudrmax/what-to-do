@@ -2,11 +2,9 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { SECTIONS } from "../app/routes";
-import { onNativeOpenSettings, windowTheme, windowTitlebar, type ThemeMode } from "./nativeHost";
+import { useThemeChoice } from "../app/theme";
+import { onNativeOpenSettings, windowTheme, windowTitlebar } from "./nativeHost";
 import { titlebarAction, titlebarHeight } from "./titlebarPress";
-
-/** The page has only a light look, so the window's chrome stays light even when macOS is dark. */
-const PAGE_THEME: ThemeMode = "light";
 
 /**
  * Ties the page to the macOS app's window: the window takes the page's theme, "Settings…" opens
@@ -17,8 +15,9 @@ export function useNativeWindow(): (event: MouseEvent) => void {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [titlebar] = useState(() => windowTitlebar());
+  const [theme] = useThemeChoice();
 
-  useEffect(() => windowTheme()?.follow(PAGE_THEME), []);
+  useEffect(() => windowTheme()?.follow(theme), [theme]);
   useEffect(
     () =>
       onNativeOpenSettings(() => {

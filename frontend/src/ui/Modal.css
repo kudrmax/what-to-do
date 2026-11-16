@@ -16,7 +16,7 @@
   width: 100%;
   max-width: 720px;
   border-radius: 18px;
-  background: var(--bg);
+  background: var(--bg-raised);
   box-shadow: var(--shadow-modal);
   animation: modal-rise 180ms ease;
 }
@@ -29,9 +29,9 @@
   width: 36px;
   height: 36px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--bg-float);
   color: var(--text);
-  box-shadow: 0 1px 4px rgba(32, 32, 32, 0.12);
+  box-shadow: var(--shadow-float);
 }
 
 .modal__close:hover {

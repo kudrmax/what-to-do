@@ -13,7 +13,7 @@ import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
 import "./StatsScreen.css";
 
-const PLAN_COLORS: Record<Plan, string> = { sure: "#dc4c3e", maybe: "#eda100", went: "#1baf7a", no: "#2a78d6" };
+const PLAN_COLORS: Record<Plan, string> = { sure: "var(--plan-sure)", maybe: "var(--plan-maybe)", went: "var(--plan-went)", no: "var(--plan-no)" };
 const PLAN_ORDER: Plan[] = ["sure", "maybe", "went", "no"];
 const GOING: Plan[] = ["maybe", "sure", "went"];
 const UNMARKED_COLOR = "var(--line-strong)";

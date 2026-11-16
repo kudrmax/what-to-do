@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 
 import { createApi } from "./api/client";
 import { App } from "./App";
+import { pageTheme } from "./app/theme";
 import "./styles/narrow.css";
 import "./styles/interaction.css";
 import { keepTooltipsInView } from "./ui/tooltips";
@@ -14,6 +15,7 @@ import { keepTooltipsInView } from "./ui/tooltips";
 const API_PREFIX = "/api";
 
 keepTooltipsInView();
+pageTheme();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -24,7 +24,7 @@
 }
 
 .open-post__toggle[aria-expanded="true"] {
-  background: var(--accent-strong);
+  background: var(--accent-fill-hover);
 }
 
 .open-post__more .popover {

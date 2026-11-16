@@ -302,7 +302,7 @@
 }
 
 .review-card__interest button[aria-pressed="true"] {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
 }
 
@@ -325,7 +325,7 @@
   padding: 6px 14px;
   border: 3px solid currentColor;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-float);
   font-size: 24px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -349,8 +349,8 @@
   left: 50%;
   top: auto;
   bottom: 96px;
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
   color: var(--on-accent);
   transform: translateX(-50%) rotate(-6deg);
 }
@@ -458,15 +458,15 @@
 }
 
 .review-action__button--sure {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
   color: var(--on-accent);
 }
 
 .review-action__button--sure:hover:not(:disabled),
 .review-action__button--sure.review-action__button--hot {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
+  border-color: var(--accent-fill-hover);
+  background: var(--accent-fill-hover);
 }
 
 .review-action__label {
