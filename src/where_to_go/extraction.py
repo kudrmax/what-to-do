@@ -71,18 +71,35 @@ class PostPhotos:
         shown = enumerate(PhotoTranscriber.shown(post))
         return cls(post, {index: texts[name] for index, name in shown if name in texts})
 
+    @property
+    def size(self) -> int:
+        """How much Claude reads for this post: its text and the text on its photos."""
+        return len(self.post.text) + sum(len(text.text) for text in self.texts.values())
+
     def described(self) -> list[dict[str, Any]]:
         return [{"index": index, "shows": text.shows, "text": text.text} for index, text in self.texts.items()]
 
 
 class PostExtractor:
     BATCH_SIZE = 8
+    BATCH_CHARS = 6000
+    """Claude skips events of a call that reads too much at once, so a digest shares a call with short posts only"""
 
     def __init__(self, llm: JsonLlm) -> None:
         self._llm = llm
 
-    def batches(self, posts: list[Post]) -> list[list[Post]]:
-        return [posts[i : i + self.BATCH_SIZE] for i in range(0, len(posts), self.BATCH_SIZE)]
+    def batches(self, posts: list[Post], photo_texts: dict[str, PhotoText]) -> list[list[Post]]:
+        batches: list[list[Post]] = []
+        batch: list[Post] = []
+        chars = 0
+        for post in posts:
+            size = PostPhotos.of(post, photo_texts).size
+            if batch and (len(batch) == self.BATCH_SIZE or chars + size > self.BATCH_CHARS):
+                batches.append(batch)
+                batch, chars = [], 0
+            batch.append(post)
+            chars += size
+        return batches + [batch] if batch else batches
 
     async def extract(
         self, posts: list[Post], sources: dict[int, Source], context: ExtractionContext, photo_texts: dict[str, PhotoText]

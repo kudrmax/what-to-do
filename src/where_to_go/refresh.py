@@ -117,7 +117,7 @@ class PostReader:
         self._extractor = extractor
 
     def batches(self, posts: list[Post]) -> list[list[Post]]:
-        return self._extractor.batches(posts)
+        return self._extractor.batches(posts, self._photo_texts.of(name for post in posts for name in PhotoTranscriber.shown(post)))
 
     def context(self, city: City) -> ExtractionContext:
         tags = self._tags.all()
