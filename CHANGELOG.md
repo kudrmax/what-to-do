@@ -2,6 +2,14 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.15.1 — 2026-11-16
+
+Digests are read in full.
+
+### Fixed
+- A channel that posts long digests of many events no longer loses part of them: several digests read together made Claude skip a third or more of their events, sometimes a whole digest. A long post is now read with short posts only or on its own.
+- The latest posts of every channel are read again at the next **Refresh**, so the events they lost appear. Your ratings and plans stay on their cards.
+
 ## 1.15.0 — 2026-11-16
 
 Sources can be paused instead of deleted.
