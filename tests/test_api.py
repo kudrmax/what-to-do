@@ -109,7 +109,7 @@ def test_feed_filters(client):
     lecture, concert, untimed = seeded(
         client,
         ("a", raw_event("Лекция", "2099-01-02", "19:00")),
-        ("b", raw_event("Концерт", "2099-01-02", "21:00", tags=["Концерт"])),
+        ("b", raw_event("Концерт", "2099-01-02", "21:00", tags=["Концерт"], is_priority=True)),
         ("a", raw_event("Что-то", "2099-01-03", None)),
     )
     window = {"start": "2099-01-01", "end": "2099-01-07"}
@@ -122,6 +122,7 @@ def test_feed_filters(client):
     b_source = next(s["id"] for s in client.get("/sources").json() if s["title"] == "b")
     assert ids(sources=b_source) == [concert]
     assert ids(only_timed=True) == [lecture, concert]
+    assert ids(only_priority=True) == [concert]
     client.put(f"/events/{concert}/mark", json={"interest": 5, "plan": "sure"})
     client.put(f"/events/{lecture}/mark", json={"interest": 1, "plan": "no"})
     assert ids(plans="none") == [untimed]
@@ -152,6 +153,8 @@ def test_tags_settings_and_unknown_ids(client):
     assert client.get("/events/999").status_code == 404
     assert client.get("/images/../where-to-go.sqlite3").status_code == 404
     assert client.get("/settings/defaults").json()["recent_posts"] == 20
+    assert client.get("/settings").json()["priority_wish"] == ""
+    assert client.patch("/settings", json={"priority_wish": "  Ищу друзей \n"}).json()["priority_wish"] == "Ищу друзей"
     bad_prompt = client.patch("/settings", json={"extraction_prompt": "Город {town}"})
     assert bad_prompt.status_code == 422 and "{town}" not in client.get("/settings").json()["extraction_prompt"]
 

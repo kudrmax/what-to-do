@@ -2,6 +2,34 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.14.1 — 2026-11-16
+
+Review mode follows the same rules as the list.
+
+### Fixed
+- In **Review**, a rating no longer takes the card away. A card leaves the deck only when it leaves **Upcoming**, after **Not going**, **Maybe** or **For sure**. Rated cards that have no plan yet show up in Review too, just as they do in the list.
+- Choosing a card's current rating or plan again clears it, as on the cards in the list.
+![](docs/images/changelog/1.14.1/review-rating.png)
+
+## 1.14.0 — 2026-11-16
+
+Tell Claude what you look for first, and those events stand out.
+
+### For you
+In **Settings → What I look for first**, describe in your own words what matters to you most, for example «I'm looking for friends: events made for meeting people». While reading posts, Claude marks the events that fit with **For you**: their cards get a violet frame and badge in the feed, in **Review** and in the event window, and they are tinted in the **Calendar**. The **For you** filter next to the search shows only them. After you change the wish, the next **Refresh** reads the recent posts again so the cards already in the feed get marked too.
+![](docs/images/changelog/1.14.0/wish.png)
+![](docs/images/changelog/1.14.0/highlight.png)
+![](docs/images/changelog/1.14.0/filter.png)
+
+## 1.13.0 — 2026-11-16
+
+Go through the feed one card at a time, like a dating app.
+
+### Review mode
+Switch **Upcoming** from **List** to **Review**: one event fills the screen, and every answer brings the next. Drag the card right or press → for **Maybe**, left or ← for **Not going**, up or ↑ for **For sure**. Keys 1–5 set your interest and move on too, ↓ leaves a card for later, and ⌘Z or the **Undo** button takes the last answer back. A click on the card opens the whole event. The buttons under the card do the same with the mouse, and the app remembers which view you used last.
+![](docs/images/changelog/1.13.0/review-switch.png)
+![](docs/images/changelog/1.13.0/review-swipe.png)
+
 ## 1.12.0 — 2026-11-16
 
 The app now speaks English. Your events, tags and prompts stay as they were.

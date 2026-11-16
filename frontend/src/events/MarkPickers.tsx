@@ -1,30 +1,18 @@
 import type { EventCard, Plan } from "../api/client";
 import { useSetMark } from "../api/queries";
-import { PLAN_ORDER, PLANS } from "../domain/plans";
+import { INTEREST, INTEREST_WORDS, nextMark, PLAN_ORDER, PLANS } from "../domain/plans";
 import { Icon } from "../ui/Icon";
 import "./MarkPickers.css";
 
 type Size = "small" | "large";
 
-const INTEREST = [1, 2, 3, 4, 5] as const;
-const INTEREST_WORDS: Record<(typeof INTEREST)[number], string> = {
-  1: "Not interesting at all",
-  2: "Not very interesting",
-  3: "So-so",
-  4: "Interesting",
-  5: "Very interesting",
-};
-
-/** Interest and plan are independent; a second click on the chosen value clears it. */
 function useMark(event: EventCard) {
   const setMark = useSetMark();
-  const interest = event.interest ?? null;
-  const plan = event.plan ?? null;
   return {
-    interest,
-    plan,
-    setInterest: (value: number) => setMark.mutate({ id: event.id, mark: { interest: interest === value ? null : value, plan } }),
-    setPlan: (value: Plan) => setMark.mutate({ id: event.id, mark: { interest, plan: plan === value ? null : value } }),
+    interest: event.interest ?? null,
+    plan: event.plan ?? null,
+    setInterest: (value: number) => setMark.mutate({ id: event.id, mark: nextMark(event, { interest: value }) }),
+    setPlan: (value: Plan) => setMark.mutate({ id: event.id, mark: nextMark(event, { plan: value }) }),
   };
 }
 

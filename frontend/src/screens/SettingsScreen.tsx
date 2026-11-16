@@ -17,6 +17,7 @@ export function SettingsScreen() {
   return (
     <Screen title={SECTIONS.settings.title} narrow>
       <CitiesSection />
+      {settings.data && <PrioritySection wish={settings.data.priority_wish} />}
       {settings.data && <ReadingSection settings={settings.data} />}
       {settings.data && <ModelsSection settings={settings.data} />}
       <TagsSection />
@@ -86,6 +87,33 @@ function AddCityForm({ onDone, canCancel }: { onDone: () => void; canCancel: boo
       </button>
       {add.error && <p className="error-text settings-form__error">{errorText(add.error)}</p>}
     </form>
+  );
+}
+
+const WISH_EXAMPLE = "Above all I want events made for meeting people and talking. I am looking for friends";
+
+function PrioritySection({ wish }: { wish: string }) {
+  const change = useChangeSettings();
+  const [draft, setDraft] = useState(wish);
+  const save = (text: string) => change.mutate({ priority_wish: text }, { onSuccess: () => setDraft(text) });
+  return (
+    <Section
+      title="What I look for first"
+      hint="Describe it in your own words. While reading posts Claude marks the events that fit with «For you»: they stand out in the feed, and the «For you» filter shows only them. After a change, the next refresh reads the recent posts again to mark them."
+    >
+      <div className="prompt">
+        <textarea className="input wish__text" value={draft} rows={4} aria-label="What I look for first" placeholder={WISH_EXAMPLE} aria-invalid={change.isError} onChange={(e) => setDraft(e.target.value)} />
+        <div className="prompt__actions">
+          {change.error && <span className="error-text prompt__error">{errorText(change.error)}</span>}
+          <button type="button" className="button button--quiet button--small" disabled={!wish || change.isPending} onClick={() => save("")}>
+            Clear
+          </button>
+          <button type="button" className="button button--small" disabled={draft.trim() === wish || change.isPending} onClick={() => save(draft.trim())}>
+            Save
+          </button>
+        </div>
+      </div>
+    </Section>
   );
 }
 

@@ -61,7 +61,7 @@ export function FeedScreen() {
       ) : feed.isError ? (
         <LoadError error={feed.error} />
       ) : view === "review" ? (
-        today && feed.data && <ReviewDeck occurrences={feed.data} today={today} />
+        today && feed.data && <ReviewDeck occurrences={feed.data} updatedAt={feed.dataUpdatedAt} today={today} />
       ) : feed.data?.length === 0 && filters.query.search ? (
         <NothingFound search={filters.query.search} elsewhere={{ section: SECTIONS.plans, query: { start: today ?? undefined, plans: SHOWN_PLANS.going } }} />
       ) : feed.data?.length === 0 ? (

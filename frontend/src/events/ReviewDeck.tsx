@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
-import type { Mark, Occurrence } from "../api/client";
+import type { EventCard, Mark, Occurrence } from "../api/client";
 import { usePrefetchMentions, useSetMark, useTags } from "../api/queries";
 import { dayHeading, plural } from "../domain/dates";
-import { PLANS } from "../domain/plans";
+import { INTEREST, INTEREST_WORDS, nextMark, PLANS } from "../domain/plans";
 import { formatPrice } from "../domain/price";
 import { exitOf, keyCommand, reviewQueue, swipeAnswer, SWIPE_DISTANCE, type Exit, type ReviewAnswer, type ReviewCommand, type ReviewItem } from "../domain/review";
 import { orderTags } from "../domain/tags";
@@ -13,15 +13,14 @@ import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
 import { useOpenEvent } from "./navigation";
 import "./ReviewDeck.css";
+import { PriorityBadge } from "./PriorityBadge";
 
-const INTEREST = [1, 2, 3, 4, 5] as const;
-const INTEREST_WORDS = ["Not interesting at all", "Not very interesting", "So-so", "Interesting", "Very interesting"];
 /** Cards drawn under the top one, so the deck looks like a deck. */
 const DEPTH = 2;
 const TAP_DISTANCE = 6;
 
 interface Answered {
-  item: ReviewItem;
+  event: EventCard;
   answer: ReviewAnswer;
   before: Mark;
 }
@@ -30,7 +29,6 @@ interface Leaving {
   item: ReviewItem;
   exit: Exit;
   stamp: Stamp | null;
-  interest: number | null;
   from: Drag;
   serial: number;
 }
@@ -43,8 +41,6 @@ interface Drag {
 type Stamp = "no" | "maybe" | "sure";
 
 const STAMPS: Record<Stamp, string> = { no: "Not going", maybe: "Maybe", sure: "Going" };
-
-const stampOf = (answer: ReviewAnswer): Stamp | null => (answer.kind === "plan" ? answer.plan : null);
 
 function dragStamp({ dx, dy }: Drag): { stamp: Stamp; strength: number } | null {
   if (-dy > Math.abs(dx) && dy < 0) return { stamp: "sure", strength: Math.min(1, -dy / SWIPE_DISTANCE) };
@@ -62,14 +58,14 @@ const isTyping = (target: EventTarget | null) => {
 
 /**
  * The feed one card at a time: swipe or press ← for not going, → for maybe going, ↑ for going for sure,
- * a digit for interest, ↓ to leave it for later. Each answer brings the next card; ⌘Z takes the last one back.
+ * a digit for interest, ↓ to step to the next card. A card leaves the deck when it leaves the feed, as in the list; ⌘Z takes the last answer back.
  */
-export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; today: string }) {
+export function ReviewDeck({ occurrences, updatedAt, today }: { occurrences: Occurrence[]; updatedAt: number; today: string }) {
   const setMark = useSetMark();
   const open = useOpenEvent();
   const prefetch = usePrefetchMentions();
-  const [answeredIds, setAnsweredIds] = useState<ReadonlySet<number>>(new Set());
-  const [returnedIds, setReturnedIds] = useState<ReadonlySet<number>>(new Set());
+  const [skipped, setSkipped] = useState<ReadonlySet<number>>(new Set());
+  const [waiting, setWaiting] = useState<ReadonlyMap<number, number>>(new Map());
   const [history, setHistory] = useState<Answered[]>([]);
   const [leaving, setLeaving] = useState<Leaving[]>([]);
   const [arriving, setArriving] = useState<{ id: number; from: Exit } | null>(null);
@@ -77,48 +73,66 @@ export function ReviewDeck({ occurrences, today }: { occurrences: Occurrence[]; 
   const serial = useRef(0);
   const saving = useRef<Promise<unknown>>(Promise.resolve());
 
-  /** Marks are saved one after another, so a quick undo never lands before the answer it takes back. */
-  const save = (id: number, mark: Mark, onError?: () => void) => {
-    saving.current = saving.current.then(() => setMark.mutateAsync({ id, mark })).catch(() => onError?.());
-  };
-
-  const queue = useMemo(() => reviewQueue(occurrences, answeredIds, returnedIds), [occurrences, answeredIds, returnedIds]);
+  /** A card sent off with a plan stays off only until the feed comes back from the server; then the feed alone says whether it is still there. */
+  const passed = useMemo(() => {
+    const ids = new Set(skipped);
+    waiting.forEach((answeredAt, id) => answeredAt >= updatedAt && ids.add(id));
+    return ids;
+  }, [skipped, waiting, updatedAt]);
+  const queue = useMemo(() => reviewQueue(occurrences, passed), [occurrences, passed]);
   const top = queue[0];
-  const done = history.length;
+  const done = history.filter((entry) => entry.answer.kind !== "interest").length;
 
   useEffect(() => {
     if (top) prefetch(top.event.id);
   }, [top, prefetch]);
 
-  const without = (id: number) => (ids: ReadonlySet<number>) => new Set([...ids].filter((other) => other !== id));
+  const stopWaiting = (id: number) => setWaiting((ids) => new Map([...ids].filter(([other]) => other !== id)));
+
+  /** Marks are saved one after another, so a quick undo never lands before the answer it takes back. */
+  const save = (id: number, mark: Mark, onError?: () => void) => {
+    saving.current = saving.current.then(() => setMark.mutateAsync({ id, mark })).catch(() => onError?.());
+  };
+
+  const sendOff = (item: ReviewItem, exit: Exit, stamp: Stamp | null, from: Drag) => {
+    setLeaving((cards) => [...cards, { item, exit, stamp, from, serial: ++serial.current }]);
+    setArriving(null);
+  };
 
   const answer = (item: ReviewItem, given: ReviewAnswer, from: Drag = { dx: 0, dy: 0 }) => {
     const { event } = item;
     const before: Mark = { interest: event.interest ?? null, plan: event.plan ?? null };
-    setAnsweredIds((ids) => new Set(ids).add(event.id));
-    setReturnedIds(without(event.id));
-    setHistory((past) => [...past, { item, answer: given, before }]);
-    setLeaving((cards) => [...cards, { item, exit: exitOf(given), stamp: stampOf(given), interest: given.kind === "interest" ? given.value : null, from, serial: ++serial.current }]);
-    setArriving(null);
-    const mark = given.kind === "plan" ? { ...before, plan: given.plan } : given.kind === "interest" ? { ...before, interest: given.value } : null;
-    if (mark) {
-      save(event.id, mark, () => {
-        setAnsweredIds(without(event.id));
-        setHistory((past) => past.filter((entry) => entry.item.event.id !== event.id));
-      });
+    setHistory((past) => [...past, { event, answer: given, before }]);
+    if (given.kind === "skip") {
+      setSkipped((ids) => new Set(ids).add(event.id));
+      sendOff(item, exitOf(given), null, from);
+      return;
     }
+    if (given.kind === "plan") {
+      setWaiting((ids) => new Map(ids).set(event.id, updatedAt));
+      sendOff(item, exitOf(given), given.plan, from);
+    }
+    const mark = nextMark(event, given.kind === "plan" ? { plan: given.plan } : { interest: given.value });
+    save(event.id, mark, () => {
+      stopWaiting(event.id);
+      setHistory((past) => past.filter((entry) => entry.event.id !== event.id));
+    });
   };
 
   const undo = () => {
     const last = history.at(-1);
     if (!last) return;
-    const { event } = last.item;
+    const { event, answer: given } = last;
     setHistory((past) => past.slice(0, -1));
-    setAnsweredIds(without(event.id));
-    setReturnedIds((ids) => new Set(ids).add(event.id));
+    if (given.kind === "interest") return save(event.id, last.before);
     setLeaving((cards) => cards.filter((card) => card.item.event.id !== event.id));
-    setArriving({ id: event.id, from: exitOf(last.answer) });
-    if (last.answer.kind !== "skip") save(event.id, last.before);
+    setArriving({ id: event.id, from: exitOf(given) });
+    if (given.kind === "skip") {
+      setSkipped((ids) => new Set([...ids].filter((id) => id !== event.id)));
+      return;
+    }
+    stopWaiting(event.id);
+    save(event.id, last.before);
   };
 
   const run = (command: ReviewCommand) => {
@@ -342,8 +356,9 @@ function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, o
           {event.is_cancelled ? <span className="badge badge--accent review-card__end">Cancelled</span> : price && <span className="review-card__price review-card__end">{price}</span>}
         </div>
         <h2 className="review-card__title">{event.title}</h2>
-        {tags.length > 0 && (
+        {(tags.length > 0 || event.is_priority) && (
           <div className="review-card__tags">
+            {event.is_priority && <PriorityBadge />}
             {tags.slice(0, 4).map((tag) => (
               <span key={tag} className="badge">
                 {tag}
@@ -363,7 +378,7 @@ function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, o
             Interest
           </span>
           {INTEREST.map((n) => (
-            <button key={n} type="button" tabIndex={depth === 0 && !leaving ? 0 : -1} data-tip={INTEREST_WORDS[n - 1]} aria-label={INTEREST_WORDS[n - 1]} aria-pressed={leaving?.interest === n} onClick={() => onInterest?.(n)}>
+            <button key={n} type="button" tabIndex={depth === 0 && !leaving ? 0 : -1} data-tip={INTEREST_WORDS[n]} aria-label={INTEREST_WORDS[n]} aria-pressed={event.interest === n} onClick={() => onInterest?.(n)}>
               {n}
             </button>
           ))}
