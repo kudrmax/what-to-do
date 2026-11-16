@@ -1,19 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 import type { EventCard, Mark, Occurrence } from "../api/client";
-import { usePrefetchMentions, useSetMark, useTags } from "../api/queries";
+import { usePrefetchMentions, useSetMark } from "../api/queries";
 import { dayHeading, plural } from "../domain/dates";
 import { INTEREST, INTEREST_WORDS, nextMark, PLANS } from "../domain/plans";
-import { formatPrice } from "../domain/price";
 import { exitOf, keyCommand, reviewQueue, swipeAnswer, SWIPE_DISTANCE, type Exit, type ReviewAnswer, type ReviewCommand, type ReviewItem } from "../domain/review";
-import { orderTags } from "../domain/tags";
 import { Icon, type IconName } from "../ui/Icon";
 import { EmptyState } from "../ui/Screen";
+import { DevNoteButton } from "./DevNoteButton";
+import { EventCardSummary } from "./EventCardView";
 import { EventPhoto } from "./EventPhoto";
-import { EventTime } from "./EventTime";
 import { useOpenEvent } from "./navigation";
 import "./ReviewDeck.css";
-import { PriorityBadge } from "./PriorityBadge";
 
 /** Cards drawn under the top one, so the deck looks like a deck. */
 const DEPTH = 2;
@@ -60,7 +58,7 @@ const isTyping = (target: EventTarget | null) => {
  * The feed one card at a time: swipe or press ← for not going, → for maybe going, ↑ for going for sure,
  * a digit for interest, ↓ to step to the next card. A card leaves the deck when it leaves the feed, as in the list; ⌘Z takes the last answer back.
  */
-export function ReviewDeck({ occurrences, updatedAt, today }: { occurrences: Occurrence[]; updatedAt: number; today: string }) {
+export function ReviewDeck({ occurrences, updatedAt, today, shownTags }: { occurrences: Occurrence[]; updatedAt: number; today: string; shownTags?: string[] }) {
   const setMark = useSetMark();
   const open = useOpenEvent();
   const prefetch = usePrefetchMentions();
@@ -165,6 +163,7 @@ export function ReviewDeck({ occurrences, updatedAt, today }: { occurrences: Occ
   const hot = (stamp: Stamp) => pulled?.stamp === stamp && pulled.strength >= 1;
   const left = queue.length;
   const total = done + left;
+  const heading = top && dayHeading(top.day, today);
 
   return (
     <div className="review">
@@ -176,6 +175,13 @@ export function ReviewDeck({ occurrences, updatedAt, today }: { occurrences: Occ
           <strong>{left}</strong> left
         </span>
       </div>
+
+      {heading && (
+        <h2 className="day-heading review__day">
+          <span className="section-title">{heading.title}</span>
+          <span className="day-heading__sub">{heading.subtitle}</span>
+        </h2>
+      )}
 
       <div className="review__deck">
         {top ? (
@@ -189,7 +195,7 @@ export function ReviewDeck({ occurrences, updatedAt, today }: { occurrences: Occ
                 <ReviewCard
                   key={item.event.id}
                   item={item}
-                  today={today}
+                  shownTags={shownTags}
                   depth={depth}
                   drag={isTop ? drag : null}
                   arrivingFrom={isTop && arriving?.id === item.event.id ? arriving.from : null}
@@ -221,7 +227,7 @@ export function ReviewDeck({ occurrences, updatedAt, today }: { occurrences: Occ
           <ReviewCard
             key={`leaving-${card.serial}`}
             item={card.item}
-            today={today}
+            shownTags={shownTags}
             depth={0}
             leaving={card}
             onGone={() => setLeaving((cards) => cards.filter((other) => other.serial !== card.serial))}
@@ -277,7 +283,7 @@ function RoundAction({
 
 interface CardProps {
   item: ReviewItem;
-  today: string;
+  shownTags?: string[];
   depth: number;
   drag?: Drag | null;
   arrivingFrom?: Exit | null;
@@ -288,16 +294,14 @@ interface CardProps {
   onGone?: () => void;
 }
 
-function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, onRelease, onInterest, onGone }: CardProps) {
-  const { event, day } = item;
-  const tags = orderTags(event.tags, useTags().data);
-  const price = event.is_cancelled ? null : formatPrice(event.price, event.currency);
-  const heading = dayHeading(day, today);
+function ReviewCard({ item, shownTags, depth, drag, arrivingFrom, leaving, onDrag, onRelease, onInterest, onGone }: CardProps) {
+  const { event } = item;
+  const active = depth === 0 && !leaving;
   const start = useRef<{ x: number; y: number; id: number } | null>(null);
   const live = leaving ? (leaving.stamp ? { stamp: leaving.stamp, strength: 1 } : null) : drag ? dragStamp(drag) : null;
 
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
-    if (!onDrag || e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
+    if (!onDrag || e.button !== 0 || !e.currentTarget.contains(e.target as Node) || (e.target as HTMLElement).closest("button")) return;
     start.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
     e.currentTarget.setPointerCapture(e.pointerId);
     onDrag({ dx: 0, dy: 0 });
@@ -340,7 +344,7 @@ function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, o
       className={classes}
       style={style}
       aria-hidden={depth > 0 || !!leaving}
-      aria-label={depth === 0 && !leaving ? event.title : undefined}
+      aria-label={active ? event.title : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -349,39 +353,14 @@ function ReviewCard({ item, today, depth, drag, arrivingFrom, leaving, onDrag, o
     >
       <EventPhoto path={event.image_url} className="review-card__photo" />
       <div className="review-card__body">
-        <div className="review-card__when">
-          {event.kind !== "multiday" && <span className={`review-card__day${heading.relative ? " review-card__day--soon" : ""}`}>{heading.title}</span>}
-          {event.kind !== "multiday" && <span className="review-card__weekday">{heading.subtitle}</span>}
-          <EventTime event={event} className="review-card__time" />
-          {event.is_cancelled ? <span className="badge badge--accent review-card__end">Cancelled</span> : price && <span className="review-card__price review-card__end">{price}</span>}
-        </div>
-        <h2 className="review-card__title">{event.title}</h2>
-        {(tags.length > 0 || event.is_priority) && (
-          <div className="review-card__tags">
-            {event.is_priority && <PriorityBadge />}
-            {tags.slice(0, 4).map((tag) => (
-              <span key={tag} className="badge">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-        <p className="review-card__text">{event.description}</p>
-        {event.place && (
-          <p className="review-card__place">
-            <Icon name="pin" size={16} />
-            <span>{event.place}</span>
-          </p>
-        )}
+        <EventCardSummary event={event} shownTags={shownTags} />
         <div className="review-card__interest" role="group" aria-label="Interest">
-          <span className="review-card__interest-label" aria-hidden>
-            Interest
-          </span>
           {INTEREST.map((n) => (
-            <button key={n} type="button" tabIndex={depth === 0 && !leaving ? 0 : -1} data-tip={INTEREST_WORDS[n]} aria-label={INTEREST_WORDS[n]} aria-pressed={event.interest === n} onClick={() => onInterest?.(n)}>
+            <button key={n} type="button" tabIndex={active ? 0 : -1} data-tip={INTEREST_WORDS[n]} aria-label={INTEREST_WORDS[n]} aria-pressed={event.interest === n} onClick={() => onInterest?.(n)}>
               {n}
             </button>
           ))}
+          {active && <DevNoteButton event={event} size="large" />}
         </div>
       </div>
       {live && (
