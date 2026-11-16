@@ -37,6 +37,15 @@ def test_interface_routes_get_the_index_and_files_are_served(client):
     assert client.get("/favicon.svg").text == "<svg/>"
 
 
+def test_the_page_is_checked_with_the_server_on_every_load_so_an_update_shows_at_once(client):
+    for path in ("/", "/sources", "/favicon.svg"):
+        assert client.get(path).headers["cache-control"] == "no-cache"
+
+
+def test_hashed_assets_are_cached_for_good(client):
+    assert client.get("/assets/app.js").headers["cache-control"] == "public, max-age=31536000, immutable"
+
+
 def test_files_outside_the_interface_are_not_served(client, tmp_path):
     (tmp_path / "secret.txt").write_text("secret")
     assert "secret" not in client.get("/..%2Fsecret.txt").text

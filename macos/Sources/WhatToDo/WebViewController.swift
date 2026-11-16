@@ -44,7 +44,7 @@ final class WebViewController: NSViewController {
         if webView.url.map(config.isAppURL) == true {
             webView.reload()
         } else {
-            webView.load(URLRequest(url: config.serverURL))
+            webView.load(config.pageRequest)
         }
     }
 
