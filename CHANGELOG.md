@@ -2,6 +2,35 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.16.0 — 2026-11-16
+
+What To Do is ready for anyone: on macOS, Linux and Windows, in any city and any language.
+
+### Any city, any language
+Each city now has a country, a time zone and its own language of event cards. A new app asks for all four on its first screen and fills in the time zone and the language from your computer, so cards come out in your language from the first refresh. Cities can be edited and deleted in **Settings → Cities**. Map links and calendar files add the city and the country to the address, so a street name opens in the right place.
+![](docs/images/changelog/1.16.0/welcome.png)
+![](docs/images/changelog/1.16.0/cities.png)
+
+### Runs the same way everywhere
+`uv run where-to-go up`, `down`, `status`, `logs`, `update` and `uninstall` work the same on macOS, Linux and Windows. `down` stops the app and every Claude call it started. `uninstall` stops the app, removes the macOS app and, if you agree, your data, and tells you the last step. The data lives in your system's usual folder for app data. The **Update** button restarts the app with the same port and data, however you started it.
+
+### New
+- An empty **Sources** list shows how to find channels and websites for your city.
+![](docs/images/changelog/1.16.0/find-sources.png)
+- Before the first refresh **Upcoming** says the sources are waiting to be read and offers **Refresh now**.
+- When Claude Code is not signed in, the refresh says how to sign in: run `claude` in a terminal and type `/login`.
+
+### Improvements
+- New apps start with tags in the language of their first city, and the tag for events Claude could not sort, **Other** in English, can be renamed like any other.
+- Changing the language of cards reads recent posts again, so the feed doesn't mix languages.
+- Dates, times and the first day of the week follow your region: 12-hour time and Sunday weeks where that is the custom.
+- The README explains what the app does, how to install, run, stop, update and remove it, and the first steps.
+
+### Fixed
+- A channel that changed its name no longer suggests itself under **Potential sources**.
+- Adding a city with a name that already exists says so instead of failing.
+- Websites in cities on UTC (London, Lisbon) no longer get event times an hour off in summer.
+
 ## 1.15.3 — 2026-11-16
 
 The window always opens the version you installed.
