@@ -6,7 +6,7 @@ import { createApi, type SitePreview, type Source } from "../api/client";
 import { ApiContext } from "../api/queries";
 import { AddSourceForm, SourceList } from "./SourcesScreen";
 
-function source(id: number, title: string, status: Source["status"]): Source {
+function source(id: number, title: string, status: Source["status"], paused = false): Source {
   return {
     id,
     title,
@@ -17,6 +17,7 @@ function source(id: number, title: string, status: Source["status"]): Source {
     last_refreshed_at: null,
     last_error: null,
     events_found: 0,
+    paused,
   };
 }
 
@@ -24,6 +25,7 @@ function setup(sources: Source[]) {
   const api = createApi("");
   vi.spyOn(api, "sources").mockResolvedValue(sources);
   const mark = vi.spyOn(api, "markSource").mockResolvedValue(sources[0]);
+  const pause = vi.spyOn(api, "pauseSource").mockResolvedValue(sources[0]);
   render(
     <ApiContext.Provider value={api}>
       <QueryClientProvider client={new QueryClient()}>
@@ -31,7 +33,7 @@ function setup(sources: Source[]) {
       </QueryClientProvider>
     </ApiContext.Provider>,
   );
-  return { mark };
+  return { mark, pause };
 }
 
 describe("source status", () => {
@@ -49,6 +51,19 @@ describe("source status", () => {
     await waitFor(() => expect(mark).toHaveBeenCalledWith(1, "favorite"));
     fireEvent.click(screen.getByRole("button", { name: "Remove from favorites" }));
     await waitFor(() => expect(mark).toHaveBeenCalledWith(2, "new"));
+  });
+});
+
+describe("source pause", () => {
+  it("shows a paused source and resumes it", async () => {
+    const { pause } = setup([source(1, "Афиша", "new", true), source(2, "Квизы", "new")]);
+    const [paused, working] = await screen.findAllByRole("row");
+    expect(within(paused).getByText("Paused")).toBeTruthy();
+    expect(within(working).queryByText("Paused")).toBeNull();
+    fireEvent.click(within(paused).getByRole("button", { name: /^Resume/ }));
+    await waitFor(() => expect(pause).toHaveBeenCalledWith(1, false));
+    fireEvent.click(within(working).getByRole("button", { name: /^Pause/ }));
+    await waitFor(() => expect(pause).toHaveBeenCalledWith(2, true));
   });
 });
 

@@ -84,11 +84,14 @@ class Statistics:
             source_ids = [source.id for source in sources]
             posts = [p for p in s.exec(select(Post).where(col(Post.source_id).in_(source_ids))) if p.processed_at is not None]
             mentions = list(s.exec(select(Mention).join(Post).where(col(Post.source_id).in_(source_ids))))
-            events = list(s.exec(select(Event).where(Event.city_id == city.id)))
+            paused = {source.id for source in sources if source.paused}
+            events = [e for e in s.exec(select(Event).where(Event.city_id == city.id)) if not e.is_dropped_with(paused)]
             places = len(list(s.exec(select(Place.id).where(Place.city_id == city.id))))
             images = [image for post in posts for image in post.image_paths]
             photo_texts = list(s.exec(select(PhotoText).where(col(PhotoText.image).in_(images))))
 
+        dropped = {m.event_id for m in mentions} - {e.id for e in events} - {None}
+        mentions = [m for m in mentions if m.event_id not in dropped]
         posts_with_events = {m.post_id for m in mentions}
         mentions_per_event = Counter(m.event_id for m in mentions if m.event_id is not None)
         return CityStats(

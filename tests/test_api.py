@@ -199,6 +199,30 @@ def test_renaming_a_tag_renames_it_on_cards(client):
     assert client.get(f"/events/{event_id}").json()["tags"] == ["Музыка"]
 
 
+def test_pausing_a_source_hides_its_unmarked_cards_from_the_feed_and_stats(client):
+    marked, unmarked, shared, shared_twin = seeded(
+        client,
+        ("a", raw_event("Размечено", "2099-01-02", "19:00")),
+        ("a", raw_event("Не размечено", "2099-01-02", "20:00")),
+        ("a", raw_event("Общее", "2099-01-03", "19:00")),
+        ("b", raw_event("Общее", "2099-01-03", "19:30")),
+    )
+    client.post(f"/events/{shared}/merge", json={"other_event_id": shared_twin})
+    client.put(f"/events/{marked}/mark", json={"interest": 3, "plan": None})
+    a_id = next(s["id"] for s in client.get("/sources").json() if s["title"] == "a")
+
+    def shown():
+        return [o["event"]["id"] for o in client.get("/events", params={"start": "2099-01-01", "end": "2099-01-07"}).json()]
+
+    client.put(f"/sources/{a_id}/paused", json={"paused": True})
+    assert shown() == [marked, shared]
+    stats = client.get("/stats").json()
+    assert stats["events"]["cards"] == 2 and stats["events"]["announcements"] == 3
+
+    client.put(f"/sources/{a_id}/paused", json={"paused": False})
+    assert shown() == [marked, unmarked, shared]
+
+
 def test_deleting_a_source_drops_cards_only_it_supported(client):
     only_a, shared, _ = seeded(
         client,
@@ -292,6 +316,19 @@ def test_a_source_starts_new_and_can_become_favorite(client):
 
     assert client.put(f"/sources/{source['id']}/status", json={"status": "old"}).status_code == 422
     assert client.put("/sources/999/status", json={"status": "new"}).status_code == 404
+
+
+@respx.mock
+def test_a_source_can_be_paused_and_resumed(client):
+    respx.route(host="testserver").pass_through()
+    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы"}).json()
+    assert source["paused"] is False
+
+    assert client.put(f"/sources/{source['id']}/paused", json={"paused": True}).json()["paused"] is True
+    assert [s["paused"] for s in client.get("/sources").json()] == [True]
+    assert client.put(f"/sources/{source['id']}/paused", json={"paused": False}).json()["paused"] is False
+    assert client.put("/sources/999/paused", json={"paused": True}).status_code == 404
 
 
 SOON = (datetime.now(UTC) + timedelta(days=5)).date().isoformat()

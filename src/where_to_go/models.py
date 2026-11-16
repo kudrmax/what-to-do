@@ -267,6 +267,11 @@ class EventCard(EventFacts, Mark):
     source_ids: list[int] = json_field(list[int], default_factory=list)
     image_path: str | None = Field(default=None, exclude=True)
 
+    def is_dropped_with(self, paused_source_ids: set[int]) -> bool:
+        """Only paused sources announce it and the user never marked it: it is no longer shown."""
+        unmarked = self.interest is None and self.plan is None
+        return unmarked and bool(self.source_ids) and paused_source_ids.issuperset(self.source_ids)
+
 
 class Event(EventCard, table=True):
     __tablename__ = "events"
@@ -326,6 +331,9 @@ class SourceBase(SQLModel):
     events_found: int = Field(default=0, description="Cards this source contributes to")
     status: SourceStatus = Field(
         default=SourceStatus.NEW, sa_column_kwargs={"server_default": SourceStatus.NEW.name}, description="The user's mark: every source starts new"
+    )
+    paused: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "0"}, description="Skipped by refresh: no new posts, its cards stay"
     )
 
 
@@ -636,6 +644,10 @@ class PotentialSourceOrigin(Public):
 
 class SourceStatusChange(SQLModel):
     status: SourceStatus
+
+
+class SourcePause(SQLModel):
+    paused: bool
 
 
 class PotentialSourceMark(SQLModel):

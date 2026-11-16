@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 
 import type { SitePreview, Source } from "../api/client";
-import { useAddSource, useDeleteSource, useMarkSource, usePreviewSource, useRenameSource, useSources } from "../api/queries";
+import { useAddSource, useDeleteSource, useMarkSource, usePauseSource, usePreviewSource, useRenameSource, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
 import { ago, longDate, plural } from "../domain/dates";
@@ -160,18 +160,31 @@ function FavoriteToggle({ source }: { source: Source }) {
   );
 }
 
+function PauseToggle({ source }: { source: Source }) {
+  const pause = usePauseSource();
+  return (
+    <IconButton
+      icon={source.paused ? "play" : "pause"}
+      label={source.paused ? "Resume: read new posts again" : "Pause: stop reading new posts, hide its unmarked events"}
+      onClick={() => pause.mutate({ id: source.id, paused: !source.paused })}
+    />
+  );
+}
+
+function sourceState(source: Source): { label: string; kind: string } {
+  if (source.paused) return { label: "Paused", kind: "paused" };
+  if (source.last_error) return { label: source.last_error, kind: "error" };
+  return source.last_refreshed_at ? { label: "Working", kind: "ok" } : { label: "Awaiting refresh", kind: "new" };
+}
+
 function SourceRow({ source }: { source: Source }) {
   const rename = useRenameSource();
   const remove = useDeleteSource();
   const [confirming, setConfirming] = useState(false);
   const web = source.kind === "web";
-  const state = source.last_error
-    ? { label: source.last_error, kind: "error" }
-    : source.last_refreshed_at
-      ? { label: "Working", kind: "ok" }
-      : { label: "Awaiting refresh", kind: "new" };
+  const state = sourceState(source);
   return (
-    <div className="sources-table__row" role="row">
+    <div className={`sources-table__row${source.paused ? " sources-table__row--paused" : ""}`} role="row">
       <span role="cell" className="sources-table__favorite">
         <FavoriteToggle source={source} />
       </span>
@@ -206,7 +219,10 @@ function SourceRow({ source }: { source: Source }) {
             </button>
           </>
         ) : (
-          <IconButton icon="trash" label="Delete source and its events" onClick={() => setConfirming(true)} />
+          <>
+            <PauseToggle source={source} />
+            <IconButton icon="trash" label="Delete source and its events" onClick={() => setConfirming(true)} />
+          </>
         )}
       </span>
     </div>

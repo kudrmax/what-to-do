@@ -104,6 +104,8 @@ const PATHS = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  pause: <path d="M9 5v14M15 5v14" />,
+  play: <path d="M7 4.5v15l12-7.5z" />,
   repeat: (
     <>
       <path d="M17 2l4 4-4 4" />

@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.12.0"
+  "version": "1.14.2"
  },
  "paths": {
   "/settings": {
@@ -376,6 +376,59 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/SourceStatusChange"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourcePublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/paused": {
+   "put": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Pause Source",
+    "description": "Pauses or resumes a source. Refresh skips a paused one, so no new posts come from it; its cards stay.",
+    "operationId": "pause_source_sources__source_id__paused_put",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Source Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourcePause"
        }
       }
      }
@@ -3273,6 +3326,19 @@
     ],
     "title": "SourceKind"
    },
+   "SourcePause": {
+    "properties": {
+     "paused": {
+      "type": "boolean",
+      "title": "Paused"
+     }
+    },
+    "type": "object",
+    "required": [
+     "paused"
+    ],
+    "title": "SourcePause"
+   },
    "SourcePublic": {
     "properties": {
      "kind": {
@@ -3323,6 +3389,12 @@
       "description": "The user's mark: every source starts new",
       "default": "new"
      },
+     "paused": {
+      "type": "boolean",
+      "title": "Paused",
+      "description": "Skipped by refresh: no new posts, its cards stay",
+      "default": false
+     },
      "id": {
       "type": "integer",
       "title": "Id"
@@ -3343,6 +3415,7 @@
      "last_error",
      "events_found",
      "status",
+     "paused",
      "id",
      "url"
     ],
