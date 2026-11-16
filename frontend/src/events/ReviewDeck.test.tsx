@@ -44,8 +44,8 @@ function Feed() {
   return feed.data ? <ReviewDeck occurrences={feed.data} updatedAt={feed.dataUpdatedAt} today="2026-11-16" /> : null;
 }
 
-function setup() {
-  const server = new Map<number, EventCard>([1, 2, 3].map((id) => [id, card(id, ["Quiz", "Lecture", "Concert"][id - 1])]));
+function setup(first: Partial<EventCard> = {}) {
+  const server = new Map<number, EventCard>([1, 2, 3].map((id) => [id, { ...card(id, ["Quiz", "Lecture", "Concert"][id - 1]), ...(id === 1 ? first : {}) }]));
   const api = createApi("");
   vi.spyOn(api, "feed").mockImplementation(async () => [...server.values()].filter((event) => event.plan === null).map((event) => ({ date: "2026-11-17", event: { ...event } })));
   const mark = vi.spyOn(api, "mark").mockImplementation(async (id: number, value: Mark) => {
@@ -70,6 +70,18 @@ const topTitle = () => screen.getByRole("article").getAttribute("aria-label");
 const press = (key: string, extra: KeyboardEventInit = {}) => act(() => void fireEvent.keyDown(window, { key, ...extra }));
 
 describe("review deck", () => {
+  it("shows on the card what a feed card shows, under the day heading the feed would give it", async () => {
+    setup({ tags: ["Джаз", "Концерт"], place: "Galerija Polet, Cetinjska 15", description: "Квартет играет джаз" });
+    await waitFor(() => expect(topTitle()).toBe("Quiz"));
+    const top = screen.getByRole("article");
+    expect(top.textContent).toContain("Квартет играет джаз");
+    expect(top.textContent).toContain("Джаз");
+    expect(top.textContent).not.toContain("Концерт");
+    expect(top.textContent).not.toContain("Galerija Polet");
+    expect(top.textContent).not.toContain("Interest");
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Tomorrow");
+  });
+
   it("rates the card and keeps it, as the feed does; a plan takes it out of the feed and brings the next", async () => {
     const { mark } = setup();
     await waitFor(() => expect(topTitle()).toBe("Quiz"));

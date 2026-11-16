@@ -51,6 +51,11 @@
   font-weight: 650;
 }
 
+.review__day {
+  width: min(var(--review-width), 100%);
+  margin-bottom: -6px;
+}
+
 .review__deck {
   position: relative;
   flex: 1;
@@ -240,65 +245,19 @@
   padding: 18px 22px 20px;
 }
 
-.review-card__when {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-height: 24px;
+/* The card says what a feed card says; it only has room to say it larger. */
+.review-card .card__meta {
+  min-height: 26px;
 }
 
-.review-card__day {
-  font-size: 15px;
-  font-weight: 650;
-  color: var(--text);
-}
-
-.review-card__day--soon {
-  color: var(--accent-strong);
-}
-
-.review-card__weekday {
-  font-size: var(--label-size);
-  color: var(--text-muted);
-}
-
-.review-card__time {
-  align-self: center;
-  margin-left: 4px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--bg-muted);
-  font-size: 14px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.review-card__end {
-  margin-left: auto;
-  align-self: center;
-}
-
-.review-card__price {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-2);
-  white-space: nowrap;
-}
-
-.review-card__title {
+.review-card .card__title {
   font-size: 22px;
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.015em;
 }
 
-.review-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.review-card__text {
+.review-card .card__text {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
@@ -306,22 +265,6 @@
   min-height: 0;
   overflow: hidden;
   font-size: 14.5px;
-  line-height: 1.55;
-  color: var(--text-2);
-}
-
-.review-card__place {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: var(--label-size);
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
-.review-card__place svg {
-  flex: none;
-  margin-top: 1px;
 }
 
 .review-card__interest {
@@ -330,14 +273,6 @@
   gap: 6px;
   padding-top: 4px;
   cursor: default;
-}
-
-.review-card__interest-label {
-  flex: none;
-  width: 64px;
-  font-size: var(--label-size);
-  font-weight: 500;
-  color: var(--text-muted);
 }
 
 .review-card__interest button {
@@ -369,6 +304,17 @@
 .review-card__interest button[aria-pressed="true"] {
   background: var(--accent);
   color: var(--on-accent);
+}
+
+.review-card__interest .dev-note__button {
+  flex: none;
+  width: 40px;
+  background: none;
+}
+
+.review-card__interest .dev-note__button:hover,
+.review-card__interest .dev-note__button[aria-expanded="true"] {
+  background: var(--bg-hover);
 }
 
 /* ---------- the stamp a swipe puts on the card ---------- */
@@ -553,11 +499,11 @@
 
 /* A short window keeps the poster and the answers and gives up description lines. */
 @media (max-height: 820px) {
-  .review-card__text {
+  .review-card .card__text {
     -webkit-line-clamp: 2;
   }
 
-  .review-card__title {
+  .review-card .card__title {
     font-size: 20px;
   }
 }

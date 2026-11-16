@@ -23,9 +23,6 @@ interface Props {
 export function EventCardView({ event, day, shownTags = [] }: Props) {
   const open = useOpenEvent();
   const prefetch = usePrefetchMentions();
-  const tags = orderTags(event.tags, useTags().data);
-  const tag = tags.find((t) => shownTags.includes(t)) ?? tags[0];
-  const price = event.is_cancelled ? null : formatPrice(event.price, event.currency);
   const show = () => open(event.id, day);
   const keepToMarks = (e: MouseEvent | KeyboardEvent) => e.stopPropagation();
 
@@ -43,14 +40,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       <div className="card__layout">
       <EventPhoto path={event.image_url} className="card__photo" />
       <div className="card__body">
-        <div className="card__meta">
-          <EventTime event={event} className="card__time" />
-          {event.is_priority && <PriorityBadge />}
-          {tag && <span className="badge">{tag}</span>}
-          {event.is_cancelled ? <span className="badge badge--accent card__end">Cancelled</span> : price && <span className="card__price card__end">{price}</span>}
-        </div>
-        <h3 className="card__title">{event.title}</h3>
-        <p className="card__text">{event.description}</p>
+        <EventCardSummary event={event} shownTags={shownTags} />
         <div className="card__marks" onClick={keepToMarks} onKeyDown={keepToMarks}>
           <div className="marks-row">
           <InterestPicker event={event} size="small" />
@@ -61,5 +51,24 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       </div>
       </div>
     </article>
+  );
+}
+
+/** What a card says about its event: time, badges, title and description. Every view of the feed shows exactly this. */
+export function EventCardSummary({ event, shownTags = [] }: { event: EventCard; shownTags?: string[] }) {
+  const tags = orderTags(event.tags, useTags().data);
+  const tag = tags.find((t) => shownTags.includes(t)) ?? tags[0];
+  const price = event.is_cancelled ? null : formatPrice(event.price, event.currency);
+  return (
+    <>
+      <div className="card__meta">
+        <EventTime event={event} className="card__time" />
+        {event.is_priority && <PriorityBadge />}
+        {tag && <span className="badge">{tag}</span>}
+        {event.is_cancelled ? <span className="badge badge--accent card__end">Cancelled</span> : price && <span className="card__price card__end">{price}</span>}
+      </div>
+      <h3 className="card__title">{event.title}</h3>
+      <p className="card__text">{event.description}</p>
+    </>
   );
 }
