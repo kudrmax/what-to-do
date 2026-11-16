@@ -13,6 +13,7 @@ describe("dates", () => {
   it("formats ranges inside and across months", () => {
     expect(dateRange("2026-11-01", "2026-11-30")).toBe("1–30 November");
     expect(dateRange("2026-10-28", "2026-11-05")).toBe("28 October\u2009–\u20095 November");
+    expect(dateRange("2026-11-18", "2027-01-03")).toBe("18 November\u2009–\u20093 January");
   });
 
   it("walks days across month and year ends", () => {

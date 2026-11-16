@@ -68,8 +68,9 @@ export function dayHeading(day: IsoDay, today: IsoDay): { title: string; subtitl
   return { title: dayAndMonth(day), subtitle: weekday(day), relative: false };
 }
 
-/** "1–30 November" or "28 October – 5 November", in the order the region writes them. */
+/** "1–30 November" or "28 October – 5 November", in the order the region writes them; never with years, even across one. */
 export function dateRange(start: IsoDay, end: IsoDay): string {
+  if (parts(start).year !== parts(end).year) return `${dayAndMonth(start)}\u2009–\u2009${dayAndMonth(end)}`;
   return dayFormat({ day: "numeric", month: "long" }).formatRange(utc(start), utc(end));
 }
 

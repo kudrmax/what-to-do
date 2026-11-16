@@ -93,7 +93,7 @@ export const useChangeSettings = () => useApiMutation((api, change: SettingsChan
 export const useAddCity = () => useApiMutation((api, city: NewCity) => api.addCity(city), STALE.city);
 export const useChangeCity = () => useApiMutation((api, { id, change }: { id: number; change: CityChange }) => api.changeCity(id, change), STALE.city);
 export const useDeleteCity = () => useApiMutation((api, id: number) => api.deleteCity(id), STALE.city);
-export const useCityContents = (id: number) => useApiQuery(["cities", id, "contents"], (api) => api.cityContents(id));
+export const useCityContents = (id: number, enabled = true) => useApiQuery(["cities", id, "contents"], (api) => api.cityContents(id), enabled);
 export const usePotentialSources = () => useApiQuery(keys.potentialSources, (api) => api.potentialSources());
 export const useMarkPotentialSource = () =>
   useApiMutation((api, { id, processed }: { id: number; processed: boolean }) => api.markPotentialSource(id, processed), STALE.potentialSources);

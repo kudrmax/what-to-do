@@ -107,8 +107,8 @@ function Fact({ icon, label, value }: { icon: IconName; label: string; value: st
 }
 
 function DeleteCityDialog({ city, onClose }: { city: City; onClose: () => void }) {
-  const contents = useCityContents(city.id);
   const remove = useDeleteCity();
+  const contents = useCityContents(city.id, !remove.isPending && !remove.isSuccess);
   const counts = contents.data;
   return (
     <Modal label={`Delete ${city.name}`} onClose={onClose} className="city-delete">
@@ -116,7 +116,7 @@ function DeleteCityDialog({ city, onClose }: { city: City; onClose: () => void }
       <p className="city-delete__text">Everything collected for this city goes with it:</p>
       {counts ? (
         <ul className="city-delete__counts">
-          <Count icon="send" count={counts.sources} one="source" other="sources" note="with their posts" />
+          <Count icon="send" count={counts.sources} one="source" other="sources" note={plural(counts.sources, "with its posts", "with their posts")} />
           <Count icon="calendar" count={counts.events} one="event" other="events" />
           <Count icon="star" count={counts.marked_events} one="event you marked" other="events you marked" />
         </ul>
