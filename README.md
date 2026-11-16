@@ -241,4 +241,4 @@ The architecture, the processing pipeline, tests and make commands are in [docs/
 
 ## License
 
-No license has been chosen yet.
+[MIT](LICENSE).
