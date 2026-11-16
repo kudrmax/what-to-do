@@ -2,6 +2,19 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.17.0 — 2026-11-17
+
+What To Do now has a dark theme.
+
+### Dark theme
+Every screen, window and menu has a dark look: the feed, event cards and the event window, the calendar, sources, stats, settings, What's new and the first-run screens. By default the app follows your computer and switches the moment it goes light or dark; the macOS app's window follows it too.
+![](docs/images/changelog/1.17.0/dark-feed.png)
+![](docs/images/changelog/1.17.0/dark-event.png)
+
+### New
+- **Settings → Appearance → Theme** chooses System, Light or Dark. The choice is kept in your browser, and the page opens in it without a flash of the other look.
+![](docs/images/changelog/1.17.0/theme-setting.png)
+
 ## 1.16.1 — 2026-11-17
 
 What To Do is now open source under the MIT license.
