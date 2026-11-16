@@ -114,6 +114,7 @@
   margin-top: 12px;
   border: 1px solid var(--line-card);
   border-radius: var(--radius-card);
+  filter: var(--screenshot-filter);
 }
 
 .changelog__footer {
@@ -127,7 +128,7 @@
   padding: 16px 36px;
   border-top: 1px solid var(--line);
   border-radius: 0 0 18px 18px;
-  background: var(--bg);
+  background: var(--bg-raised);
 }
 
 /* The header pill while a newer release is out. */
@@ -188,7 +189,7 @@
   overflow: auto;
   padding: 28px;
   border-radius: 18px;
-  background: var(--bg);
+  background: var(--bg-raised);
   box-shadow: var(--shadow-modal);
 }
 

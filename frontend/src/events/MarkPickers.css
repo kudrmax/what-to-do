@@ -40,7 +40,7 @@
 .marks__interest[aria-pressed="true"],
 .marks__plan--sure[aria-pressed="true"],
 .marks__plan--went[aria-pressed="true"] {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
 }
 

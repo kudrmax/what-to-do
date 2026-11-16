@@ -93,7 +93,7 @@ p {
   padding: 0 16px;
   border: none;
   border-radius: var(--radius-control);
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
   font-weight: 600;
   font-size: 14px;
@@ -101,7 +101,7 @@ p {
 }
 
 .button:hover:not(:disabled) {
-  background: var(--accent-strong);
+  background: var(--accent-fill-hover);
 }
 
 .button:disabled {
@@ -218,7 +218,7 @@ p {
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
   font-size: 11px;
   font-weight: 700;
@@ -274,7 +274,7 @@ p {
   padding: 4px;
   border: 1px solid var(--line-card);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--bg-raised);
   box-shadow: var(--shadow-pop);
   animation: popover-in 120ms ease;
   display: flex;
@@ -485,9 +485,9 @@ a.button:hover {
 }
 
 .segmented button:is([aria-pressed="true"], [aria-selected="true"]) {
-  background: var(--bg);
+  background: var(--bg-thumb);
   color: var(--text);
-  box-shadow: 0 1px 2px rgba(32, 32, 32, 0.1);
+  box-shadow: var(--shadow-thumb);
 }
 
 .inline-edit {

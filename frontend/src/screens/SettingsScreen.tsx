@@ -3,11 +3,13 @@ import { useState } from "react";
 import type { Settings, Tag } from "../api/client";
 import { useAddTag, useChangeSettings, useDefaultSettings, useHideTag, useRenameTag, useReorderTags, useSettings, useTags } from "../api/queries";
 import { SECTIONS } from "../app/routes";
+import { useThemeChoice, type ThemeChoice } from "../app/theme";
 import { moved } from "../domain/tags";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { InlineEdit } from "../ui/InlineEdit";
+import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { UpdatesSection } from "../updates/UpdatesSection";
 import { Screen, Section } from "../ui/Screen";
 import { CitiesSection } from "./CitiesSection";
@@ -18,6 +20,7 @@ export function SettingsScreen() {
   return (
     <Screen title={SECTIONS.settings.title} narrow>
       <CitiesSection />
+      <AppearanceSection />
       {settings.data && <PrioritySection wish={settings.data.priority_wish} />}
       {settings.data && <ReadingSection settings={settings.data} />}
       {settings.data && <ModelsSection settings={settings.data} />}
@@ -25,6 +28,29 @@ export function SettingsScreen() {
       {settings.data && <PromptsSection settings={settings.data} />}
       <UpdatesSection />
     </Screen>
+  );
+}
+
+const THEMES: SegmentedOption<ThemeChoice>[] = [
+  { id: "system", label: "System" },
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+];
+
+function AppearanceSection() {
+  const [theme, setTheme] = useThemeChoice();
+  return (
+    <Section title="Appearance">
+      <div className="setting-row">
+        <div className="setting-row__text">
+          <span className="setting-row__label">Theme</span>
+          <p className="setting-row__hint">System switches between light and dark with your computer. The choice is kept in this browser.</p>
+        </div>
+        <div className="setting-row__control">
+          <Segmented label="Theme" options={THEMES} value={theme} onChange={setTheme} />
+        </div>
+      </div>
+    </Section>
   );
 }
 

@@ -28,6 +28,9 @@
   --accent-line: #f3c4be;
   --accent-ink: #9e2a1f;
   --on-accent: #ffffff;
+  /* Filled buttons and badges under --on-accent text; in the dark look darker than the accent of links. */
+  --accent-fill: var(--accent);
+  --accent-fill-hover: var(--accent-strong);
 
   --decline: #3a3a3a;
   --on-decline: #ffffff;
@@ -46,11 +49,22 @@
   --priority-tint: #fcfbff;
   --tip-bg: #202020;
   --tip-text: #ffffff;
+  --bg-float: rgba(255, 255, 255, 0.92);
+  --bg-thumb: #ffffff;
+  --bg-raised: #ffffff;
+  /* Screenshots in the changelog are of the light look; the dark one tones them down. */
+  --screenshot-filter: none;
+  --plan-sure: #dc4c3e;
+  --plan-maybe: #eda100;
+  --plan-went: #1baf7a;
+  --plan-no: #2a78d6;
 
   --shadow-card: 0 1px 3px rgba(32, 32, 32, 0.05);
   --shadow-card-hover: 0 6px 20px rgba(32, 32, 32, 0.09);
   --shadow-pop: 0 8px 28px rgba(32, 32, 32, 0.14);
   --shadow-modal: 0 24px 64px rgba(32, 32, 32, 0.24);
+  --shadow-float: 0 1px 4px rgba(32, 32, 32, 0.12);
+  --shadow-thumb: 0 1px 2px rgba(32, 32, 32, 0.1);
 
   --radius-card: 14px;
   --radius-control: 9px;
@@ -66,4 +80,70 @@
   /* The macOS app (macos/) runs the page under its title bar and sets --shell-*; a browser has none.
      Nothing but empty space sits in that strip, so the window buttons and the restart note stay clear. */
   --titlebar-h: var(--shell-titlebar-h, 0px);
+}
+
+/* The dark look changes only colours; everything else above stays. index.html and app/theme.ts set data-theme. */
+:root[data-theme="dark"] {
+  --bg: #1d1c1a;
+  --bg-sidebar: #171615;
+  --bg-muted: #282624;
+  --bg-hover: #32302d;
+  --bg-pressed: #3c3935;
+  --bg-image: #282624;
+  --scrim: rgba(0, 0, 0, 0.62);
+
+  --line: #2c2a27;
+  --line-card: #34312e;
+  --line-control: #3d3a36;
+  --line-strong: #57534d;
+
+  --text: #ecebe8;
+  --text-2: #d5d3cf;
+  --text-muted: #a9a59f;
+  --text-faint: #9a968f;
+  --text-placeholder: #8c8881;
+
+  --accent: #ef7262;
+  --accent-strong: #f39182;
+  --accent-soft: #382320;
+  --accent-soft-hover: #432925;
+  --accent-soft-pressed: #50302b;
+  --accent-line: #6a3830;
+  --accent-ink: #f5a89d;
+  --on-accent: #ffffff;
+  --accent-fill: #c4402f;
+  --accent-fill-hover: #ad3727;
+
+  --decline: #d5d3cf;
+  --on-decline: #1d1c1a;
+  --warn-bg: #3a2f16;
+  --warn-text: #f2c96e;
+  --ok-bg: #1b3123;
+  --ok-text: #8fd3a5;
+  --favorite: #f0b429;
+  --priority: #a08cf2;
+  --priority-soft: #2a2442;
+  --priority-soft-hover: #332b51;
+  --priority-line: #4a3f7a;
+  --priority-ink: #cbbffb;
+  --priority-border: #7e69dc;
+  --priority-glow: #2e2650;
+  --priority-tint: #211e2a;
+  --tip-bg: #ecebe8;
+  --tip-text: #1d1c1a;
+  --bg-float: rgba(40, 38, 36, 0.92);
+  --bg-thumb: #46423d;
+  --bg-raised: #252321;
+  --screenshot-filter: brightness(0.86);
+  --plan-sure: #c4402f;
+  --plan-maybe: #f0b429;
+  --plan-went: #2fbf87;
+  --plan-no: #4f93e6;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 1px 4px rgba(0, 0, 0, 0.4);
+  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.4);
 }

@@ -2,9 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>What To Do</title>
+    <script>
+      // Sets the look before the first paint; src/app/theme.ts keeps it after that and owns the "theme" key.
+      (function () {
+        var choice = null;
+        try {
+          choice = localStorage.getItem("theme");
+        } catch (error) {}
+        var dark = choice === "dark" || (choice !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var root = document.documentElement;
+        root.dataset.theme = dark ? "dark" : "light";
+        root.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
