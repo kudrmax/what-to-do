@@ -9,6 +9,7 @@ Digests are read in full.
 ### Fixed
 - A channel that posts long digests of many events no longer loses part of them: several digests read together made Claude skip a third or more of their events, sometimes a whole digest. A long post is now read with short posts only or on its own.
 - The latest posts of every channel are read again at the next **Refresh**, so the events they lost appear. Your ratings and plans stay on their cards.
+- Quitting the app stops reading. Before, the app could close while **Refresh** kept running in the background and kept calling Claude. Now quitting stops the refresh and Claude's calls with it. The window shows **Stopping…** for a few seconds. Posts already read stay, and the rest are read at the next **Refresh**.
 
 ## 1.15.0 — 2026-11-16
 
