@@ -2,6 +2,16 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.14.0 — 2026-11-16
+
+Tell Claude what you look for first, and those events stand out.
+
+### For you
+In **Settings → What I look for first**, describe in your own words what matters to you most, for example «I'm looking for friends: events made for meeting people». While reading posts, Claude marks the events that fit with **For you**: their cards get a violet frame and badge in the feed, in **Review** and in the event window, and they are tinted in the **Calendar**. The **For you** filter next to the search shows only them. After you change the wish, the next **Refresh** reads the recent posts again so the cards already in the feed get marked too.
+![](docs/images/changelog/1.14.0/wish.png)
+![](docs/images/changelog/1.14.0/highlight.png)
+![](docs/images/changelog/1.14.0/filter.png)
+
 ## 1.13.0 — 2026-11-16
 
 Go through the feed one card at a time, like a dating app.
