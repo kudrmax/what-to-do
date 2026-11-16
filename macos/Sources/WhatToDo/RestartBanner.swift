@@ -1,6 +1,6 @@
 import AppKit
 
-/// A quiet note in the title bar once `scripts/update.sh` has rebuilt the app on disk.
+/// A quiet note in the title bar once an update has rebuilt the app on disk.
 final class RestartBanner: NSTitlebarAccessoryViewController {
     private static let spacing: CGFloat = 8
     private static let trailingInset: CGFloat = 12

@@ -169,9 +169,19 @@ class Ports:
                 pids.add(process.pid)
         return pids
 
-    @staticmethod
-    def listening_ports(process: psutil.Process) -> list[int]:
+    @classmethod
+    def listening_ports(cls, process: psutil.Process) -> list[int]:
+        """The ports the process or what it started listens on: on Windows a virtual environment's python.exe
+        starts the real interpreter as its child."""
         try:
-            return sorted({c.laddr.port for c in process.net_connections(kind="tcp") if c.status == psutil.CONN_LISTEN and c.laddr})
+            family = [process, *process.children(recursive=True)]
         except psutil.Error:
             return []
+        return sorted({port for member in family for port in cls._own_listening_ports(member)})
+
+    @staticmethod
+    def _own_listening_ports(process: psutil.Process) -> set[int]:
+        try:
+            return {c.laddr.port for c in process.net_connections(kind="tcp") if c.status == psutil.CONN_LISTEN and c.laddr}
+        except psutil.Error:
+            return set()

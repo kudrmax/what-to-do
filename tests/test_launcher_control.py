@@ -84,6 +84,11 @@ def copy(tmp_path: Path) -> Iterator[Copy]:
         process.wait()
 
 
+def is_or_started_by(process: psutil.Process, started: subprocess.Popen[bytes]) -> bool:
+    """On Windows a virtual environment's python.exe runs the real interpreter as its child."""
+    return process.pid == started.pid or started.pid in {parent.pid for parent in process.parents()}
+
+
 def gone(processes: list[psutil.Process]) -> bool:
     return all(find_process(process.pid, process.create_time()) is None for process in processes)
 
@@ -162,7 +167,7 @@ def test_a_server_started_by_hand_is_found_and_stopped(copy: Copy) -> None:
     by_hand = copy.start_by_hand()
 
     [server] = copy.control.running()
-    assert server.process.pid == by_hand.pid
+    assert is_or_started_by(server.process, by_hand)
     assert server.spec.port == copy.port
     copy.control.down()
 

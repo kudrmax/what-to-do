@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import plistlib
+from xml.parsers.expat import ExpatError
 from pathlib import Path
 
 PROJECT_DIR_KEY = "WTGProjectDir"
@@ -23,7 +24,7 @@ class MacApps:
         try:
             with (app / "Contents" / "Info.plist").open("rb") as file:
                 value = plistlib.load(file).get(PROJECT_DIR_KEY)
-        except (OSError, plistlib.InvalidFileException, ValueError):
+        except (OSError, plistlib.InvalidFileException, ValueError, ExpatError):
             return None
         if not isinstance(value, str) or not value:
             return None

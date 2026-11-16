@@ -1,7 +1,7 @@
 import Foundation
 
 /// Tells whether the bundle on disk was rebuilt from other app sources than the running one,
-/// as `scripts/update.sh` does when `macos` changed between versions.
+/// as the updater does when `macos` changed between versions.
 public enum BundleFreshness {
     public static let treeKey = "WTGMacosTree"
 
