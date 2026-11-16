@@ -35,7 +35,6 @@
 }
 
 .card__layout {
-  overflow: hidden;
   border-radius: inherit;
 }
 
@@ -51,6 +50,7 @@
 
 .card__photo {
   aspect-ratio: 16 / 10;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 /* A wide card (one column) puts the photo beside the text instead of over it. */
@@ -60,6 +60,7 @@
   }
 
   .card__photo {
+    border-radius: var(--radius-card) 0 0 var(--radius-card);
     flex: 0 0 38%;
     aspect-ratio: auto;
     min-height: 220px;
