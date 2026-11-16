@@ -201,6 +201,7 @@
 }
 
 .prompt__title {
+  margin: 0;
   font-size: 15px;
   font-weight: 600;
 }
@@ -226,4 +227,14 @@
   font-size: 14px;
   line-height: 1.5;
   resize: vertical;
+}
+
+/* In the right column a choice fills it, as the buttons and fields of the other rows do. */
+.setting-row__control .segmented {
+  width: 100%;
+}
+
+.setting-row__control .segmented button {
+  flex: 1 1 0;
+  justify-content: center;
 }

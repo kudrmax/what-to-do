@@ -17,7 +17,7 @@ export function CitiesSection() {
   const [adding, setAdding] = useState(false);
   const list = cities.data ?? [];
   return (
-    <Section title="Cities" hint="Upcoming, the calendar and sources show the selected city. Each city keeps its own sources and cards; tags and what you look for first are shared by all cities.">
+    <Section title="Cities" hint="Upcoming, Calendar and Sources show the selected city. Add another one when you travel or move: each city keeps its own sources and cards.">
       {list.length > 0 && (
         <ul className="city-list" aria-label="Cities">
           {list.map((city) => (

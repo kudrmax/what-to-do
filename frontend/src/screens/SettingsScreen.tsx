@@ -11,7 +11,7 @@ import { IconButton } from "../ui/IconButton";
 import { InlineEdit } from "../ui/InlineEdit";
 import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { UpdatesSection } from "../updates/UpdatesSection";
-import { Screen, Section } from "../ui/Screen";
+import { CollapsibleSection, Screen, Section, Subsection } from "../ui/Screen";
 import { CitiesSection } from "./CitiesSection";
 import "./SettingsScreen.css";
 
@@ -21,12 +21,12 @@ export function SettingsScreen() {
     <Screen title={SECTIONS.settings.title} narrow>
       <CitiesSection />
       <AppearanceSection />
-      {settings.data && <PrioritySection wish={settings.data.priority_wish} />}
-      {settings.data && <ReadingSection settings={settings.data} />}
-      {settings.data && <ModelsSection settings={settings.data} />}
-      <TagsSection />
-      {settings.data && <PromptsSection settings={settings.data} />}
+      <Section title="Your feed" hint="What Claude looks for in posts and how it sorts events. Shared by all cities.">
+        {settings.data && <PriorityWish wish={settings.data.priority_wish} />}
+        <TagsSubsection />
+      </Section>
       <UpdatesSection />
+      {settings.data && <AdvancedSection settings={settings.data} />}
     </Screen>
   );
 }
@@ -56,14 +56,14 @@ function AppearanceSection() {
 
 const WISH_EXAMPLE = "Above all I want events made for meeting people and talking. I am looking for friends";
 
-function PrioritySection({ wish }: { wish: string }) {
+function PriorityWish({ wish }: { wish: string }) {
   const change = useChangeSettings();
   const [draft, setDraft] = useState(wish);
   const save = (text: string) => change.mutate({ priority_wish: text }, { onSuccess: () => setDraft(text) });
   return (
-    <Section
+    <Subsection
       title="What I look for first"
-      hint="Describe it in your own words; it applies to every city. While reading posts Claude marks the events that fit with «For you»: they stand out in the feed, and the «For you» filter shows only them. After a change, the next refresh reads the recent posts again to mark them."
+      hint="Describe it in your own words. Claude marks the events that fit with «For you»: they stand out in the feed, and the «For you» filter shows only them. After a change, the next refresh reads the recent posts again."
     >
       <div className="prompt">
         <textarea className="input wish__text" value={draft} rows={4} aria-label="What I look for first" placeholder={WISH_EXAMPLE} aria-invalid={change.isError} onChange={(e) => setDraft(e.target.value)} />
@@ -77,15 +77,22 @@ function PrioritySection({ wish }: { wish: string }) {
           </button>
         </div>
       </div>
-    </Section>
+    </Subsection>
   );
 }
 
-function ReadingSection({ settings }: { settings: Settings }) {
+function AdvancedSection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Reading posts">
-      <SettingRow name="recent_posts" value={settings.recent_posts} label="Recent posts per channel" hint="How many of each channel’s latest posts are read. Increase it and older posts will be read on the next refresh. The language of event cards is set for each city, under Cities." />
-    </Section>
+    <CollapsibleSection title="Advanced" hint="Safe to leave as they are. Change them only if cards come out wrong, or a refresh takes too long or uses too much of your Claude plan.">
+      <SettingRow
+        name="recent_posts"
+        value={settings.recent_posts}
+        label="Recent posts per channel"
+        hint="How many of each channel’s latest posts a refresh reads. More finds older events but makes every refresh longer. Takes effect from the next refresh."
+      />
+      <ModelsSubsection settings={settings} />
+      <PromptsSubsection settings={settings} />
+    </CollapsibleSection>
   );
 }
 
@@ -100,13 +107,13 @@ const MODELS: { id: ClaudeModel; name: string; tip: string }[] = [
   { id: "claude-opus-5-5", name: "Opus", tip: "Most capable and most expensive" },
 ];
 
-function ModelsSection({ settings }: { settings: Settings }) {
+function ModelsSubsection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Claude models" hint="A new model takes effect from the next refresh.">
+    <Subsection title="Claude models" hint="Which model does each step. Bigger models are more accurate, slower and use more of your Claude plan. A new model takes effect from the next refresh.">
       <ModelRow name="photo_model" value={settings.photo_model} label="Photo reading" hint="Copies the text from posters and post images. Haiku mixes up tables and collages." />
       <ModelRow name="extraction_model" value={settings.extraction_model} label="Post and page reading" hint="Turns channel posts and website pages into events and venues." />
       <ModelRow name="matching_model" value={settings.matching_model} label="Duplicate merging" hint="Decides when two announcements are the same event." />
-    </Section>
+    </Subsection>
   );
 }
 
@@ -163,7 +170,7 @@ function SettingRow({ name, value, label, hint }: { name: EditableSetting; value
   );
 }
 
-function TagsSection() {
+function TagsSubsection() {
   const tags = useTags();
   const add = useAddTag();
   const reorder = useReorderTags();
@@ -176,9 +183,9 @@ function TagsSection() {
     if (from !== to && to >= 0 && to < movable) reorder.mutate(moved(list, from, to));
   };
   return (
-    <Section
+    <Subsection
       title="Tags"
-      hint={`The tags are shared by all cities, and Claude tags events only with them. If none fits, it uses “${fallback ?? "…"}”, so those events show which tag is missing; it stays last but can be renamed like any tag. Drag a tag to change the order in which tags appear on cards. A tag with a crossed-out eye is blocked: its events stay out of the feed, but marked ones remain in Want to go.`}
+      hint={`Claude tags events only with these. Drag a tag to change the order on cards, click its name to rename it, click the eye to hide its events from the feed; marked ones stay in Want to go. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
     >
       <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (
@@ -207,7 +214,7 @@ function TagsSection() {
         <input className="input tag-add__input" aria-label="New tag" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ New tag" />
       </form>
       {(add.error || reorder.error) && <p className="error-text">{errorText(add.error ?? reorder.error)}</p>}
-    </Section>
+    </Subsection>
   );
 }
 
@@ -271,13 +278,13 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
   );
 }
 
-function PromptsSection({ settings }: { settings: Settings }) {
+function PromptsSubsection({ settings }: { settings: Settings }) {
   return (
-    <Section title="Claude prompts" hint="New text applies to posts that arrive after the next refresh. Posts already read aren’t read again.">
+    <Subsection title="Claude prompts" hint="The instructions Claude follows at each step. New text applies to posts that arrive after the next refresh; posts already read aren’t read again.">
       <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Post and page reading" hint="How to turn posts and website pages into events. Placeholders: {city} is the city, {language} the description language, {tags} the tag list, {fallback} the fallback tag." />
       <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Photo reading" hint="How to copy the text from posters and post images. Posts are then read together with this text." />
       <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Duplicate merging" hint="How to decide when two announcements are the same event." />
-    </Section>
+    </Subsection>
   );
 }
 
@@ -290,7 +297,7 @@ function PromptEditor({ name, value, title, hint }: { name: "extraction_prompt" 
   return (
     <div className="prompt">
       <div className="prompt__head">
-        <h3 className="prompt__title">{title}</h3>
+        <h4 className="prompt__title">{title}</h4>
         <p className="setting-row__hint">{hint}</p>
       </div>
       <textarea className="input prompt__text" value={draft} rows={12} spellCheck={false} aria-label={title} aria-invalid={change.isError} onChange={(e) => setDraft(e.target.value)} />

@@ -49,6 +49,75 @@
   max-width: 620px;
 }
 
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.screen-section > .subsection {
+  margin-top: 6px;
+}
+
+.screen-section > .subsection + .subsection {
+  margin-top: 20px;
+}
+
+.subsection__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subsection__title {
+  font-size: var(--body-size);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.collapsible__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: var(--radius-small);
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+
+.collapsible__toggle:hover {
+  background: var(--bg-muted);
+}
+
+.collapsible__chevron {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform 160ms ease;
+}
+
+.collapsible__toggle[aria-expanded="true"] .collapsible__chevron {
+  transform: rotate(180deg);
+}
+
+.collapsible__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.collapsible__body > * + * {
+  padding-top: 24px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.collapsible__body[hidden] {
+  display: none;
+}
+
 .empty {
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius-card);
