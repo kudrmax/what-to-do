@@ -103,9 +103,20 @@
   display: flex;
   gap: 2px;
   height: 28px;
-  border-radius: var(--radius-small);
-  overflow: hidden;
   background: var(--bg);
+}
+
+/* The bar rounds its ends through its segments: clipping the bar would cut the segments' tooltips. */
+.parts__segment:first-child {
+  border-radius: var(--radius-small) 0 0 var(--radius-small);
+}
+
+.parts__segment:last-child {
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
+}
+
+.parts__segment:only-child {
+  border-radius: var(--radius-small);
 }
 
 .parts__segment {
