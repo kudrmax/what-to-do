@@ -45,7 +45,7 @@ export function browserLanguageName(preferred: readonly string[] = typeof naviga
   return "English";
 }
 
-/** The `lang` tag of a language however the person wrote it: "English", "Spanish", "русский", "ru"; null when unknown. */
+/** The `lang` tag of a language however the person wrote it: "English", "Spanish", the language's own name, "ru"; null when unknown. */
 export function languageTag(name: string): string | null {
   const wanted = normal(name);
   if (!wanted) return null;
