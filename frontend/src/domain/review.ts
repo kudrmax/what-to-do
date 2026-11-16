@@ -1,7 +1,9 @@
 import type { EventCard, Occurrence, Plan } from "../api/client";
 
-/** What a review does with the card on top: a plan, an interest, a skip until the next review, or taking the last answer back. */
-export type ReviewAnswer = { kind: "plan"; plan: Extract<Plan, "no" | "maybe" | "sure"> } | { kind: "interest"; value: number } | { kind: "skip" };
+export type ReviewPlan = Extract<Plan, "no" | "maybe" | "sure">;
+
+/** What a review does with the card on top: a plan or an interest (the same marks as on a card in the list), or a skip to the next card. */
+export type ReviewAnswer = { kind: "plan"; plan: ReviewPlan } | { kind: "interest"; value: number } | { kind: "skip" };
 export type ReviewCommand = ReviewAnswer | { kind: "undo" } | { kind: "open" };
 
 /** Where a card leaves to: the side it was swiped to. */
@@ -13,32 +15,29 @@ export interface ReviewItem {
 }
 
 /**
- * The cards still to review, in the feed's order: each event once (a repeating one at its nearest day),
- * without the ones already answered in this review and without the ones the user has already rated or planned.
- * A card taken back by undo returns even though the feed may still show its old rating.
+ * The cards of the feed in its order, one by one: each event once, at its nearest day.
+ * Which cards the feed holds is the feed's business; the review only steps past the ones it was told to.
  */
-export function reviewQueue(occurrences: Occurrence[], answered: ReadonlySet<number>, returned: ReadonlySet<number> = new Set()): ReviewItem[] {
+export function reviewQueue(occurrences: Occurrence[], passed: ReadonlySet<number>): ReviewItem[] {
   const seen = new Set<number>();
   const queue: ReviewItem[] = [];
   for (const { event, date } of occurrences) {
     if (seen.has(event.id)) continue;
     seen.add(event.id);
-    if (answered.has(event.id)) continue;
-    if ((event.interest != null || event.plan != null) && !returned.has(event.id)) continue;
-    queue.push({ event, day: date });
+    if (!passed.has(event.id)) queue.push({ event, day: date });
   }
   return queue;
 }
 
-export function exitOf(answer: ReviewAnswer): Exit {
-  if (answer.kind === "skip" || answer.kind === "interest") return "down";
+export function exitOf(answer: { kind: "plan"; plan: ReviewPlan } | { kind: "skip" }): Exit {
+  if (answer.kind === "skip") return "down";
   return answer.plan === "no" ? "left" : answer.plan === "maybe" ? "right" : "up";
 }
 
 /** A swipe far enough in one direction answers the card; a short one puts it back. */
 export const SWIPE_DISTANCE = 120;
 
-export function swipeAnswer(dx: number, dy: number): ReviewAnswer | null {
+export function swipeAnswer(dx: number, dy: number): { kind: "plan"; plan: ReviewPlan } | null {
   if (-dy > SWIPE_DISTANCE && -dy > Math.abs(dx)) return { kind: "plan", plan: "sure" };
   if (dx > SWIPE_DISTANCE) return { kind: "plan", plan: "maybe" };
   if (dx < -SWIPE_DISTANCE) return { kind: "plan", plan: "no" };
