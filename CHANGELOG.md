@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.16.1 — 2026-11-17
+
+What To Do is now open source under the MIT license.
+
+### Improvements
+- The repository has a license: you may use, change and share the app under the terms of the [MIT license](LICENSE).
+
 ## 1.16.0 — 2026-11-16
 
 What To Do is ready for anyone: on macOS, Linux and Windows, in any city and any language.
