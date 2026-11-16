@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from tests.helpers import judge_same_titles
 from where_to_go.api import create_app
 from where_to_go.container import Container
+from where_to_go.launcher.paths import PROJECT_DIR
 from where_to_go.releases import (
-    PROJECT_DIR,
     AppVersion,
     Changelog,
     InstalledRelease,

@@ -14,7 +14,6 @@ from typing import Callable, Protocol
 
 from pydantic import BaseModel
 
-from where_to_go.launcher.paths import PROJECT_DIR
 from where_to_go.updating import UpdateRunner
 
 logger = logging.getLogger(__name__)

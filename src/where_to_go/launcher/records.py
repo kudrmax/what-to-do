@@ -9,6 +9,7 @@ import psutil
 from where_to_go.launcher.paths import ProjectPaths
 from where_to_go.launcher.processes import find_process
 from where_to_go.launcher.spec import ServerRecord, ServerSpec
+from where_to_go.launcher.update_journal import replace_whole
 
 
 class ServerAlreadyRunningError(RuntimeError):
@@ -35,11 +36,7 @@ class ServerRecords:
             raise ServerAlreadyRunningError(f"This copy already runs a server on port {spec.port} (PID {existing.record.pid}). Stop it first: where-to-go down")
         me = psutil.Process()
         record = ServerRecord(pid=me.pid, create_time=me.create_time(), spec=spec, version=version)
-        path = self._paths.server_record(spec.port)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".tmp")
-        temporary.write_text(record.dumps(), encoding="utf-8")
-        temporary.replace(path)
+        replace_whole(self._paths.server_record(spec.port), record.dumps())
         return record
 
     def unregister(self, record: ServerRecord) -> None:

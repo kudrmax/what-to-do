@@ -1,8 +1,28 @@
 from __future__ import annotations
 
 import os
+import time
 from enum import StrEnum
 from pathlib import Path
+
+REPLACE_ATTEMPTS = 50
+REPLACE_PAUSE_S = 0.02
+
+
+def replace_whole(path: Path, text: str) -> None:
+    """Writes the file so that a reader sees the old text or the new one, never half. Windows refuses to
+    replace a file another process has open for a moment, so it is tried again."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            temporary.replace(path)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(REPLACE_PAUSE_S)
 
 
 class UpdateWord(StrEnum):
@@ -55,8 +75,4 @@ class UpdateJournal:
             return ""
 
     def write(self, relative_path: str, text: str) -> None:
-        path = self._root / relative_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-        temporary.write_text(text, encoding="utf-8")
-        temporary.replace(path)
+        replace_whole(self._root / relative_path, text)
