@@ -11,6 +11,7 @@ from sqlmodel import col, select
 from where_to_go.db import Database
 from where_to_go.models import (
     City,
+    CityContents,
     CollectedPost,
     DevNote,
     Event,
@@ -30,6 +31,7 @@ from where_to_go.models import (
     SourceKind,
     Tag,
     PageFacts,
+    TelegramUrls,
     WebPage,
     WebSite,
 )
@@ -64,12 +66,50 @@ class CityRepository:
         self._db = db
         self._settings = settings
 
-    def add(self, name: str, timezone: str) -> City:
+    def add(self, city: City) -> City:
         """The first city a user adds becomes the active one."""
-        city = self._save(City(name=name, timezone=timezone))
+        city = self._save(city)
         if self._settings.load().active_city_id is None:
             self._settings.update(active_city_id=city.id)
         return city
+
+    def change(self, city_id: int, **fields: Any) -> City:
+        with self._db.session() as s:
+            city = s.get(City, city_id)
+            if city is None:
+                raise KeyError(city_id)
+            city.sqlmodel_update(fields)
+            s.add(city)
+            s.commit()
+            s.refresh(city)
+            return city
+
+    def named(self, name: str) -> City | None:
+        """Case does not matter, in any alphabet: SQLite lowers Latin letters only."""
+        return next((city for city in self.all() if city.name.casefold() == name.strip().casefold()), None)
+
+    def contents(self, city_id: int) -> CityContents:
+        with self._db.session() as s:
+            sources = s.exec(select(func.count()).select_from(Source).where(Source.city_id == city_id)).one()
+            events = list(s.exec(select(Event).where(Event.city_id == city_id)))
+        marked = sum(1 for e in events if e.interest is not None or e.plan is not None)
+        return CityContents(sources=sources, events=len(events), marked_events=marked)
+
+    def delete(self, city_id: int) -> None:
+        """Everything of the city goes with it, in one transaction: its sources with their posts, its cards, places
+        and leads. A city that was active hands the feed over to another one, if there is any."""
+        with self._db.session() as s:
+            for model in (PotentialSource, Place, Event, Source):
+                for row in s.exec(select(model).where(model.city_id == city_id)).unique():
+                    s.delete(row)
+                s.flush()
+            city = s.get(City, city_id)
+            if city is not None:
+                s.delete(city)
+            s.commit()
+        if self._settings.load().active_city_id == city_id:
+            rest = self.all()
+            self._settings.update(active_city_id=rest[0].id if rest else None)
 
     def get(self, city_id: int) -> City | None:
         with self._db.session() as s:
@@ -162,6 +202,13 @@ class WebRepository:
             s.refresh(site)
             return site
 
+    def save_site(self, site: WebSite) -> WebSite:
+        with self._db.session() as s:
+            site = s.merge(site)
+            s.commit()
+            s.refresh(site)
+            return site
+
     def site(self, source_id: int) -> WebSite:
         with self._db.session() as s:
             site = s.get(WebSite, source_id)
@@ -229,8 +276,9 @@ class PostRepository:
             query = select(Post).where(col(Post.processed_at).is_(None), col(Post.source_id).in_(list(source_ids)))
             return list(s.exec(query.order_by(Post.published_at)))
 
-    def to_read(self, source_ids: Iterable[int], rules: str, recent: int) -> list[Post]:
-        """Posts never read, and the latest `recent` of every source read with other rules.
+    def to_read(self, source_ids: Iterable[int], rules: str, recent: int, today: date) -> list[Post]:
+        """Posts never read, and those read with other rules: the latest `recent` of every channel, and the pages of
+        websites whose events are still ahead.
 
         A post whose events the user merged or split by hand is not read again: their decision stays.
         """
@@ -242,7 +290,23 @@ class PostRepository:
             for source_id in (i for i in ids if i in telegram):
                 latest = s.exec(select(Post).where(Post.source_id == source_id).order_by(col(Post.published_at).desc()).limit(recent))
                 chosen |= {p.id: p for p in latest if p.read_with != rules and p.id not in curated}
+            ahead = (
+                select(Post)
+                .join(WebPage, (WebPage.id == Post.external_id) & (WebPage.source_id == Post.source_id))
+                .where(
+                    col(Post.source_id).in_([i for i in ids if i not in telegram]),
+                    func.coalesce(WebPage.end_day, WebPage.start_day) >= today,
+                )
+            )
+            chosen |= {p.id: p for p in s.exec(ahead).unique() if p.read_with != rules and p.id not in curated}
         return sorted(chosen.values(), key=lambda p: p.published_at)
+
+    def own_handles(self, source_ids: Iterable[int]) -> set[str]:
+        """The handles channels publish their latest posts under: a renamed channel keeps its old handle as a source.
+        SQLite takes the bare url from the row max() picks."""
+        with self._db.session() as s:
+            query = select(Post.url, func.max(Post.id)).where(col(Post.source_id).in_(list(source_ids))).group_by(Post.source_id)
+            return {handle.lower() for url, _ in s.exec(query) if (handle := TelegramUrls.handle_of_post(url))}
 
     def get(self, post_id: int) -> Post:
         with self._db.session() as s:
@@ -291,16 +355,31 @@ class TagRepository:
     def fallback(self) -> str:
         return next(t.name for t in self.all() if t.is_fallback)
 
-    def ensure_seeded(self, names: list[str], fallback: str) -> None:
+    def has_fallback(self) -> bool:
         with self._db.session() as s:
-            if s.exec(select(Tag.id)).first():
-                return
-            s.add_all(Tag(name=name, position=i) for i, name in enumerate(names))
-            s.add(Tag(name=fallback, position=len(names), is_fallback=True))
+            return s.exec(select(Tag.id).where(Tag.is_fallback == True)).first() is not None  # noqa: E712
+
+    def seed(self, names: list[str], fallback: str) -> None:
+        """Puts the given tags after the ones the user added already, and the fallback last."""
+        with self._db.session() as s:
+            present = {t.name.casefold(): t for t in s.exec(select(Tag))}
+            position = max((t.position for t in present.values()), default=-1) + 1
+            for name in names:
+                if name.casefold() not in present:
+                    s.add(Tag(name=name, position=position))
+                    position += 1
+            if fallback.casefold() in present:
+                present[fallback.casefold()].is_fallback = True
+                present[fallback.casefold()].position = position
+                s.add(present[fallback.casefold()])
+            else:
+                s.add(Tag(name=fallback, position=position, is_fallback=True))
             s.commit()
 
     def add(self, name: str) -> Tag:
         with self._db.session() as s:
+            if any(t.name.casefold() == name.casefold() for t in s.exec(select(Tag))):
+                raise ValueError(f"There is a tag \"{name}\" already")
             position = max((t.position for t in s.exec(select(Tag).where(Tag.is_fallback == False))), default=-1) + 1  # noqa: E712
             tag = Tag(name=name, position=position)
             s.add(tag)
@@ -335,19 +414,25 @@ class TagRepository:
         return self.all()
 
     def rename(self, tag_id: int, name: str) -> Tag:
-        """Renames a tag on every card too. The fallback tag keeps its name: Claude and the cards rely on it."""
+        """Renames a tag on every card and every post reading, so a card built again keeps the new name."""
         with self._db.session() as s:
             tag = s.get(Tag, tag_id)
             if tag is None:
                 raise KeyError(tag_id)
-            if tag.is_fallback:
-                raise ValueError(f"The tag \"{tag.name}\" can't be renamed")
+            taken = next((t for t in s.exec(select(Tag)) if t.name.casefold() == name.casefold() and t.id != tag_id), None)
+            if taken is not None:
+                raise ValueError(f"There is a tag \"{taken.name}\" already")
             old, tag.name = tag.name, name
             s.add(tag)
             for event in s.exec(select(Event)):
                 if old in event.tags:
                     event.tags = [name if t == old else t for t in event.tags]
                     s.add(event)
+            for mention in s.exec(select(Mention)).unique():
+                if old in mention.data.tags:
+                    data = mention.data.model_copy(update={"tags": [name if t == old else t for t in mention.data.tags]})
+                    mention.data = data
+                    s.add(mention)
             s.commit()
             s.refresh(tag)
             return tag

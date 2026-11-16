@@ -5,7 +5,7 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from tests.helpers import photos_saying, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
+from tests.helpers import BELGRADE, add_city, photos_saying, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.api import create_app
 from where_to_go.container import Container
 
@@ -24,7 +24,7 @@ def test_empty_app_asks_for_a_city_first(client):
 
 
 def test_first_city_becomes_active(client):
-    city = client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"}).json()
+    city = client.post("/cities", json=BELGRADE).json()
     assert client.get("/settings").json()["active_city_id"] == city["id"]
     assert client.post("/cities", json={"name": "Х", "timezone": "Mars/Base"}).status_code == 422
 
@@ -36,7 +36,7 @@ def test_add_source_refresh_and_mark(client):
         200, text=channel_page("quizbg", [(3, "2098-12-30T10:00:00+00:00", "квиз в пятницу")])
     )
     respx.get(url__startswith="https://cdn.test/").respond(200, content=b"x", headers={"content-type": "image/jpeg"})
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
 
     source = client.post("/sources", json={"link": "https://t.me/quizbg"})
     assert source.status_code == 201, source.text
@@ -74,7 +74,7 @@ def seeded(client, *events):
     from where_to_go.models import CollectedPost, ExtractedEvent, Source
 
     c = client.app.state.container
-    city = c.cities.active() or c.cities.add("Белград", "Europe/Belgrade")
+    city = c.cities.active() or add_city(c, "Белград", "Europe/Belgrade")
     ids = []
     for handle, raw in events:
         source = next((s for s in c.sources.in_city(city.id) if s.handle == handle), None) or c.sources.add(Source(city_id=city.id, handle=handle, title=handle))
@@ -134,16 +134,15 @@ def test_feed_filters(client):
 
 
 def test_tags_settings_and_unknown_ids(client):
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     tags = client.get("/tags").json()
-    assert tags[-1] == {"id": tags[-1]["id"], "name": "не распознано", "is_fallback": True, "hidden": False}
-    renamed_fallback = client.patch(f"/tags/{tags[-1]['id']}", json={"name": "Другое"})
-    assert renamed_fallback.status_code == 422 and "не распознано" in renamed_fallback.json()["detail"]
+    assert tags[-1] == {"id": tags[-1]["id"], "name": "Другое", "is_fallback": True, "hidden": False}
+    taken = client.patch(f"/tags/{tags[-1]['id']}", json={"name": "Концерт"})
+    assert taken.status_code == 422 and "Концерт" in taken.json()["detail"]
     added = client.post("/tags", json={"name": "Танцы"}).json()
     assert client.get("/tags").json()[-2]["name"] == "Танцы"  # new tags go before the fallback
     assert client.patch(f"/tags/{added['id']}", json={"name": "Танцы и сальса"}).json()["name"] == "Танцы и сальса"
     assert client.patch("/tags/999", json={"name": "x"}).status_code == 404
-    assert client.patch("/settings", json={"description_language": "английский"}).json()["description_language"] == "английский"
     assert client.get("/settings").json()["recent_posts"] == 20
     assert client.patch("/settings", json={"recent_posts": 5}).json()["recent_posts"] == 5
     too_small = client.patch("/settings", json={"recent_posts": 0})
@@ -181,6 +180,7 @@ def test_blacklisted_tags_hide_unmarked_cards(client):
 
 
 def test_reordering_tags_keeps_the_fallback_last(client):
+    client.post("/cities", json=BELGRADE)
     tags = client.get("/tags").json()
     ordinary = [t["id"] for t in tags if not t["is_fallback"]]
 
@@ -245,7 +245,7 @@ def test_deleting_a_source_drops_cards_only_it_supported(client):
 def test_closed_channel_cannot_be_added(client):
     respx.route(host="testserver").pass_through()
     respx.get("https://t.me/s/secretchan").respond(302)
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     response = client.post("/sources", json={"link": "t.me/secretchan"})
     assert response.status_code == 422 and "private" in response.json()["detail"]
     assert client.post("/sources", json={"link": "https://example.com"}).status_code == 422
@@ -269,7 +269,7 @@ def test_calendar_file_of_a_timed_event(client):
     entry, text = calendar_entry(client, quiz)
     start = datetime(2099, 1, 2, 20, 0, tzinfo=ZoneInfo("Europe/Belgrade"))
     assert entry.decoded("dtstart") == start and entry.decoded("dtend") == start + timedelta(hours=2)
-    assert str(entry["summary"]) == "Квиз" and str(entry["location"]) == "Бар, Улица 1"
+    assert str(entry["summary"]) == "Квиз" and str(entry["location"]) == "Бар, Улица 1, Белград, Сербия"
     assert str(entry["url"]) == "https://t.me/quizbg/1" and "Описание: Квиз" in str(entry["description"])
     assert "BEGIN:VTIMEZONE" in text and "TZID:Europe/Belgrade" in text
 
@@ -306,7 +306,7 @@ def test_dev_note_is_saved_for_a_card(client):
 @respx.mock
 def test_a_source_starts_new_and_can_become_favorite(client):
     respx.route(host="testserver").pass_through()
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы"}).json()
     assert source["status"] == "new"
 
@@ -321,7 +321,7 @@ def test_a_source_starts_new_and_can_become_favorite(client):
 @respx.mock
 def test_a_source_can_be_paused_and_resumed(client):
     respx.route(host="testserver").pass_through()
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы"}).json()
     assert source["paused"] is False
 
@@ -344,7 +344,7 @@ def serve_event_site():
 def test_preview_of_site_link(client):
     respx.route(host="testserver").pass_through()
     serve_event_site()
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     preview = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"}).json()
     assert (preview["kind"], preview["title"], preview["handle"], preview["pages_found"]) == ("web", "Сайт афиши", "site.test/ru/events/", 1)
     assert preview["examples"] == [{"title": "Джаз", "day": SOON, "time": "19:00", "url": "https://site.test/ru/events/a"}]
@@ -355,7 +355,7 @@ def test_preview_of_site_link(client):
 def test_site_is_added_once(client):
     respx.route(host="testserver").pass_through()
     serve_event_site()
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     source = client.post("/sources", json={"link": "https://site.test/ru/events/a"})
     assert source.status_code == 201
     assert (source.json()["kind"], source.json()["url"], source.json()["title"]) == ("web", "https://site.test/ru/events/", "Сайт афиши")
@@ -369,7 +369,7 @@ def test_site_is_added_once(client):
 def test_telegram_link_still_previews_as_channel(client):
     respx.route(host="testserver").pass_through()
     respx.get("https://t.me/s/quizbg").respond(200, text=channel_page("quizbg", []))
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     preview = client.post("/sources/preview", json={"link": "https://t.me/quizbg"}).json()
     assert (preview["kind"], preview["handle"], preview["title"]) == ("telegram", "quizbg", "Канал quizbg")
 
@@ -378,7 +378,7 @@ def test_telegram_link_still_previews_as_channel(client):
 def test_site_without_event_markup_is_refused_in_preview(client):
     respx.route(host="testserver").pass_through()
     respx.get("https://site.test/ru/events/a").respond(200, text=event_page(markup=False))
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     response = client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
     assert response.status_code == 422 and response.json()["detail"] == "The page has no event markup"
 
@@ -387,7 +387,7 @@ def test_site_without_event_markup_is_refused_in_preview(client):
 def test_adding_right_after_preview_does_not_check_the_site_again(client):
     respx.route(host="testserver").pass_through()
     serve_event_site()
-    client.post("/cities", json={"name": "Белград", "timezone": "Europe/Belgrade"})
+    client.post("/cities", json=BELGRADE)
     client.post("/sources/preview", json={"link": "https://site.test/ru/events/a"})
     site_calls = lambda: sum(1 for call in respx.calls if call.request.url.host == "site.test")  # noqa: E731
     before = site_calls()

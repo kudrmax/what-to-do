@@ -1,7 +1,8 @@
-import { useFeed, useSources } from "../api/queries";
+import type { Source } from "../api/client";
+import { useFeed, useRefresh, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
-import { dayAndMonth } from "../domain/dates";
+import { dayAndMonth, plural } from "../domain/dates";
 import { plansToShow, SHOWN_PLANS } from "../domain/plans";
 import { DayFeed } from "../events/DayFeed";
 import { FilterBar } from "../events/FilterBar";
@@ -14,6 +15,23 @@ import { Icon } from "../ui/Icon";
 import { Segmented } from "../ui/Segmented";
 import { EmptyState, LoadError, Screen } from "../ui/Screen";
 import { NoCity } from "./NoCity";
+
+const neverRefreshed = (sources: Source[]) => sources.every((source) => source.last_refreshed_at === null);
+
+/** Sources are added but nothing is read yet: the feed is empty because it waits, not because nothing is ahead. */
+function FirstRefresh({ count, city }: { count: number; city: string }) {
+  const refresh = useRefresh();
+  if (refresh.running) {
+    return <EmptyState title={`Reading the sources of ${city}`} text="Cards appear here when the refresh ends. The first one takes a few minutes." />;
+  }
+  return (
+    <EmptyState
+      title="Ready for the first refresh"
+      text={`${count} ${plural(count, "source is", "sources are")} waiting to be read. Refresh collects ${plural(count, "its", "their")} recent posts, and Claude turns them into event cards.`}
+      action={{ label: "Refresh now", onClick: refresh.start }}
+    />
+  );
+}
 
 /** Everything ahead that the user has not marked yet; a marked card moves to "Want to go" or leaves. A search finds marked cards too. */
 export function FeedScreen() {
@@ -57,7 +75,9 @@ export function FeedScreen() {
       {!city ? (
         <NoCity />
       ) : sources.data?.length === 0 ? (
-        <EmptyState title="No sources" text="Add Telegram channels that post events, then click Refresh." link={{ to: SECTIONS.sources.path, label: "Add sources" }} />
+        <EmptyState title="No sources yet" text={`Add Telegram channels and websites that announce events in ${city.name}, then click Refresh.`} link={{ to: SECTIONS.sources.path, label: "Add sources" }} />
+      ) : sources.data && neverRefreshed(sources.data) && feed.data?.length === 0 && !filters.query.search ? (
+        <FirstRefresh count={sources.data.length} city={city.name} />
       ) : feed.isError ? (
         <LoadError error={feed.error} />
       ) : view === "review" ? (

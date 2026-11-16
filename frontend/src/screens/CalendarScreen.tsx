@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { useFeed, usePrefetchMentions } from "../api/queries";
-import { useActiveCity } from "../api/useActiveCity";
+import { useActiveCity, useCardLanguage } from "../api/useActiveCity";
 import { feedFromHref, SECTIONS } from "../app/routes";
 import { addDays, dayAndMonth, dayNumber, monthTitle, weekStart, weekdayShort } from "../domain/dates";
 import { groupByDay } from "../domain/feed";
@@ -14,22 +14,22 @@ import { useOpenEvent } from "../events/navigation";
 import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { LoadError, Screen } from "../ui/Screen";
-import { softHyphenate } from "../ui/softHyphens";
 import { NoCity } from "./NoCity";
 import "./CalendarScreen.css";
 
 /** A week at a time, for planning ahead: what is not marked yet and what the user is going to, the latter highlighted. */
 export function CalendarScreen() {
   const { city, today } = useActiveCity();
+  const { lang, hyphenate } = useCardLanguage();
   const filters = useEventFilters();
   const open = useOpenEvent();
   const prefetch = usePrefetchMentions();
-  const monday = filters.params.get("week") ?? (today ? weekStart(today) : null);
-  const days = monday ? Array.from({ length: 7 }, (_, i) => addDays(monday, i)) : [];
-  const feed = useFeed({ ...filters.query, start: days[0], end: days[6], plans: plansToShow(SHOWN_PLANS.calendar, filters.query.search) }, monday !== null);
+  const first = filters.params.get("week") ?? (today ? weekStart(today) : null);
+  const days = first ? Array.from({ length: 7 }, (_, i) => addDays(first, i)) : [];
+  const feed = useFeed({ ...filters.query, start: days[0], end: days[6], plans: plansToShow(SHOWN_PLANS.calendar, filters.query.search) }, first !== null);
   const goTo = (week: string) => filters.change((next) => (today && week === weekStart(today) ? next.delete("week") : next.set("week", week)));
 
-  if (!city || !today || !monday) {
+  if (!city || !today || !first) {
     return (
       <Screen title={SECTIONS.calendar.title}>
         <NoCity />
@@ -43,11 +43,11 @@ export function CalendarScreen() {
       title={title}
       action={
         <div className="week-nav">
-          <IconButton icon="chevronLeft" label="Previous week" onClick={() => goTo(addDays(monday, -7))} />
+          <IconButton icon="chevronLeft" label="Previous week" onClick={() => goTo(addDays(first, -7))} />
           <button type="button" className="button button--quiet button--small" onClick={() => goTo(weekStart(today))}>
             Today
           </button>
-          <IconButton icon="chevronRight" label="Next week" onClick={() => goTo(addDays(monday, 7))} />
+          <IconButton icon="chevronRight" label="Next week" onClick={() => goTo(addDays(first, 7))} />
         </div>
       }
       toolbar={<FilterBar filters={filters} />}
@@ -76,7 +76,9 @@ export function CalendarScreen() {
                       </span>
                     )}
                   </span>
-                  <span className="week__title">{softHyphenate(event.title)}</span>
+                  <span className="week__title" lang={lang}>
+                    {hyphenate(event.title)}
+                  </span>
                 </button>
               ))}
             </div>

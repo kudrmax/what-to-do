@@ -37,8 +37,8 @@ function syllableBreaks(word: string): number[] {
 }
 
 /**
- * Lets long Latin words, mostly names, break between syllables with a hyphen: the page is Russian,
- * so the browser hyphenates only Russian words by itself, and "Shcherbakova" would break anywhere.
+ * Lets long Latin words, mostly names, break between syllables with a hyphen in text of a language written in
+ * another script: the browser hyphenates by the text's language, so "Shcherbakova" in a Russian card would break anywhere.
  */
 export function softHyphenate(text: string): string {
   return text.replace(LATIN_WORD, (word) => {

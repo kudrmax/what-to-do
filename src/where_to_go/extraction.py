@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -18,21 +17,21 @@ from where_to_go.reading_rules import ReadingRules
 class ExtractionContext:
     city: City
     prompt: str
-    language: str
     tags: list[str]
     fallback_tag: str
     priority_wish: str = ""
 
     @property
+    def language(self) -> str:
+        return self.city.card_language
+
+    @property
     def rules(self) -> str:
-        """A new priority wish reads the recent posts again, so the cards already there get flagged by it too."""
-        if not self.priority_wish:
-            return ReadingRules.POSTS
-        return f"{ReadingRules.POSTS}:{hashlib.sha256(self.priority_wish.encode()).hexdigest()[:8]}"
+        return ReadingRules.posts(self.priority_wish, self.language)
 
     def system(self) -> str:
         instructions = self.prompt.format(
-            city=self.city.name,
+            city=self.city.label,
             language=self.language,
             tags=", ".join(f'"{t}"' for t in self.tags),
             fallback=self.fallback_tag,

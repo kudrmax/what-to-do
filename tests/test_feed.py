@@ -2,8 +2,10 @@ from dataclasses import replace
 from datetime import date, time
 
 from where_to_go.feed import Feed, FeedFilter, PlanFilter
-from where_to_go.models import Event, EventKind, Plan
+from where_to_go.models import City, Event, EventKind, Plan
 from where_to_go.search import SearchQuery
+
+CITY = City(id=1, name="Белград", country="Сербия", timezone="Europe/Belgrade")
 
 
 def event(**overrides) -> Event:
@@ -40,13 +42,13 @@ WEEK = FeedFilter(start=date(2026, 11, 9), end=date(2026, 11, 22))
 
 def test_recurring_event_repeats_inside_the_window():
     weekly = event(kind=EventKind.RECURRING, rrule="FREQ=WEEKLY;BYDAY=TU", start_date=date(2026, 10, 6))
-    days = [o.date for o in Feed(Events(weekly), Sources()).occurrences(1, WEEK)]
+    days = [o.date for o in Feed(Events(weekly), Sources()).occurrences(CITY, WEEK)]
     assert days == [date(2026, 11, 10), date(2026, 11, 17)]
 
 
 def test_running_exhibition_shows_once_on_the_first_visible_day():
     show = event(kind=EventKind.MULTIDAY, start_date=date(2026, 11, 1), end_date=date(2026, 11, 30))
-    assert [o.date for o in Feed(Events(show), Sources()).occurrences(1, WEEK)] == [date(2026, 11, 9)]
+    assert [o.date for o in Feed(Events(show), Sources()).occurrences(CITY, WEEK)] == [date(2026, 11, 9)]
 
 
 def test_plan_filter_selects_unmarked_or_planned_cards():
@@ -58,7 +60,7 @@ def test_plan_filter_selects_unmarked_or_planned_cards():
 
     def shown(*plans):
         criteria = FeedFilter(start=WEEK.start, end=WEEK.end, plans=frozenset(plans))
-        return {o.event.id for o in feed.occurrences(1, criteria)}
+        return {o.event.id for o in feed.occurrences(CITY, criteria)}
 
     assert shown(PlanFilter.NONE) == {1, 2}
     assert shown(PlanFilter.MAYBE, PlanFilter.SURE) == {3}
@@ -68,20 +70,20 @@ def test_plan_filter_selects_unmarked_or_planned_cards():
 def test_without_an_end_the_feed_reaches_the_last_dated_event():
     late = event(id=1, start_date=date(2027, 1, 20))
     weekly = event(id=2, kind=EventKind.RECURRING, rrule="FREQ=WEEKLY;BYDAY=TU", start_date=date(2026, 11, 3))
-    occurrences = Feed(Events(late, weekly), Sources()).occurrences(1, FeedFilter(start=date(2026, 11, 9)))
+    occurrences = Feed(Events(late, weekly), Sources()).occurrences(CITY, FeedFilter(start=date(2026, 11, 9)))
     assert occurrences[-1].event.id == 1
     assert sum(o.event.id == 2 for o in occurrences) == 11
 
 
 def test_recurring_alone_still_shows_four_weeks():
     weekly = event(kind=EventKind.RECURRING, rrule="FREQ=WEEKLY;BYDAY=TU", start_date=date(2026, 11, 3))
-    assert len(Feed(Events(weekly), Sources()).occurrences(1, FeedFilter(start=date(2026, 11, 9)))) == 4
+    assert len(Feed(Events(weekly), Sources()).occurrences(CITY, FeedFilter(start=date(2026, 11, 9)))) == 4
 
 
 def test_only_timed_drops_unknown_time_and_multiday():
     feed = Feed(Events(event(id=1), event(id=2, start_time=None), event(id=3, kind=EventKind.MULTIDAY, end_date=date(2026, 11, 12))), Sources())
     criteria = FeedFilter(start=WEEK.start, end=WEEK.end, only_timed=True)
-    assert [o.event.id for o in feed.occurrences(1, criteria)] == [1]
+    assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [1]
 
 
 def test_day_order_puts_timed_first_then_unknown_time_then_multiday():
@@ -91,7 +93,7 @@ def test_day_order_puts_timed_first_then_unknown_time_then_multiday():
         event(id=3, start_date=date(2026, 11, 9), start_time=time(21, 0)),
         event(id=4, start_date=date(2026, 11, 9), start_time=time(18, 0)),
     ), Sources())
-    assert [o.event.id for o in feed.occurrences(1, WEEK)] == [4, 3, 2, 1]
+    assert [o.event.id for o in feed.occurrences(CITY, WEEK)] == [4, 3, 2, 1]
 
 
 def test_search_looks_through_title_description_venue_address_and_tags():
@@ -105,7 +107,7 @@ def test_search_looks_through_title_description_venue_address_and_tags():
     )
 
     def found(text):
-        return {o.event.id for o in feed.occurrences(1, replace(WEEK, search=SearchQuery(text)))}
+        return {o.event.id for o in feed.occurrences(CITY, replace(WEEK, search=SearchQuery(text)))}
 
     assert found("импро") == {1, 2}
     assert found("молодеж") == {3}
@@ -118,7 +120,7 @@ def test_search_typed_in_the_wrong_layout_is_tried_in_the_other_one():
     feed = Feed(Events(event(id=1, title="Импровизационные игры"), event(id=2, title="Jazz jam")), Sources())
 
     def found(text):
-        return {o.event.id for o in feed.occurrences(1, replace(WEEK, search=SearchQuery(text)))}
+        return {o.event.id for o in feed.occurrences(CITY, replace(WEEK, search=SearchQuery(text)))}
 
     assert found("bvghj") == {1}
     assert found("офяя") == {2}
@@ -127,7 +129,7 @@ def test_search_typed_in_the_wrong_layout_is_tried_in_the_other_one():
 def test_only_priority_keeps_the_flagged_cards():
     feed = Feed(Events(event(id=1, is_priority=True), event(id=2)), Sources())
     criteria = FeedFilter(start=WEEK.start, end=WEEK.end, only_priority=True)
-    assert [o.event.id for o in feed.occurrences(1, criteria)] == [1]
+    assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [1]
 
 
 def test_unmarked_card_only_paused_sources_announce_is_left_out():
@@ -135,4 +137,4 @@ def test_unmarked_card_only_paused_sources_announce_is_left_out():
         Events(event(id=1, source_ids=[7]), event(id=2, source_ids=[7], interest=4), event(id=3, source_ids=[7, 8]), event(id=4, source_ids=[8])),
         Sources(7),
     )
-    assert [o.event.id for o in feed.occurrences(1, WEEK)] == [2, 3, 4]
+    assert [o.event.id for o in feed.occurrences(CITY, WEEK)] == [2, 3, 4]

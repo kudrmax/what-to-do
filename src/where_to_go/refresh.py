@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from enum import StrEnum
+from zoneinfo import ZoneInfo
 
 import anyio
 from pydantic import computed_field
@@ -135,7 +136,6 @@ class PostReader:
         return ExtractionContext(
             city=city,
             prompt=settings.extraction_prompt,
-            language=settings.description_language,
             tags=[t.name for t in tags if not t.is_fallback],
             fallback_tag=self._tags.fallback(),
             priority_wish=settings.priority_wish,
@@ -259,7 +259,8 @@ class RefreshService:
         await self._bounded(self.COLLECT_CONCURRENCY, [self._collect(s, city) for s in sources.values()])
 
         context = self._post_reader.context(city)
-        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts)
+        today = datetime.now(ZoneInfo(city.timezone)).date()
+        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts, today)
 
         self.progress.enter(Stage.PHOTOS)
         with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text

@@ -1,15 +1,24 @@
+import { conventions } from "./locale";
+
 /** Calendar days as "YYYY-MM-DD" strings: the backend's format, free of time-zone shifts. */
 export type IsoDay = string;
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** RFC 5545 weekday codes in JavaScript's weekday order (Sunday first). */
 export const WEEKDAY_CODES = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
 function parts(day: IsoDay): { year: number; month: number; date: number; weekday: number } {
   const [year, month, date] = day.split("-").map(Number);
   return { year, month: month - 1, date, weekday: new Date(Date.UTC(year, month - 1, date)).getUTCDay() };
+}
+
+/** A calendar day as a moment Intl formats back to the same day. */
+function utc(day: IsoDay): Date {
+  const { year, month, date } = parts(day);
+  return new Date(Date.UTC(year, month, date));
+}
+
+function dayFormat(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(conventions().locale, { ...options, timeZone: "UTC" });
 }
 
 export function todayIn(timeZone: string, now: Date = new Date()): IsoDay {
@@ -21,9 +30,9 @@ export function addDays(day: IsoDay, count: number): IsoDay {
   return new Date(Date.UTC(year, month, date + count)).toISOString().slice(0, 10);
 }
 
-/** Monday of the week the day belongs to. */
-export function weekStart(day: IsoDay): IsoDay {
-  return addDays(day, -((parts(day).weekday + 6) % 7));
+/** The first day of the week the day belongs to: Monday or Sunday or Saturday, as the person's region counts. */
+export function weekStart(day: IsoDay, firstDay: number = conventions().firstDay): IsoDay {
+  return addDays(day, -((parts(day).weekday - firstDay + 7) % 7));
 }
 
 export function dayNumber(day: IsoDay): number {
@@ -31,54 +40,76 @@ export function dayNumber(day: IsoDay): number {
 }
 
 export function weekdayShort(day: IsoDay): string {
-  return WEEKDAYS_SHORT[parts(day).weekday];
+  return dayFormat({ weekday: "short" }).format(utc(day));
+}
+
+function weekday(day: IsoDay): string {
+  return dayFormat({ weekday: "long" }).format(utc(day));
 }
 
 export function monthTitle(day: IsoDay): string {
-  return MONTHS[parts(day).month];
+  return dayFormat({ month: "long" }).format(utc(day));
 }
 
-/** "9 November". */
+/** "9 November" or "November 9". */
 export function dayAndMonth(day: IsoDay): string {
-  const { date, month } = parts(day);
-  return `${date} ${MONTHS[month]}`;
+  return dayFormat({ day: "numeric", month: "long" }).format(utc(day));
 }
 
-/** "Monday, 9 November". */
+/** "Monday 9 November" or "Monday, November 9". */
 export function longDate(day: IsoDay): string {
-  return `${WEEKDAYS[parts(day).weekday]}, ${dayAndMonth(day)}`;
+  return dayFormat({ weekday: "long", day: "numeric", month: "long" }).format(utc(day));
 }
 
-/** Day heading: "Today" / "Monday, 9 November", "Tomorrow" / …, "11 November" / "Wednesday". */
+/** Day heading: "Today" / "Monday 9 November", "Tomorrow" / …, "11 November" / "Wednesday". */
 export function dayHeading(day: IsoDay, today: IsoDay): { title: string; subtitle: string; relative: boolean } {
-  const weekday = WEEKDAYS[parts(day).weekday];
-  if (day === today) return { title: "Today", subtitle: `${weekday}, ${dayAndMonth(day)}`, relative: true };
-  if (day === addDays(today, 1)) return { title: "Tomorrow", subtitle: `${weekday}, ${dayAndMonth(day)}`, relative: true };
-  return { title: dayAndMonth(day), subtitle: weekday, relative: false };
+  if (day === today) return { title: "Today", subtitle: longDate(day), relative: true };
+  if (day === addDays(today, 1)) return { title: "Tomorrow", subtitle: longDate(day), relative: true };
+  return { title: dayAndMonth(day), subtitle: weekday(day), relative: false };
 }
 
-/** "1–30 November" or "28 October – 5 November". */
+/** "1–30 November" or "28 October – 5 November", in the order the region writes them; never with years, even across one. */
 export function dateRange(start: IsoDay, end: IsoDay): string {
-  const a = parts(start);
-  const b = parts(end);
-  if (a.month === b.month && a.year === b.year) return `${a.date}–${b.date} ${MONTHS[b.month]}`;
-  return `${dayAndMonth(start)} – ${dayAndMonth(end)}`;
+  if (parts(start).year !== parts(end).year) return `${dayAndMonth(start)}\u2009–\u2009${dayAndMonth(end)}`;
+  return dayFormat({ day: "numeric", month: "long" }).formatRange(utc(start), utc(end));
 }
 
-/** "19:00:00" → "19:00". */
+function timeFormat(): Intl.DateTimeFormat {
+  const { locale, hourCycle } = conventions();
+  const twelve = hourCycle === "h12" || hourCycle === "h11";
+  return new Intl.DateTimeFormat(locale, { hour: twelve ? "numeric" : "2-digit", minute: "2-digit", hourCycle, timeZone: "UTC" });
+}
+
+/** A wall-clock time as the region writes it: "19:00:00" → "19:00" or "7:00 PM". */
 export function clock(time: string): string {
-  return time.slice(0, 5);
+  const [hours, minutes] = time.split(":").map(Number);
+  return timeFormat().format(new Date(Date.UTC(2000, 0, 1, hours, minutes)));
 }
 
 /** "today at 18:40", "yesterday at 09:05", "3 days ago", "2 November". */
 export function ago(moment: string, now: Date = new Date()): string {
   const then = new Date(moment);
   const days = Math.floor((startOfDay(now) - startOfDay(then)) / 86_400_000);
-  const hm = then.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const hm = clock(`${then.getHours()}:${then.getMinutes()}`);
   if (days <= 0) return `today at ${hm}`;
   if (days === 1) return `yesterday at ${hm}`;
   if (days < 7) return `${days} ${plural(days, "day", "days")} ago`;
-  return `${then.getDate()} ${MONTHS[then.getMonth()]}`;
+  return dayAndMonth(localDay(then));
+}
+
+/** A moment in the person's own time: "9 November at 18:40" or "November 9 at 6:40 PM". */
+export function momentText(moment: string): string {
+  const { locale, hourCycle } = conventions();
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hourCycle }).format(new Date(moment));
+}
+
+/** A moment's day in the person's own time: "9 November". */
+export function momentDay(moment: string): string {
+  return dayAndMonth(localDay(new Date(moment)));
+}
+
+function localDay(moment: Date): IsoDay {
+  return `${moment.getFullYear()}-${String(moment.getMonth() + 1).padStart(2, "0")}-${String(moment.getDate()).padStart(2, "0")}`;
 }
 
 function startOfDay(moment: Date): number {

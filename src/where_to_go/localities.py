@@ -60,7 +60,7 @@ class LocalityJudge:
     async def _ask(self, city: City, names: list[str]) -> dict[str, bool]:
         try:
             answer = await self._llm.complete_json(
-                PROMPT.format(city=city.name), json.dumps({"names": names}, ensure_ascii=False), LocalityVerdicts.model_json_schema()
+                PROMPT.format(city=city.label), json.dumps({"names": names}, ensure_ascii=False), LocalityVerdicts.model_json_schema()
             )
             places = LocalityVerdicts.model_validate(answer).places
         except (LlmError, ValueError) as error:

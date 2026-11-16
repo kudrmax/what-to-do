@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import UTC, date, datetime, time
 
 import pytest
@@ -8,7 +9,8 @@ from where_to_go.models import City, EventKind, PhotoText, Post, Source, UpdateK
 from where_to_go.settings import AppSettings
 from where_to_go.extraction import ExtractionContext, PostExtractor
 
-CONTEXT = ExtractionContext(City(id=1, name="Белград", timezone="Europe/Belgrade"), AppSettings().extraction_prompt, "русский", ["Лекция", "Концерт"], "не распознано")
+BELGRADE = City(id=1, name="Белград", country="Сербия", timezone="Europe/Belgrade", card_language="русский")
+CONTEXT = ExtractionContext(BELGRADE, AppSettings().extraction_prompt, ["Лекция", "Концерт"], "не распознано")
 SOURCES = {1: Source(id=1, city_id=1, handle="bg", title="Афиша")}
 
 
@@ -154,10 +156,10 @@ def test_text_on_a_post_photos_counts_toward_its_size():
 
 
 async def test_the_prompt_comes_from_settings():
-    custom = ExtractionContext(CONTEXT.city, "Город {city}, язык {language}", "русский", ["Лекция"], "не распознано")
+    custom = ExtractionContext(CONTEXT.city, "Город {city}, язык {language}", ["Лекция"], "не распознано")
     llm = FakeLlm(lambda *_: {"posts": []})
     await extractor(llm).extract([post()], SOURCES, custom, {})
-    assert llm.calls[0][0].startswith("Город Белград, язык русский\n\nPriority")
+    assert llm.calls[0][0].startswith("Город Белград, Сербия, язык русский\n\nPriority")
 
 
 async def test_the_schema_claude_gets_carries_the_field_descriptions():
@@ -167,8 +169,22 @@ async def test_the_schema_claude_gets_carries_the_field_descriptions():
 
 
 def test_an_edited_prompt_reads_no_post_again():
-    edited = ExtractionContext(CONTEXT.city, CONTEXT.prompt + "\nRead slowly.", "english", CONTEXT.tags, CONTEXT.fallback_tag)
+    edited = ExtractionContext(CONTEXT.city, CONTEXT.prompt + "\nRead slowly.", CONTEXT.tags, CONTEXT.fallback_tag)
     assert edited.rules == CONTEXT.rules
+
+
+def test_a_new_card_language_reads_the_recent_posts_again():
+    def speaking(language: str) -> ExtractionContext:
+        return replace(CONTEXT, city=CONTEXT.city.model_copy(update={"card_language": language}))
+
+    assert speaking("English").rules != CONTEXT.rules
+    assert speaking(" Русский ").rules == CONTEXT.rules
+    assert "The description language is English." in speaking("English").system()
+
+
+def test_claude_is_told_the_city_with_its_country():
+    london = replace(CONTEXT, city=City(id=2, name="London", country="United Kingdom", timezone="Europe/London", card_language="English"))
+    assert "lives in London, United Kingdom" in london.system()
 
 
 async def test_claude_is_asked_for_the_booking_link_and_this_events_lines():
@@ -185,7 +201,7 @@ async def test_a_booking_link_and_lines_come_through():
 
 
 async def test_the_priority_wish_reaches_claude_and_its_flag_comes_back():
-    wishful = ExtractionContext(CONTEXT.city, CONTEXT.prompt, "русский", CONTEXT.tags, CONTEXT.fallback_tag, "Ищу друзей")
+    wishful = ExtractionContext(CONTEXT.city, CONTEXT.prompt, CONTEXT.tags, CONTEXT.fallback_tag, "Ищу друзей")
     llm = FakeLlm(lambda *_: {"posts": [{"post_id": 10, "events": [raw_event("Нетворкинг", "2026-11-13", is_priority=True), raw_event("Лекция", "2026-11-14")]}]})
     [result] = await extractor(llm).extract([post()], SOURCES, wishful, {})
     assert "<wish>\nИщу друзей\n</wish>" in llm.calls[0][0]
@@ -199,7 +215,7 @@ async def test_without_a_wish_claude_is_told_to_flag_nothing():
 
 def test_a_new_wish_reads_the_recent_posts_again_and_no_wish_keeps_the_old_readings():
     def wishing(wish: str) -> ExtractionContext:
-        return ExtractionContext(CONTEXT.city, CONTEXT.prompt, "русский", CONTEXT.tags, CONTEXT.fallback_tag, wish)
+        return ExtractionContext(CONTEXT.city, CONTEXT.prompt, CONTEXT.tags, CONTEXT.fallback_tag, wish)
 
     assert wishing("").rules == CONTEXT.rules
     assert len({CONTEXT.rules, wishing("Ищу друзей").rules, wishing("Хочу танцевать").rules}) == 3

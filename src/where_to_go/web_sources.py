@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, date, datetime, timedelta
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -160,6 +160,7 @@ class WebSiteProbe:
         votes = [EventClock.detect(event, PageText.main(own), zone)]
         votes += [EventClock.detect(e, PageText.main(html), zone) for _, e, html in examples[: self.TIME_VOTES]]
         clock = EventClock(EventClock.decide(votes), zone)
+        settled = EventClock.settled(votes)
         host = Section.bare(urlsplit(site).netloc)
         preview = SitePreview(
             kind=SourceKind.WEB,
@@ -168,7 +169,7 @@ class WebSiteProbe:
             pages_found=len(urls),
             examples=[self._example(u, e, clock) for u, e, _ in examples],
         )
-        return preview, WebSite(source_id=0, sitemap_urls=sitemaps, prefix=site + path, times_are_local=clock.is_local)
+        return preview, WebSite(source_id=0, sitemap_urls=sitemaps, prefix=site + path, times_are_local=clock.is_local, times_settled=settled)
 
     async def _section(self, site: str, section: Section) -> tuple[list[str], list[str]]:
         """The sitemaps that list pages of the section, and those pages."""
@@ -233,10 +234,10 @@ class WebSiteReader:
         today = now.astimezone(zone).date()
         known = self._web.pages(source.id)
         due = [u for u in urls if u not in known or self._coming(known[u], today, now) or self._stale(known[u], now) or self._without_facts(known[u], today, site)]
-        clock = EventClock(site.times_are_local, zone)
-        for url, html in (await self._fetcher.many(due, tally)).items():
-            if html is not None:
-                known[url] = self._remember(source.id, url, html, known.get(url), clock, now)
+        fetched = {url: html for url, html in (await self._fetcher.many(due, tally)).items() if html is not None}
+        clock = EventClock(self._settle_times(site, fetched.values(), zone).times_are_local, zone)
+        for url, html in fetched.items():
+            known[url] = self._remember(source.id, url, html, known.get(url), clock, now)
         have_posts = self._posts.known_ids(source.id)
         coming = [
             p
@@ -249,6 +250,15 @@ class WebSiteReader:
             for p in coming
             if p.locality is None or here[p.locality]
         ]
+
+    def _settle_times(self, site: WebSite, pages: Iterable[str], zone: ZoneInfo) -> WebSite:
+        if site.times_settled:
+            return site
+        votes = [EventClock.detect(event, PageText.main(html), zone) for html in pages if (event := EventMarkup.read(html))]
+        if not EventClock.settled(votes):
+            return site
+        site.times_are_local, site.times_settled = EventClock.decide(votes), True
+        return self._web.save_site(site)
 
     @staticmethod
     def _without_facts(page: WebPage, today: date, site: WebSite) -> bool:

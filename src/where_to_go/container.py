@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 
 from where_to_go.about import USER_AGENT
+from where_to_go.cities import CityCatalog
 from where_to_go.db import Database
 from where_to_go.extraction import PostExtractor
 from where_to_go.feed import Feed
@@ -41,23 +42,6 @@ from where_to_go.localities import LocalityJudge, LocalityRepository
 from where_to_go.source_types import SourceTypes, TelegramSourceType, WebSourceType
 from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 
-PROVISIONAL_TAGS = [
-    "Концерт",
-    "Вечеринка",
-    "Лекция",
-    "Стендап",
-    "Театр",
-    "Кино",
-    "Выставка",
-    "Игры и квизы",
-    "Мастер-класс",
-    "Встреча",
-    "Спорт",
-    "Прогулка",
-    "Маркет",
-    "Детям",
-]
-FALLBACK_TAG = "не распознано"
 
 
 @dataclass
@@ -66,6 +50,7 @@ class Container:
     http: httpx.AsyncClient
     settings: SettingsRepository
     cities: CityRepository
+    city_catalog: CityCatalog
     sources: SourceRepository
     web: WebRepository
     catalog: SourceCatalog
@@ -108,7 +93,6 @@ class Container:
         mentions = MentionRepository(db)
         places = PlaceRepository(db)
         tags = TagRepository(db)
-        tags.ensure_seeded(PROVISIONAL_TAGS, FALLBACK_TAG)
         events = EventRepository(db)
         images = ImageStore(data_dir / "images", http)
         reader = TelegramChannelReader(http)
@@ -128,7 +112,7 @@ class Container:
             ),
         )
         catalog = SourceCatalog(sources, events, cards, types)
-        potential_sources = PotentialSources(PotentialSourceRepository(db), sources, catalog)
+        potential_sources = PotentialSources(PotentialSourceRepository(db), sources, posts, catalog)
         photos = PhotoTranscriber(photo_llm, images, photo_texts, lambda: settings.load().photo_prompt)
         post_mentions = PostMentions(mentions, cards)
         post_reader = PostReader(
@@ -163,6 +147,7 @@ class Container:
             http=http,
             settings=settings,
             cities=cities,
+            city_catalog=CityCatalog(cities, tags, lambda: refresh.progress.running),
             sources=sources,
             web=web,
             catalog=catalog,

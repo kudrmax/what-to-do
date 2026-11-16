@@ -195,3 +195,13 @@ def sitemap(urls: list[str]) -> str:
 def sitemap_index(urls: list[str]) -> str:
     items = "".join(f"<sitemap><loc>{u}</loc></sitemap>" for u in urls)
     return f'<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{items}</sitemapindex>'
+
+
+BELGRADE = {"name": "Белград", "country": "Сербия", "timezone": "Europe/Belgrade", "card_language": "русский"}
+
+
+def add_city(container: Any, name: str, timezone: str, country: str = "Сербия", language: str = "русский") -> Any:
+    """A city as the user adds it; Russian cards bring the Russian default tags the tests speak."""
+    from where_to_go.models import CityRequest
+
+    return container.city_catalog.add(CityRequest(name=name, country=country, timezone=timezone, card_language=language))

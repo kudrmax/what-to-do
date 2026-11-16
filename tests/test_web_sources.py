@@ -6,7 +6,7 @@ import httpx
 import pytest
 import respx
 
-from tests.helpers import FakeLlm, event_page, raw_event, sitemap
+from tests.helpers import BELGRADE, add_city, FakeLlm, event_page, raw_event, sitemap
 
 from where_to_go.container import Container
 from where_to_go.models import CollectedPost, ExtractedEvent, Mention, Source, SourceKind, SourcePublic, WebPage, WebSite
@@ -23,7 +23,7 @@ NOW = datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
 @pytest.fixture
 async def app(tmp_path):
     container = Container.build(tmp_path)
-    city = container.cities.add("Белград", "Europe/Belgrade")
+    city = add_city(container, "Белград", "Europe/Belgrade")
     yield container, city
     await container.close()
 
@@ -55,12 +55,29 @@ async def test_deleting_web_source_removes_its_site_and_pages(app):
     assert container.web.pages(source.id) == {}
 
 
-async def test_web_posts_are_not_reread_by_recent_rule(app):
+async def test_web_posts_of_past_events_are_not_read_again_under_new_rules(app):
     container, city = app
     source = add_site(container, city)
-    post_id = add_post(container, source)
+    page = container.web.save_page(
+        WebPage(source_id=source.id, url="https://site.test/ru/events/a", is_event=True, start_day=date(2026, 11, 1), found_at=NOW, checked_at=NOW)
+    )
+    post_id = add_post(container, source, external_id=page.id)
     container.posts.mark_processed(post_id, "old rules")
-    assert container.posts.to_read([source.id], ReadingRules.POSTS, 20) == []
+    assert container.posts.to_read([source.id], ReadingRules.POSTS, 20, NOW.date()) == []
+
+
+async def test_web_posts_of_coming_events_are_read_again_under_new_rules(app):
+    """A new card language rewrites the website cards ahead too, not only the channels' recent posts."""
+    container, city = app
+    source = add_site(container, city)
+    page = container.web.save_page(
+        WebPage(source_id=source.id, url="https://site.test/ru/events/a", is_event=True, start_day=date(2026, 11, 20), found_at=NOW, checked_at=NOW)
+    )
+    post_id = add_post(container, source, external_id=page.id)
+    container.posts.mark_processed(post_id, "old rules")
+    assert [p.id for p in container.posts.to_read([source.id], ReadingRules.POSTS, 20, NOW.date())] == [post_id]
+    container.posts.mark_processed(post_id, ReadingRules.POSTS)
+    assert container.posts.to_read([source.id], ReadingRules.POSTS, 20, NOW.date()) == []
 
 
 async def test_changed_page_is_read_again(app):

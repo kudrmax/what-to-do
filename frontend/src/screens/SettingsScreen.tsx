@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
 import type { Settings, Tag } from "../api/client";
-import { useAddCity, useAddTag, useChangeSettings, useCities, useDefaultSettings, useHideTag, useRenameTag, useReorderTags, useSettings, useTags } from "../api/queries";
+import { useAddTag, useChangeSettings, useDefaultSettings, useHideTag, useRenameTag, useReorderTags, useSettings, useTags } from "../api/queries";
 import { SECTIONS } from "../app/routes";
 import { moved } from "../domain/tags";
 import { errorText } from "../ui/errors";
@@ -10,6 +10,7 @@ import { IconButton } from "../ui/IconButton";
 import { InlineEdit } from "../ui/InlineEdit";
 import { UpdatesSection } from "../updates/UpdatesSection";
 import { Screen, Section } from "../ui/Screen";
+import { CitiesSection } from "./CitiesSection";
 import "./SettingsScreen.css";
 
 export function SettingsScreen() {
@@ -27,69 +28,6 @@ export function SettingsScreen() {
   );
 }
 
-function CitiesSection() {
-  const cities = useCities();
-  const settings = useSettings();
-  const change = useChangeSettings();
-  const [adding, setAdding] = useState(false);
-  const empty = cities.data?.length === 0;
-  return (
-    <Section title="City" hint="The feed, calendar and channels are shown for the selected city. Another city’s channels aren’t lost: switch back and they return.">
-      <div className="settings-chips">
-        {cities.data?.map((city) => (
-          <button key={city.id} type="button" className="chip" aria-pressed={city.id === settings.data?.active_city_id} onClick={() => change.mutate({ active_city_id: city.id })}>
-            {city.name}
-          </button>
-        ))}
-        {!adding && !empty && (
-          <button type="button" className="chip chip--dashed" onClick={() => setAdding(true)}>
-            + Add city
-          </button>
-        )}
-      </div>
-      {(adding || empty) && <AddCityForm onDone={() => setAdding(false)} canCancel={!empty} />}
-    </Section>
-  );
-}
-
-const ZONES = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
-
-function AddCityForm({ onDone, canCancel }: { onDone: () => void; canCancel: boolean }) {
-  const add = useAddCity();
-  const [name, setName] = useState("");
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    add.mutate({ name: name.trim(), timezone }, { onSuccess: onDone });
-  };
-  return (
-    <form className="settings-form" onSubmit={submit}>
-      <label className="settings-form__field settings-form__field--wide">
-        <span className="label">City</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="For example, Belgrade" autoFocus required />
-      </label>
-      <label className="settings-form__field">
-        <span className="label">Time zone</span>
-        <input className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)} list="zones" required />
-        <datalist id="zones">
-          {ZONES.map((zone) => (
-            <option key={zone} value={zone} />
-          ))}
-        </datalist>
-      </label>
-      {canCancel && (
-        <button type="button" className="button button--quiet" onClick={onDone}>
-          Cancel
-        </button>
-      )}
-      <button type="submit" className="button" disabled={add.isPending || !name.trim()}>
-        Add
-      </button>
-      {add.error && <p className="error-text settings-form__error">{errorText(add.error)}</p>}
-    </form>
-  );
-}
-
 const WISH_EXAMPLE = "Above all I want events made for meeting people and talking. I am looking for friends";
 
 function PrioritySection({ wish }: { wish: string }) {
@@ -99,7 +37,7 @@ function PrioritySection({ wish }: { wish: string }) {
   return (
     <Section
       title="What I look for first"
-      hint="Describe it in your own words. While reading posts Claude marks the events that fit with «For you»: they stand out in the feed, and the «For you» filter shows only them. After a change, the next refresh reads the recent posts again to mark them."
+      hint="Describe it in your own words; it applies to every city. While reading posts Claude marks the events that fit with «For you»: they stand out in the feed, and the «For you» filter shows only them. After a change, the next refresh reads the recent posts again to mark them."
     >
       <div className="prompt">
         <textarea className="input wish__text" value={draft} rows={4} aria-label="What I look for first" placeholder={WISH_EXAMPLE} aria-invalid={change.isError} onChange={(e) => setDraft(e.target.value)} />
@@ -120,13 +58,12 @@ function PrioritySection({ wish }: { wish: string }) {
 function ReadingSection({ settings }: { settings: Settings }) {
   return (
     <Section title="Reading posts">
-      <SettingRow name="recent_posts" type="number" value={settings.recent_posts} label="Recent posts per channel" hint="How many of each channel’s latest posts are read. Increase it and older posts will be read on the next refresh." />
-      <SettingRow name="description_language" type="text" value={settings.description_language} label="Description language" hint="Claude writes event titles and descriptions in this language." />
+      <SettingRow name="recent_posts" value={settings.recent_posts} label="Recent posts per channel" hint="How many of each channel’s latest posts are read. Increase it and older posts will be read on the next refresh. The language of event cards is set for each city, under Cities." />
     </Section>
   );
 }
 
-type EditableSetting = "recent_posts" | "description_language";
+type EditableSetting = "recent_posts";
 
 type ModelSetting = "photo_model" | "extraction_model" | "matching_model";
 type ClaudeModel = Settings[ModelSetting];
@@ -170,7 +107,7 @@ function ModelRow({ name, value, label, hint }: { name: ModelSetting; value: Cla
 }
 
 /** One setting: its name and what it does on the left, the field on the right; saves on leaving the field. */
-function SettingRow({ name, type, value, label, hint }: { name: EditableSetting; type: "number" | "text"; value: string | number; label: string; hint: string }) {
+function SettingRow({ name, value, label, hint }: { name: EditableSetting; value: number; label: string; hint: string }) {
   const change = useChangeSettings();
   const id = `setting-${name}`;
   return (
@@ -185,12 +122,12 @@ function SettingRow({ name, type, value, label, hint }: { name: EditableSetting;
         <input
           id={id}
           className="input"
-          type={type}
+          type="number"
           defaultValue={value}
           aria-invalid={change.isError}
           onBlur={(e) => {
             const raw = e.target.value.trim();
-            const next = type === "number" ? Number(raw) : raw;
+            const next = Number(raw);
             if (raw !== "" && next !== value) change.mutate({ [name]: next });
           }}
         />
@@ -215,7 +152,7 @@ function TagsSection() {
   return (
     <Section
       title="Tags"
-      hint={`Claude tags events only with these tags. If none fits, it uses “${fallback ?? "…"}”, so those events show which tag is missing. Drag a tag to change the order in which tags appear on cards. A tag with a crossed-out eye is blocked: its events stay out of the feed, but marked ones remain in Want to go.`}
+      hint={`The tags are shared by all cities, and Claude tags events only with them. If none fits, it uses “${fallback ?? "…"}”, so those events show which tag is missing; it stays last but can be renamed like any tag. Drag a tag to change the order in which tags appear on cards. A tag with a crossed-out eye is blocked: its events stay out of the feed, but marked ones remain in Want to go.`}
     >
       <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (
@@ -276,7 +213,7 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
       onDrop={(e) => e.preventDefault()}
     >
       {tag.is_fallback ? (
-        <span className="tag-row__handle tag-row__handle--fixed" data-tip="This tag is always last" />
+        <span className="tag-row__handle tag-row__handle--fixed" data-tip="Put when no other tag fits: always last" />
       ) : (
         <button
           type="button"
@@ -294,11 +231,7 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
         </button>
       )}
       <span className="tag-row__name">
-        {tag.is_fallback ? (
-          <span data-tip="This tag can’t be renamed">{tag.name}</span>
-        ) : (
-          <InlineEdit value={tag.name} label={`New name for “${tag.name}”`} onSave={(name) => rename.mutate({ id: tag.id, name })} />
-        )}
+        <InlineEdit value={tag.name} label={`New name for “${tag.name}”`} onSave={(name) => rename.mutate({ id: tag.id, name })} />
       </span>
       <IconButton
         icon={tag.hidden ? "eyeOff" : "eye"}

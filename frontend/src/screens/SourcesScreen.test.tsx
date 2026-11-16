@@ -104,7 +104,7 @@ describe("adding a source", () => {
     expect(within(card).getByText("820 events on the website")).toBeTruthy();
     expect(within(card).getByText("The app will get events in your city for the next 30 days")).toBeTruthy();
     expect(within(card).getByText("Искусство быть нелепым")).toBeTruthy();
-    expect(within(card).getAllByText("Wednesday, 18 November")).toHaveLength(2);
+    expect(within(card).getAllByText("Wednesday 18 November")).toHaveLength(2);
     expect(within(card).getByText("19:00")).toBeTruthy();
     expect(within(card).getByRole("link", { name: "polakohedonist.club/ru/events/" }).getAttribute("href")).toBe("https://polakohedonist.club/ru/events/");
     expect(addSource).not.toHaveBeenCalled();
