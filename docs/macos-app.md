@@ -22,7 +22,7 @@ The app remembers the project folder and port. Run `make app` again after you mo
 
 ## How it starts
 
-On launch, the app checks whether What To Do itself answers at `http://127.0.0.1:<PORT>/api/version`: another program on the port does not count. If not, it runs `make up` in the project folder and waits up to two minutes. On quit, it runs `make down`, but only if it started the server itself.
+On launch, the app checks whether What To Do itself answers at `http://127.0.0.1:<PORT>/api/version`: another program on the port does not count. If not, it runs `make up` in the project folder and waits up to two minutes. On quit, it always runs `make down`, whoever started the server: a refresh in progress stops with it, and the posts it has already read stay saved.
 
 `make up` runs in a login shell, which reads `~/.zprofile` but not `~/.zshrc`. If the app can't find `uv`, `claude` or `node`, add them to your `PATH` in `~/.zprofile`.
 
@@ -36,7 +36,7 @@ Set `MENU_BAR_ICON=1` in `.env` and run `make app` again. The app then lives in 
 
 The app menu has **Check for Updates…** right after **Settings…**. It does the same as checking for updates in the page.
 
-After an update, the app on disk may be newer than the window you have open. A quiet note at the right end of the title bar then says **Restart to finish updating**. Press **Restart**: the new app opens and the old window closes. The server keeps running during the restart, and the new window takes over looking after it, so quitting it later stops the server as usual.
+After an update, the app on disk may be newer than the window you have open. A quiet note at the right end of the title bar then says **Restart to finish updating**. Press **Restart**: the new app opens and the old window closes. The server keeps running during the restart, and quitting the new window later stops it as usual.
 
 ## Other features
 

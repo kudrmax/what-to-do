@@ -185,5 +185,6 @@ class Container:
         )
 
     async def close(self) -> None:
+        await self.refresh.stop()
         await self.http.aclose()
         self.db.close()

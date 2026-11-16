@@ -3,9 +3,6 @@ import LauncherCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// Passed to the instance started by Restart: it takes over stopping the servers on quit.
-    private static let adoptServersArgument = "--adopt-servers"
-
     private var launcher: ServerLauncher?
     private var windowController: MainWindowController?
     private var statusBar: StatusBarController?
@@ -28,8 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             probe: HTTPHealthProbe(url: config.versionURL),
             runner: LoginShellRunner(),
             sleeper: TaskSleeper(),
-            policy: .standard,
-            adoptRunningServers: CommandLine.arguments.contains(Self.adoptServersArgument)
+            policy: .standard
         )
         let controller = MainWindowController(config: config)
         controller.onRetry = { [weak self] in self?.launch() }
@@ -117,14 +113,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController?.showRestartBanner()
     }
 
-    /// The servers already run the new version, so this instance quits without `make down`
-    /// and the new one takes over stopping them if this one would have.
+    /// The servers already run the new version, so this instance quits without `make down`;
+    /// the new one stops them when it quits.
     private func restart() {
-        guard let launcher, !isTerminating else { return }
+        guard !isTerminating else { return }
         Task {
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.createsNewApplicationInstance = true
-            configuration.arguments = await launcher.ownsServers ? [Self.adoptServersArgument] : []
             do {
                 _ = try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration)
             } catch {
