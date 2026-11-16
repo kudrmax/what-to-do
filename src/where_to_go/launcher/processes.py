@@ -105,14 +105,16 @@ class ProcessTree:
             children = process.children(recursive=True)
         except psutil.Error:
             return []
-        spared = self._protected | self._started_by_protected()
+        inside = [child for child in children if child.pid in self._protected]
+        spared = self._protected | self._started_by(inside)
         return [child for child in children if child.pid not in spared]
 
-    def _started_by_protected(self) -> set[int]:
+    @staticmethod
+    def _started_by(processes: list[psutil.Process]) -> set[int]:
         pids: set[int] = set()
-        for pid in self._protected:
+        for process in processes:
             try:
-                pids.update(child.pid for child in psutil.Process(pid).children(recursive=True))
+                pids.update(child.pid for child in process.children(recursive=True))
             except psutil.Error:
                 continue
         return pids
