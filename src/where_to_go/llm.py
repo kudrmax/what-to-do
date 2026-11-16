@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import base64
-import os
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Protocol
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
+from where_to_go.claude_login import SIGN_IN_HINT, ClaudeCliEnvironment, ClaudeLogin
+
 
 class LlmError(Exception):
     pass
+
+
+class ClaudeSignedOutError(LlmError):
+    """Claude Code has no login to call Claude with; every call fails the same way until the user signs in."""
+
+    def __init__(self) -> None:
+        super().__init__(SIGN_IN_HINT)
 
 
 @dataclass(frozen=True)
@@ -56,9 +63,13 @@ class ClaudeJsonLlm:
                 if isinstance(message, ResultMessage):
                     result = message
         except Exception as error:
+            if ClaudeLogin.means_signed_out(str(error)):
+                raise ClaudeSignedOutError from error
             raise LlmError(str(error)) from error
         if result is None or result.is_error or not isinstance(result.structured_output, dict):
             detail = (result.errors or result.result) if result else "no result"
+            if ClaudeLogin.means_signed_out(str(detail)):
+                raise ClaudeSignedOutError
             raise LlmError(f"Claude did not return structured output: {detail}")
         return result.structured_output
 
@@ -72,25 +83,3 @@ class ClaudeJsonLlm:
                 {"type": "image", "source": {"type": "base64", "media_type": image.media_type, "data": base64.b64encode(image.data).decode()}}
             )
         yield {"type": "user", "message": {"role": "user", "content": content}, "parent_tool_use_id": None}
-
-
-class ClaudeCliEnvironment:
-    """The Claude CLI inherits this process's environment.
-
-    The Claude desktop app starts processes with CLAUDE_CONFIG_DIR naming the default ~/.claude. With the
-    variable set, the CLI looks for its login under another keychain entry and reports "Not logged in".
-    Pointing at the default location, the variable means nothing, so it is removed; a real custom
-    location is left alone.
-    """
-
-    VARIABLE = "CLAUDE_CONFIG_DIR"
-
-    @classmethod
-    def prepare(cls) -> None:
-        configured = os.environ.get(cls.VARIABLE)
-        if configured is not None and cls._is_default(configured):
-            del os.environ[cls.VARIABLE]
-
-    @staticmethod
-    def _is_default(configured: str) -> bool:
-        return configured.strip() != "" and Path(configured).expanduser().resolve() == (Path.home() / ".claude").resolve()

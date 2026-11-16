@@ -135,4 +135,4 @@ Tell Max the release URL (`gh release view vX.Y.Z --repo "$GITHUB_REPO" --json u
 
 Prod is not updated by merging or by this skill. It updates with **Update to X.Y.Z** in the app or with `make update` in the prod copy (`~/projects/what-to-do-prod`).
 
-A change to `scripts/update.sh` takes effect one release later: a copy updates with the script it already has.
+A change to the updater (`src/where_to_go/launcher/updater.py`) takes effect one release later: a copy updates with the updater it already has. Releases up to 1.15 update with their shell `scripts/update.sh`, which runs `make down`, checks out the tag and runs the new `make up`.

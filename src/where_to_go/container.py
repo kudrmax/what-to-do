@@ -16,7 +16,8 @@ from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.originals import OriginalPosts
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
-from where_to_go.releases import PROJECT_DIR, Releases, ReleaseSource
+from where_to_go.launcher.paths import PROJECT_DIR
+from where_to_go.releases import Releases, ReleaseSource
 from where_to_go.repositories import (
     CityRepository,
     DevNoteRepository,

@@ -22,9 +22,9 @@ The app remembers the project folder and port. Run `make app` again after you mo
 
 ## How it starts
 
-On launch, the app checks whether What To Do itself answers at `http://127.0.0.1:<PORT>/api/version`: another program on the port does not count. If not, it runs `make up` in the project folder and waits up to two minutes. On quit, it always runs `make down`, whoever started the server: a refresh in progress stops with it, and the posts it has already read stay saved.
+On launch, the app checks whether What To Do itself answers at `http://127.0.0.1:<PORT>/api/version`: another program on the port does not count. If not, it runs the copy's own `.venv/bin/where-to-go up --port <PORT>` and waits up to two minutes. On quit, it always runs `.venv/bin/where-to-go down`, whoever started the server: a refresh in progress stops with it, and the posts it has already read stay saved.
 
-`make up` runs in a login shell, which reads `~/.zprofile` but not `~/.zshrc`. If the app can't find `uv`, `claude` or `node`, add them to your `PATH` in `~/.zprofile`.
+The command runs in a login shell, which reads `~/.zprofile` but not `~/.zshrc`. Node.js is needed only when the interface has to be built (the first start and after an update that changed it); `where-to-go up` also looks for it in the Homebrew, nvm and Volta folders. If the app still can't find `node`, add it to your `PATH` in `~/.zprofile`.
 
 If the server fails to start, the window shows the error and the last lines of the output, with a **Try Again** button.
 

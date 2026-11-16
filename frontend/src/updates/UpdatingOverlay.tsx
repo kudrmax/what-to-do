@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 
 import type { UpdateStep } from "../api/client";
 import { Icon } from "../ui/Icon";
+import { desktopOf, TERMINAL_STEPS } from "./terminal";
 import { useUpdates } from "./useUpdates";
 import "./updates.css";
 
@@ -94,15 +95,14 @@ function UpdateFailed({ logTail, command, onClose }: { logTail: string; command:
   );
 }
 
-/** For someone who never opened a terminal: where it is, where the command goes, what to wait for. */
+/** For someone who never opened a terminal: where it is on this computer, where the command goes, what to wait for. */
 function ByHand({ command, waitFor }: { command: string; waitFor: string }) {
+  const steps = TERMINAL_STEPS[desktopOf(navigator.userAgent)];
   return (
     <ol className="updating__by-hand">
+      <li>{steps.open}</li>
       <li>
-        Open Terminal: press <kbd>⌘</kbd> <kbd>Space</kbd>, type <b>Terminal</b> and press <kbd>Return</kbd>.
-      </li>
-      <li>
-        Click <b>Copy</b>, click in the Terminal window, then press <kbd>⌘</kbd> <kbd>V</kbd> and <kbd>Return</kbd>.
+        {steps.paste}
         <CommandLine command={command} />
       </li>
       <li>{waitFor} Then reload this page.</li>

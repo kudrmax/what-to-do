@@ -12,15 +12,17 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlmodel import Field, SQLModel
 
 from where_to_go.about import APP_NAME, VERSION
 from where_to_go.api import releases as release_routes
 from where_to_go.api.errors import validation_error
 from where_to_go.calendar_file import EventCalendarFile
+from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn
 from where_to_go.container import Container
 from where_to_go.feed import FeedFilter, Occurrence, PlanFilter
+from where_to_go.launcher.config import InstanceConfig
 from where_to_go.models import (
     IMAGE_ROUTE,
     City,
@@ -83,6 +85,11 @@ TAG_HELP = {
     ApiTag.REFRESH: "Collect new posts and turn them into cards",
     ApiTag.STATS: "Counts of what was read, found and marked",
 }
+
+
+class ClaudeSignInView(BaseModel):
+    state: ClaudeSignIn
+    hint: str
 
 
 class SourceRequest(SQLModel):
@@ -442,6 +449,11 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         """Progress of the current or the last refresh; poll it while `running` is true."""
         return c.refresh.progress
 
+    @app.get("/claude/sign-in", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])
+    def claude_sign_in():
+        """Whether Claude Code, which reads the posts, is signed in; `hint` says how to sign in."""
+        return ClaudeSignInView(state=ClaudeLogin().check(), hint=SIGN_IN_HINT)
+
     # ---------- statistics ----------
 
     @app.get("/stats", response_model=CityStats, tags=[ApiTag.STATS])
@@ -455,4 +467,4 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
 
 def default_data_dir() -> Path:
-    return Path.home() / "Library" / "Application Support" / "where-to-go"
+    return InstanceConfig.default_data_dir()

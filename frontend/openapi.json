@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409.\n\n**Errors** come as `{\"detail\": \"<text in Russian, ready to show>\"}`.\n",
-  "version": "1.14.2"
+  "version": "1.15.3"
  },
  "paths": {
   "/settings": {
@@ -1404,6 +1404,28 @@
     }
    }
   },
+  "/claude/sign-in": {
+   "get": {
+    "tags": [
+     "refresh"
+    ],
+    "summary": "Claude Sign In",
+    "description": "Whether Claude Code, which reads the posts, is signed in; `hint` says how to sign in.",
+    "operationId": "claude_sign_in_claude_sign_in_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ClaudeSignInView"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/stats": {
    "get": {
     "tags": [
@@ -1965,6 +1987,32 @@
      "claude-opus-5-5"
     ],
     "title": "ClaudeModel"
+   },
+   "ClaudeSignIn": {
+    "type": "string",
+    "enum": [
+     "signed_in",
+     "signed_out",
+     "unknown"
+    ],
+    "title": "ClaudeSignIn"
+   },
+   "ClaudeSignInView": {
+    "properties": {
+     "state": {
+      "$ref": "#/components/schemas/ClaudeSignIn"
+     },
+     "hint": {
+      "type": "string",
+      "title": "Hint"
+     }
+    },
+    "type": "object",
+    "required": [
+     "state",
+     "hint"
+    ],
+    "title": "ClaudeSignInView"
    },
    "Conflict": {
     "properties": {
@@ -3084,6 +3132,12 @@
       "title": "Errors",
       "description": "Human-readable, ready to show"
      },
+     "claude_signed_out": {
+      "type": "boolean",
+      "title": "Claude Signed Out",
+      "description": "Claude Code has no login: nothing was read; the user must sign in first",
+      "default": false
+     },
      "running": {
       "type": "boolean",
       "title": "Running",
@@ -3109,6 +3163,7 @@
      "posts_read",
      "events_touched",
      "errors",
+     "claude_signed_out",
      "running"
     ],
     "title": "RefreshProgress"

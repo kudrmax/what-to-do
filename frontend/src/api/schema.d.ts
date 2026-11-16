@@ -561,6 +561,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/claude/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Claude Sign In
+         * @description Whether Claude Code, which reads the posts, is signed in; `hint` says how to sign in.
+         */
+        get: operations["claude_sign_in_claude_sign_in_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stats": {
         parameters: {
             query?: never;
@@ -956,6 +976,17 @@ export interface components {
          * @enum {string}
          */
         ClaudeModel: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
+        /**
+         * ClaudeSignIn
+         * @enum {string}
+         */
+        ClaudeSignIn: "signed_in" | "signed_out" | "unknown";
+        /** ClaudeSignInView */
+        ClaudeSignInView: {
+            state: components["schemas"]["ClaudeSignIn"];
+            /** Hint */
+            hint: string;
+        };
         /** Conflict */
         Conflict: {
             field: components["schemas"]["ConflictField"];
@@ -1513,6 +1544,12 @@ export interface components {
              * @description Human-readable, ready to show
              */
             errors: string[];
+            /**
+             * Claude Signed Out
+             * @description Claude Code has no login: nothing was read; the user must sign in first
+             * @default false
+             */
+            claude_signed_out: boolean;
             /** Running */
             readonly running: boolean;
         };
@@ -2806,6 +2843,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefreshProgress"];
+                };
+            };
+        };
+    };
+    claude_sign_in_claude_sign_in_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaudeSignInView"];
                 };
             };
         };

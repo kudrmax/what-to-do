@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = MainMenu.build(appName: appName)
         launcher = ServerLauncher(
             projectDir: config.projectDir,
+            commands: ServerCommands(projectDir: config.projectDir, port: config.port),
             probe: HTTPHealthProbe(url: config.versionURL),
             runner: LoginShellRunner(),
             sleeper: TaskSleeper(),
@@ -107,13 +108,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// The page reloads once the servers come back from `scripts/update.sh`, so every load is a chance to notice a rebuilt app.
+    /// The page reloads once the servers come back from an update, so every load is a chance to notice a rebuilt app.
     private func checkBundleFreshness() {
         guard BundleFreshness.isStale(running: .main, installedAt: Bundle.main.bundleURL) else { return }
         windowController?.showRestartBanner()
     }
 
-    /// The servers already run the new version, so this instance quits without `make down`;
+    /// The servers already run the new version, so this instance quits without `where-to-go down`;
     /// the new one stops them when it quits.
     private func restart() {
         guard !isTerminating else { return }
