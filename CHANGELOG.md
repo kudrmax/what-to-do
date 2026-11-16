@@ -2,6 +2,15 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.14.2 — 2026-11-16
+
+Tooltips are shown in full.
+
+### Fixed
+- Tooltips on a card's ratings and on the repeat and unknown-time icons are no longer cut off at the card's edge. A rating at the left edge used to show only part of its words, such as "…nteresting at all".
+- Tooltips on the **Statuses** bar in **Stats** are no longer cut off by the bar.
+![](docs/images/changelog/1.14.2/tooltip.png)
+
 ## 1.14.1 — 2026-11-16
 
 Review mode follows the same rules as the list.
