@@ -64,3 +64,10 @@ def test_price_is_a_number_with_its_currency():
 def test_free_is_a_price_not_a_missing_one():
     event = resolve([mention(1, price=0.0, organizer=True), mention(2, price=500.0, published=LATE)])
     assert event.price == 0
+
+
+def test_a_card_is_a_priority_when_any_of_its_posts_says_so():
+    flagged = mention(2, published=EARLY)
+    flagged.data.is_priority = True
+    assert resolve([mention(1, published=LATE), flagged]).is_priority
+    assert not resolve([mention(1)]).is_priority

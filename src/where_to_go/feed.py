@@ -35,6 +35,7 @@ class FeedFilter:
     source_ids: frozenset[int] = frozenset()
     only_timed: bool = False
     hide_multiday: bool = False
+    only_priority: bool = False
     plans: frozenset[PlanFilter] = field(default_factory=frozenset)
     search: SearchQuery = field(default_factory=lambda: SearchQuery(""))
 
@@ -50,6 +51,8 @@ class FeedFilter:
         if self.only_timed and (event.start_time is None or event.kind is EventKind.MULTIDAY):
             return False
         if self.hide_multiday and event.kind is EventKind.MULTIDAY:
+            return False
+        if self.only_priority and not event.is_priority:
             return False
         return not self.plans or PlanFilter(event.plan or PlanFilter.NONE) in self.plans
 

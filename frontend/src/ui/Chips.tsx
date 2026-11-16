@@ -1,10 +1,10 @@
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 import { Popover } from "./Popover";
 
-export function ToggleChip({ label, on, onChange }: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+export function ToggleChip({ label, on, onChange, icon, tip, className }: { label: string; on: boolean; onChange: (on: boolean) => void; icon?: IconName; tip?: string; className?: string }) {
   return (
-    <button type="button" className="chip" aria-pressed={on} onClick={() => onChange(!on)}>
-      {on && <Icon name="check" size={14} strokeWidth={2.2} />}
+    <button type="button" className={className ? `chip ${className}` : "chip"} aria-pressed={on} data-tip={tip} onClick={() => onChange(!on)}>
+      {icon ? <Icon name={icon} size={14} strokeWidth={2.2} /> : on && <Icon name="check" size={14} strokeWidth={2.2} />}
       {label}
     </button>
   );

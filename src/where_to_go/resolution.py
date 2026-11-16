@@ -11,7 +11,7 @@ MAX_TAGS = 3
 
 TEXT_FIELDS = ("title", "original_title", "description")
 SCHEDULE_FIELDS = ("kind", "start_date", "end_date", "rrule")
-DETAIL_FIELDS = tuple(f for f in EventFacts.model_fields if f not in (*TEXT_FIELDS, *SCHEDULE_FIELDS, "start_time", "tags"))
+DETAIL_FIELDS = tuple(f for f in EventFacts.model_fields if f not in (*TEXT_FIELDS, *SCHEDULE_FIELDS, "start_time", "tags", "is_priority"))
 
 
 class EventResolver:
@@ -37,6 +37,7 @@ class EventResolver:
         facts |= {name: self._first(newest, lambda m, n=name: getattr(m.data, n)) for name in DETAIL_FIELDS}
         facts["start_time"] = self._first(schedule, lambda m: m.data.start_time if m.data.start_date == lead.start_date else None)
         facts["tags"] = self._tags(newest)
+        facts["is_priority"] = any(m.data.is_priority for m in mentions)
         card.sqlmodel_update(EventFacts.model_validate(facts).facts())
         card.image_path = self._first(fullest, lambda m: m.image_path)
         card.is_cancelled = self._is_cancelled(mentions)

@@ -32,6 +32,7 @@ function card(overrides: Partial<EventCard> = {}): EventCard {
     plan: null,
     is_going: false,
     is_cancelled: false,
+    is_priority: false,
     conflicts: [],
     source_ids: [1],
     image_url: null,
@@ -79,6 +80,12 @@ describe("event card", () => {
     expect(screen.getByTestId("where").textContent).toBe("/");
   });
 
+  it("marks an event that fits the wish from settings", () => {
+    setup(<EventCardView event={card({ is_priority: true })} day="2026-11-13" />);
+    expect(screen.getByRole("link").className).toContain("card--priority");
+    expect(screen.getByText("For you")).toBeTruthy();
+  });
+
   it("shows the price as words and the tag the list is filtered by", () => {
     setup(<EventCardView event={card()} day="2026-11-13" shownTags={["Встреча"]} />);
     expect(screen.getByText("Free")).toBeInTheDocument();
@@ -117,7 +124,7 @@ describe("filters", () => {
     fireEvent.click(screen.getByText("tags"));
     fireEvent.click(screen.getByText("timed"));
     expect(screen.getByTestId("where").textContent).toBe("/?tags=%D0%9A%D0%B8%D0%BD%D0%BE&tags=%D0%A2%D0%B5%D0%B0%D1%82%D1%80&only_timed=true");
-    expect(JSON.parse(screen.getByTestId("query").textContent!)).toEqual({ tags: ["Кино", "Театр"], sources: [], only_timed: true, hide_multiday: false, search: "" });
+    expect(JSON.parse(screen.getByTestId("query").textContent!)).toEqual({ tags: ["Кино", "Театр"], sources: [], only_timed: true, hide_multiday: false, only_priority: false, search: "" });
   });
 });
 

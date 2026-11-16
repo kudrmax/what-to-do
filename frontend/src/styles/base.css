@@ -199,6 +199,20 @@ p {
   background: var(--accent-soft-hover);
 }
 
+.chip--priority svg {
+  color: var(--priority);
+}
+
+.chip--priority[aria-pressed="true"] {
+  border-color: var(--priority-line);
+  background: var(--priority-soft);
+  color: var(--priority-ink);
+}
+
+.chip--priority[aria-pressed="true"]:hover {
+  background: var(--priority-soft-hover);
+}
+
 .chip__count {
   min-width: 18px;
   height: 18px;
@@ -231,6 +245,18 @@ p {
 .badge--accent {
   background: var(--accent-soft);
   color: var(--accent-strong);
+}
+
+.badge--priority {
+  gap: 4px;
+  padding-left: 6px;
+  background: var(--priority-soft);
+  color: var(--priority-ink);
+  font-weight: 600;
+}
+
+.badge--priority svg {
+  color: var(--priority);
 }
 
 /* ---------- popover ---------- */
