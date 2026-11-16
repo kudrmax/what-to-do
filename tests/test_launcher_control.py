@@ -147,7 +147,7 @@ def test_a_port_taken_by_another_program_refuses_the_start_and_names_it(copy: Co
 
 def test_a_server_that_dies_on_start_shows_the_end_of_its_log(copy: Copy) -> None:
     copy.data.mkdir()
-    (copy.data / "fail").write_text("")
+    (copy.data / "fail").write_text("", encoding="utf-8")
 
     with pytest.raises(LaunchError, match="boom on start"):
         copy.control.up(copy.spec(), build=False)
@@ -178,7 +178,7 @@ def test_a_server_of_an_older_release_is_found_by_its_pid_file(copy: Copy) -> No
     other_port = free_port()
     older = copy.start_by_hand(other_port)
     copy.paths.pids.mkdir(exist_ok=True)
-    copy.paths.legacy_app_pid.write_text(str(older.pid))
+    copy.paths.legacy_app_pid.write_text(str(older.pid), encoding="utf-8")
 
     [server] = copy.control.running()
     assert server.spec.port == other_port
@@ -207,7 +207,7 @@ def test_up_takes_the_port_back_from_the_update_progress_page(copy: Copy) -> Non
     status_server = subprocess.Popen([sys.executable, "-c", f"import time; time.sleep({LONG_S})", "update_status_server"])
     copy.started.append(status_server)
     copy.paths.pids.mkdir(exist_ok=True)
-    copy.paths.status_server_pid(copy.port).write_text(str(status_server.pid))
+    copy.paths.status_server_pid(copy.port).write_text(str(status_server.pid), encoding="utf-8")
 
     copy.control.up(copy.spec(), build=False)
 
@@ -219,7 +219,7 @@ def test_a_process_that_reused_the_progress_pages_pid_is_left_alone(copy: Copy) 
     other = subprocess.Popen([sys.executable, "-c", f"import time; time.sleep({LONG_S})"])
     copy.started.append(other)
     copy.paths.pids.mkdir(exist_ok=True)
-    copy.paths.status_server_pid(copy.port).write_text(str(other.pid))
+    copy.paths.status_server_pid(copy.port).write_text(str(other.pid), encoding="utf-8")
 
     copy.control.up(copy.spec(), build=False)
 
@@ -249,8 +249,8 @@ def test_a_stop_never_takes_down_whoever_asked_for_it(tmp_path: Path) -> None:
         f"time.sleep({LONG_S})\n"
     )
     parent = subprocess.Popen([sys.executable, "-c", code])
-    wait_for(lambda: child_pid.exists() and child_pid.read_text() != "")
-    child = psutil.Process(int(child_pid.read_text()))
+    wait_for(lambda: child_pid.exists() and child_pid.read_text(encoding="utf-8") != "")
+    child = psutil.Process(int(child_pid.read_text(encoding="utf-8")))
     try:
         report = ProcessTree(protected={child.pid}).stop(psutil.Process(parent.pid))
 

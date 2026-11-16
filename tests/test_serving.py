@@ -11,9 +11,9 @@ from where_to_go.serving import AppWithInterface
 def interface(tmp_path):
     folder = tmp_path / "dist"
     (folder / "assets").mkdir(parents=True)
-    (folder / "index.html").write_text("<html>interface</html>")
-    (folder / "assets" / "app.js").write_text("console.log(1)")
-    (folder / "favicon.svg").write_text("<svg/>")
+    (folder / "index.html").write_text("<html>interface</html>", encoding="utf-8")
+    (folder / "assets" / "app.js").write_text("console.log(1)", encoding="utf-8")
+    (folder / "favicon.svg").write_text("<svg/>", encoding="utf-8")
     return folder
 
 
@@ -47,7 +47,7 @@ def test_hashed_assets_are_cached_for_good(client):
 
 
 def test_files_outside_the_interface_are_not_served(client, tmp_path):
-    (tmp_path / "secret.txt").write_text("secret")
+    (tmp_path / "secret.txt").write_text("secret", encoding="utf-8")
     assert "secret" not in client.get("/..%2Fsecret.txt").text
 
 

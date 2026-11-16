@@ -15,7 +15,7 @@ FIXTURES = Path(__file__).parent / "fixtures" / "web"
 
 
 def fixture(name: str) -> str:
-    return (FIXTURES / name).read_text()
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
 def test_polako_page_gives_its_event():

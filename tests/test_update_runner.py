@@ -61,7 +61,7 @@ def write(tmp_path: Path, relative_path: str, text: str) -> None:
 
 
 def wait_for_text(path: Path, text: str) -> None:
-    wait_for(lambda: path.exists() and text in path.read_text())
+    wait_for(lambda: path.exists() and text in path.read_text(encoding="utf-8"))
 
 
 def wait_for_state(update: UpdateRunner, state: UpdateState) -> None:
@@ -112,7 +112,7 @@ def test_the_updater_gets_none_of_the_apps_open_files(tmp_path: Path) -> None:
 
         wait_for_text(marker, "]")
 
-    assert marker.read_text() == "[]"
+    assert marker.read_text(encoding="utf-8") == "[]"
 
 
 def test_the_update_never_waits_for_a_git_password(tmp_path: Path) -> None:
@@ -192,7 +192,7 @@ def test_an_updater_that_dies_without_a_state_ends_failed_with_its_log(tmp_path:
 
     wait_for_state(update, UpdateState.FAILED)
     assert "boom" in update.progress().log_tail
-    assert (tmp_path / UpdateFiles.STATE).read_text() == "failed"
+    assert (tmp_path / UpdateFiles.STATE).read_text(encoding="utf-8") == "failed"
 
 
 def test_running_without_a_pid_file_is_failed(tmp_path: Path) -> None:
@@ -265,7 +265,7 @@ def test_concurrent_starts_spawn_one_process(tmp_path: Path) -> None:
     time.sleep(0.3)
 
     assert outcomes.count(True) == 1
-    assert marker.read_text() == "x"
+    assert marker.read_text(encoding="utf-8") == "x"
 
 
 def test_a_finished_update_lets_the_next_one_start(tmp_path: Path) -> None:

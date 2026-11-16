@@ -105,7 +105,7 @@ def test_state_answers_as_the_app_does(project: Path, server: StatusServer) -> N
 
 
 def test_state_follows_the_progress_file(project: Path, server: StatusServer) -> None:
-    (project / UpdateFiles.PROGRESS).write_text("done\tСкачиваем v1.2.0\n")
+    (project / UpdateFiles.PROGRESS).write_text("done\tСкачиваем v1.2.0\n", encoding="utf-8")
 
     _, body = server.get("/api/update/state")
 
@@ -113,7 +113,7 @@ def test_state_follows_the_progress_file(project: Path, server: StatusServer) ->
 
 
 def test_garbled_progress_gives_no_steps(project: Path, server: StatusServer) -> None:
-    (project / UpdateFiles.PROGRESS).write_text("halfway\tСохраняем копию\n")
+    (project / UpdateFiles.PROGRESS).write_text("halfway\tСохраняем копию\n", encoding="utf-8")
 
     _, body = server.get("/api/update/state")
 

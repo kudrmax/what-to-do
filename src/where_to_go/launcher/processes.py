@@ -99,10 +99,23 @@ class ProcessTree:
         return alive
 
     def _descendants(self, process: psutil.Process) -> list[psutil.Process]:
+        """A protected process keeps what it started: on Windows a venv's python.exe is only a launcher, and
+        the interpreter doing the work is its child."""
         try:
-            return [child for child in process.children(recursive=True) if child.pid not in self._protected]
+            children = process.children(recursive=True)
         except psutil.Error:
             return []
+        spared = self._protected | self._started_by_protected()
+        return [child for child in children if child.pid not in spared]
+
+    def _started_by_protected(self) -> set[int]:
+        pids: set[int] = set()
+        for pid in self._protected:
+            try:
+                pids.update(child.pid for child in psutil.Process(pid).children(recursive=True))
+            except psutil.Error:
+                continue
+        return pids
 
     @staticmethod
     def _still_running(processes: list[psutil.Process]) -> list[psutil.Process]:

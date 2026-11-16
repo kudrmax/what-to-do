@@ -69,8 +69,8 @@ class FakeReleases:
 def project(tmp_path: Path, version: str = "1.0.0", changelog: str = CHANGELOG) -> Path:
     folder = tmp_path / "project"
     folder.mkdir()
-    (folder / "pyproject.toml").write_text(f'[project]\nname = "x"\nversion = "{version}"\n')
-    (folder / "CHANGELOG.md").write_text(changelog)
+    (folder / "pyproject.toml").write_text(f'[project]\nname = "x"\nversion = "{version}"\n', encoding="utf-8")
+    (folder / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
     return folder
 
 
@@ -231,7 +231,7 @@ def test_images_point_under_the_interface_api(tmp_path):
     folder = project(tmp_path)
     interface = tmp_path / "dist"
     (interface / "assets").mkdir(parents=True)
-    (interface / "index.html").write_text("<html></html>")
+    (interface / "index.html").write_text("<html></html>", encoding="utf-8")
     api = create_app(lambda: Container.build(tmp_path / "data", matching_llm=judge_same_titles(), project_dir=folder, release_source=FakeReleases(AppVersion(1, 2, 0))))
     with TestClient(AppWithInterface.build(api, interface)) as test_client:
         html = test_client.get("/api/updates").json()["entries"][0]["sections"][0]["html"]

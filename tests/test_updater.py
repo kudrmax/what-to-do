@@ -75,18 +75,18 @@ class Copy:
     port: int
 
     def release(self, version: str, *, macos_change: bool = False) -> None:
-        (self.publisher / "VERSION").write_text(version)
+        (self.publisher / "VERSION").write_text(version, encoding="utf-8")
         if macos_change:
             app_file = self.publisher / "macos" / "Sources" / "App.swift"
             app_file.parent.mkdir(parents=True, exist_ok=True)
-            app_file.write_text(f"// {version}\n")
+            app_file.write_text(f"// {version}\n", encoding="utf-8")
         git(self.publisher, "add", "-A")
         git(self.publisher, "commit", "-m", version)
         git(self.publisher, "tag", f"v{version}")
         git(self.publisher, "push", "--quiet", "origin", "HEAD", "--tags")
 
     def flag(self, name: str, value: str = "") -> None:
-        (self.flags / name).write_text(value)
+        (self.flags / name).write_text(value, encoding="utf-8")
 
     def updater(self, root: Path | None = None) -> Updater:
         paths = ProjectPaths(root or self.root)
@@ -112,7 +112,7 @@ class Copy:
         return thread, codes
 
     def calls(self) -> list[str]:
-        return self.calls_file.read_text().splitlines() if self.calls_file.exists() else []
+        return self.calls_file.read_text(encoding="utf-8").splitlines() if self.calls_file.exists() else []
 
     def head(self) -> str:
         return git(self.root, "rev-parse", "HEAD")
@@ -121,17 +121,17 @@ class Copy:
         return git(self.root, "rev-parse", f"{tag}^{{commit}}")
 
     def state(self) -> str:
-        return (self.root / UpdateFiles.STATE).read_text().strip()
+        return (self.root / UpdateFiles.STATE).read_text(encoding="utf-8").strip()
 
     def error(self) -> str:
-        return (self.root / UpdateFiles.ERROR).read_text()
+        return (self.root / UpdateFiles.ERROR).read_text(encoding="utf-8")
 
     def log(self) -> str:
         path = self.root / UpdateFiles.LOG
-        return path.read_text() if path.exists() else ""
+        return path.read_text(encoding="utf-8") if path.exists() else ""
 
     def progress(self) -> list[tuple[str, str]]:
-        text = (self.root / UpdateFiles.PROGRESS).read_text()
+        text = (self.root / UpdateFiles.PROGRESS).read_text(encoding="utf-8")
         parts = (line.partition("\t") for line in text.splitlines())
         return [(status, title) for status, _, title in parts]
 
@@ -160,7 +160,7 @@ def copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Copy:
     publisher = tmp_path / "publisher"
     git(tmp_path, "clone", "--quiet", str(bare), str(publisher))
     git(publisher, "checkout", "--quiet", "-b", "master")
-    (publisher / ".gitignore").write_text(GITIGNORE)
+    (publisher / ".gitignore").write_text(GITIGNORE, encoding="utf-8")
     (publisher / "scripts").mkdir()
     shutil.copy(STATUS_SERVER, publisher / "scripts" / STATUS_SERVER.name)
     flags = tmp_path / "flags"
@@ -211,7 +211,7 @@ def test_a_copy_that_was_not_running_is_updated_and_left_stopped(copy: Copy) -> 
 
 
 def test_head_ahead_of_the_latest_tag_is_left_as_it_is(copy: Copy) -> None:
-    (copy.publisher / "unreleased.txt").write_text("work in progress")
+    (copy.publisher / "unreleased.txt").write_text("work in progress", encoding="utf-8")
     git(copy.publisher, "add", "-A")
     git(copy.publisher, "commit", "-m", "unreleased")
     git(copy.publisher, "push", "--quiet", "origin", "HEAD")
@@ -267,7 +267,7 @@ def test_unreachable_origin_fails_without_touching_the_copy(copy: Copy) -> None:
 
 def test_uncommitted_changes_refuse_the_update(copy: Copy) -> None:
     copy.release("1.1.0")
-    (copy.root / "VERSION").write_text("edited")
+    (copy.root / "VERSION").write_text("edited", encoding="utf-8")
 
     assert copy.run() == 1
 
@@ -284,8 +284,8 @@ def test_worktree_refuses_the_update(copy: Copy, tmp_path: Path) -> None:
 
     assert copy.run(linked) == 1
 
-    assert (linked / UpdateFiles.STATE).read_text() == "failed"
-    assert "main copy" in (linked / UpdateFiles.ERROR).read_text()
+    assert (linked / UpdateFiles.STATE).read_text(encoding="utf-8") == "failed"
+    assert "main copy" in (linked / UpdateFiles.ERROR).read_text(encoding="utf-8")
     assert copy.calls() == []
 
 
@@ -304,7 +304,7 @@ def test_every_run_is_logged_under_its_own_header(copy: Copy) -> None:
 def test_a_tag_moved_on_origin_does_not_stop_the_update(copy: Copy) -> None:
     copy.release("1.1.0")
     assert copy.run() == 0
-    (copy.publisher / "notes.txt").write_text("moved")
+    (copy.publisher / "notes.txt").write_text("moved", encoding="utf-8")
     git(copy.publisher, "add", "-A")
     git(copy.publisher, "commit", "-m", "moved")
     git(copy.publisher, "tag", "--force", "v1.1.0")
@@ -440,7 +440,7 @@ def test_status_server_shows_the_start_until_up_takes_the_port(copy: Copy) -> No
 
     assert copy.run() == 0, copy.log()
 
-    saw = (copy.flags / "up_saw").read_text().splitlines()
+    saw = (copy.flags / "up_saw").read_text(encoding="utf-8").splitlines()
     assert saw == [f"alive current\t{START}"]
     assert not (copy.root / ".pids" / f"update_status-{copy.port}.pid").exists()
 
@@ -498,7 +498,7 @@ def test_the_button_works_after_the_update_was_killed(copy: Copy, button: Update
     copy.flag("hold", "hold")
     button.start()
     wait_for(lambda: "down" in copy.calls())
-    updater = find_process(int((copy.root / UpdateFiles.PID).read_text()))
+    updater = find_process(int((copy.root / UpdateFiles.PID).read_text(encoding="utf-8")))
     assert updater is not None
     updater.kill()
     updater.wait(WAIT_S)
@@ -514,7 +514,7 @@ def test_the_update_outlives_the_process_that_started_it(copy: Copy, button: Upd
     copy.flag("hold", "hold")
     button.start()
     wait_for(lambda: "down" in copy.calls())
-    updater = find_process(int((copy.root / UpdateFiles.PID).read_text()))
+    updater = find_process(int((copy.root / UpdateFiles.PID).read_text(encoding="utf-8")))
     try:
         assert updater is not None
         assert updater.pid not in {child.pid for child in psutil.Process().children(recursive=True)}
@@ -528,4 +528,4 @@ def test_the_button_never_waits_for_a_git_password(copy: Copy, button: UpdateRun
     copy.release("1.1.0")
 
     assert press(button) is UpdateState.DONE, copy.log()
-    assert (copy.flags / "sync_environment").read_text() == "GIT_TERMINAL_PROMPT=0 stdin=empty"
+    assert (copy.flags / "sync_environment").read_text(encoding="utf-8") == "GIT_TERMINAL_PROMPT=0 stdin=empty"

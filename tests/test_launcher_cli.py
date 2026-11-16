@@ -21,11 +21,11 @@ def copy_at(tmp_path: Path, env: str | None = None, worktree: bool = False) -> P
     root = tmp_path / "copy"
     root.mkdir()
     if worktree:
-        (root / ".git").write_text("gitdir: /somewhere/.git/worktrees/copy\n")
+        (root / ".git").write_text("gitdir: /somewhere/.git/worktrees/copy\n", encoding="utf-8")
     else:
         (root / ".git").mkdir()
     if env is not None:
-        (root / ".env").write_text(env)
+        (root / ".env").write_text(env, encoding="utf-8")
     return ProjectPaths(root)
 
 
@@ -89,7 +89,7 @@ def test_a_wrong_port_is_refused_with_its_value(tmp_path: Path, port: str) -> No
 
 
 def test_the_example_env_file_changes_nothing(tmp_path: Path) -> None:
-    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text()
+    example = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
     with_example = tmp_path / "with-example"
     with_example.mkdir()
 
@@ -98,12 +98,12 @@ def test_the_example_env_file_changes_nothing(tmp_path: Path) -> None:
 
 def test_logs_show_both_streams_marked_and_follow_new_lines(tmp_path: Path) -> None:
     app_log, update_log = tmp_path / "app.log", tmp_path / "update.log"
-    app_log.write_text("one\ntwo\nthree\n")
+    app_log.write_text("one\ntwo\nthree\n", encoding="utf-8")
     said: list[str] = []
     follower = LogFollower([("app", app_log), ("update", update_log)], said.append)
 
     follower.run(lines=2, follow=False)
-    update_log.write_text("=== update\nhalf")
+    update_log.write_text("=== update\nhalf", encoding="utf-8")
     new = follower._new_lines(follower._files[1])
 
     assert said == ["app    | two", "app    | three"]
@@ -143,7 +143,7 @@ def installed(tmp_path: Path) -> tuple[ProjectPaths, Path, Path]:
     paths = copy_at(tmp_path)
     data = tmp_path / "data"
     data.mkdir()
-    (data / "where-to-go.sqlite3").write_text("")
+    (data / "where-to-go.sqlite3").write_text("", encoding="utf-8")
     apps = tmp_path / "Applications"
     install_app(apps, "What To Do", paths.root)
     install_app(apps, "What To Do Dev", tmp_path / "another-copy")

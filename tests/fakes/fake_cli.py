@@ -78,7 +78,7 @@ def main() -> int:
     record(command)
     if command == "sync":
         stdin = "empty" if sys.stdin.read() == "" else "not empty"
-        (FLAGS / "sync_environment").write_text(f"GIT_TERMINAL_PROMPT={os.environ.get('GIT_TERMINAL_PROMPT', '')} stdin={stdin}")
+        (FLAGS / "sync_environment").write_text(f"GIT_TERMINAL_PROMPT={os.environ.get('GIT_TERMINAL_PROMPT', '')} stdin={stdin}", encoding="utf-8")
     if command == "down":
         hold("hold")
     return 0
