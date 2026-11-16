@@ -16,6 +16,9 @@ public struct AppConfig: Sendable {
     public let serverURL: URL
     /// Answers only the app itself, so a stranger on the port is not taken for it.
     public var versionURL: URL { serverURL.appending(path: "api/version") }
+    /// Checked with the server even when WebKit holds a copy it thinks is fresh: an update replaces the page,
+    /// and a cached old page would load the old build.
+    public var pageRequest: URLRequest { URLRequest(url: serverURL, cachePolicy: .reloadRevalidatingCacheData) }
     /// The app lives in the menu bar and leaves the Dock when its window is closed.
     public let showsMenuBarIcon: Bool
 

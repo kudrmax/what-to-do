@@ -13,6 +13,13 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(config.versionURL.absoluteString, "http://127.0.0.1:17833/api/version")
     }
 
+    func testTheFirstLoadAsksTheServerSoAnUpdateIsNotHiddenByTheCache() throws {
+        let config = try AppConfig(infoDictionary: [AppConfig.projectDirKey: "/tmp", AppConfig.portKey: "17833"])
+
+        XCTAssertEqual(config.pageRequest.url, config.serverURL)
+        XCTAssertEqual(config.pageRequest.cachePolicy, .reloadRevalidatingCacheData)
+    }
+
     func testMenuBarIconIsOffByDefault() throws {
         let config = try AppConfig(infoDictionary: [AppConfig.projectDirKey: "/tmp", AppConfig.portKey: "17833"])
 
