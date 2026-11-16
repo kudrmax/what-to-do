@@ -11,7 +11,7 @@ import pytest
 import respx
 from claude_agent_sdk import ResultMessage
 
-from tests.helpers import judge_same_titles, photos_saying
+from tests.helpers import add_city, judge_same_titles, photos_saying
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go import llm as llm_module
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn
@@ -96,7 +96,7 @@ class SignedOut:
 async def test_a_refresh_without_a_login_says_so_once(tmp_path) -> None:
     extraction = SignedOut()
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
-    city = container.cities.add("Белград", "Europe/Belgrade")
+    city = add_city(container, "Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
     container.sources.add(Source(city_id=city.id, handle="afisha", title="Афиша"))
     serve_channels([(n, RECENT, f"пост {n} " * 400) for n in range(1, 21)], [(n, RECENT, f"афиша {n} " * 400) for n in range(1, 21)])
