@@ -164,6 +164,8 @@ class UpdateRunner:
     def _spawn(self) -> None:
         self._files.write_state(UpdateState.RUNNING)
         self._files.write(UpdateFiles.ERROR, "")
+        # The stages of the previous update would show until the updater writes its own.
+        self._files.write(UpdateFiles.PROGRESS, "")
         try:
             completed = subprocess.run(
                 self._command,

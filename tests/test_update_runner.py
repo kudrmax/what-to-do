@@ -152,6 +152,15 @@ def test_start_clears_the_cause_of_the_previous_failure(tmp_path: Path) -> None:
     assert "Couldn't start" not in update.progress().log_tail
 
 
+def test_start_forgets_the_stages_of_the_previous_update(tmp_path: Path) -> None:
+    write(tmp_path, UpdateFiles.PROGRESS, "done\tDownloading v1.2.0\n")
+    update = runner(tmp_path, sleeping(5))
+
+    update.start()
+
+    assert update.progress().steps == []
+
+
 def test_unknown_state_word_counts_as_idle(tmp_path: Path) -> None:
     write(tmp_path, UpdateFiles.STATE, "garbage")
 

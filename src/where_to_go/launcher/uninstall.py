@@ -34,14 +34,14 @@ class Uninstaller:
         control: ServerControl,
         data_dir: Path,
         apps: MacApps | None = None,
-        trash: Callable[[str], None] = send2trash,
+        trash: Callable[[str], None] | None = None,
         say: Callable[[str], None] = print,
     ) -> None:
         self._paths = paths
         self._control = control
         self._data_dir = data_dir
         self._apps = apps or MacApps()
-        self._trash = trash
+        self._trash = trash or send2trash
         self._say = say
 
     @property

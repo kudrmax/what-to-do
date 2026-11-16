@@ -201,6 +201,23 @@ def test_uninstall_asks_before_it_does_anything(tmp_path: Path, monkeypatch: pyt
     assert Cli(paths, config, out=lambda _: None).run(["uninstall"]) == 2
 
 
+def test_uninstall_keeps_the_data_unless_the_user_says_yes(installed: tuple[ProjectPaths, Path, Path], monkeypatch: pytest.MonkeyPatch) -> None:
+    paths, data, _ = installed
+    config = InstanceConfig(port=1, data_dir=data, instance="prod", menu_bar_icon=False)
+    answers = iter(["y", ""])
+    monkeypatch.setattr(sys, "stdin", type("Terminal", (io.StringIO,), {"isatty": lambda self: True})())
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    trashed: list[str] = []
+    monkeypatch.setattr("where_to_go.launcher.uninstall.send2trash", trashed.append)
+    said: list[str] = []
+
+    assert Cli(paths, config, out=said.append).run(["uninstall"]) == 0
+
+    assert str(data) not in trashed
+    assert f"Kept your data: {data}" in said
+    assert any(line.startswith("\nLast step: delete the folder") for line in said)
+
+
 def test_status_of_a_stopped_copy_says_how_to_start_it(tmp_path: Path) -> None:
     paths = copy_at(tmp_path)
     config = InstanceConfig(port=1, data_dir=tmp_path / "data", instance="prod", menu_bar_icon=False)
