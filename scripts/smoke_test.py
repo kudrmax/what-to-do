@@ -177,6 +177,8 @@ def free_port() -> int:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--port", type=int, default=0, help="default: a free port")
     parser.add_argument("--default-data", action="store_true", help="use the platform's data folder, which must not exist yet")
