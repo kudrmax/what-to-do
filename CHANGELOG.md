@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.22.2 — 2026-11-17
+
+Other websites can no longer use the app.
+
+### Fixed
+- The app's server on your computer answered requests from any website open in your browser, so a page could, in theory, read your feed, change marks or start a refresh. It now answers only its own window and pages.
+
 ## 1.22.1 — 2026-11-17
 
 The macOS app with the phone page, for Intel Macs too.
