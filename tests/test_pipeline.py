@@ -803,6 +803,38 @@ async def test_a_post_with_ten_images_gets_no_video_frames(tmp_path, monkeypatch
 
 
 @respx.mock
+async def test_photos_after_an_opening_video_win_over_its_frames(tmp_path, monkeypatch):
+    images = [f"{CDN}/{i}.png" for i in range(10)]
+    for i, url in enumerate(images):
+        serve_image(url, (i * 20, 0, 0))
+    video = respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(0, 255, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": images[0]})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 10 and not any("-f" in name for name in stored.image_paths)
+    assert not video.called
+
+
+RAINBOW = [(255, 0, 0), (255, 255, 0), (0, 255, 0), (0, 255, 255), (0, 0, 255), (255, 0, 255), (255, 255, 255), (0, 0, 0)]
+
+
+@respx.mock
+@pytest.mark.parametrize("photos, frames", [(3, 6), (6, 3)])
+async def test_an_opening_video_gets_only_the_room_its_photos_leave(tmp_path, monkeypatch, photos, frames):
+    images = [f"{CDN}/cover.png"] + [f"{CDN}/{i}.png" for i in range(photos)]
+    serve_image(images[0], (128, 128, 128))
+    for i, url in enumerate(images[1:]):
+        serve_image(url, (i * 20, 0, 0))
+    respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video(RAINBOW, 2))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": images[0]})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert ["-f" in name for name in stored.image_paths] == [False] + [True] * frames + [False] * photos
+
+
+@respx.mock
 async def test_frames_fill_only_the_room_a_post_has_left(tmp_path, monkeypatch):
     images = [f"{CDN}/{i}.png" for i in range(9)]
     for i, url in enumerate(images):

@@ -334,18 +334,24 @@ class RefreshService:
                 self.progress.new_posts += 1
 
     async def _media(self, post: CollectedPost) -> list[str]:
-        """The images of a post, the frames of each video right after its cover; frames only while the post has room for them."""
+        """The images of a post, the frames of each video right after its cover. Images always win: frames get only
+        the room the post's images leave of the photos read per post."""
         by_cover: dict[str | None, list[str]] = {}
         for video in post.video_urls:
             by_cover.setdefault(post.video_covers.get(video), []).append(video)
+        room = PhotoTranscriber.PER_POST - len(post.image_urls)
         paths: list[str] = []
         for url in post.image_urls:
             saved = await self._images.save(url)
             paths += [saved] if saved else []
             for video in by_cover.pop(url, []):
-                paths += await self._video_frames(video, saved, PhotoTranscriber.PER_POST - len(paths))
+                frames = await self._video_frames(video, saved, room)
+                room -= len(frames)
+                paths += frames
         for video in [video for videos in by_cover.values() for video in videos]:
-            paths += await self._video_frames(video, None, PhotoTranscriber.PER_POST - len(paths))
+            frames = await self._video_frames(video, None, room)
+            room -= len(frames)
+            paths += frames
         return paths
 
     async def _video_frames(self, url: str, cover: str | None, room: int) -> list[str]:
