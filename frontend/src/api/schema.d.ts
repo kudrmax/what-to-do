@@ -1215,6 +1215,14 @@ export interface components {
              */
             created_at: string;
         };
+        /** ErrorDetail */
+        ErrorDetail: {
+            /**
+             * Detail
+             * @description What went wrong, ready to show
+             */
+            detail: string;
+        };
         /**
          * EventKind
          * @enum {string}
@@ -3323,13 +3331,13 @@ export interface operations {
                     "application/json": components["schemas"]["PhonePageState"];
                 };
             };
-            /** @description Validation Error */
+            /** @description The request is invalid, GitHub refused, or the plans could not be published */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -3352,6 +3360,15 @@ export interface operations {
                     "application/json": components["schemas"]["PhonePageState"];
                 };
             };
+            /** @description GitHub could not replace the page; the phone page is off anyway */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     publish_phone_page_phone_page_publish_post: {
@@ -3370,6 +3387,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PhonePageState"];
+                };
+            };
+            /** @description The phone page is off */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };

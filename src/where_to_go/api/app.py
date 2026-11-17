@@ -106,6 +106,10 @@ class SignInCodeRequest(BaseModel):
     code: str = Field(min_length=1, max_length=2000, description="The code the sign-in page shows")
 
 
+class ErrorDetail(BaseModel):
+    detail: str = Field(description="What went wrong, ready to show")
+
+
 class PhonePageRequest(BaseModel):
     repository: str = Field(description="The GitHub repository to publish to, as owner/name")
     token: str | None = Field(default=None, description="A GitHub token with access to it; empty keeps the saved one")
@@ -550,7 +554,12 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         """Whether the phone page is on, where it lives and how its last publish went. Never returns the token or password."""
         return c.phone_page.state()
 
-    @app.put("/phone-page", response_model=PhonePageState, tags=[ApiTag.PHONE_PAGE])
+    @app.put(
+        "/phone-page",
+        response_model=PhonePageState,
+        tags=[ApiTag.PHONE_PAGE],
+        responses={422: {"model": ErrorDetail, "description": "The request is invalid, GitHub refused, or the plans could not be published"}},
+    )
     async def turn_phone_page_on(body: PhonePageRequest, c: ContainerDep):
         """Checks the repository, publishes the plans and keeps them fresh. An empty token or password keeps the saved one. 422: GitHub refused."""
         try:
@@ -558,7 +567,12 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         except PublishError as error:
             raise HTTPException(422, str(error)) from None
 
-    @app.delete("/phone-page", response_model=PhonePageState, tags=[ApiTag.PHONE_PAGE])
+    @app.delete(
+        "/phone-page",
+        response_model=PhonePageState,
+        tags=[ApiTag.PHONE_PAGE],
+        responses={422: {"model": ErrorDetail, "description": "GitHub could not replace the page; the phone page is off anyway"}},
+    )
     async def turn_phone_page_off(c: ContainerDep):
         """Replaces the published page with an empty one. The page is off even when 422 says GitHub could not be reached."""
         try:
@@ -566,7 +580,12 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         except PublishError as error:
             raise HTTPException(422, str(error)) from None
 
-    @app.post("/phone-page/publish", response_model=PhonePageState, tags=[ApiTag.PHONE_PAGE])
+    @app.post(
+        "/phone-page/publish",
+        response_model=PhonePageState,
+        tags=[ApiTag.PHONE_PAGE],
+        responses={409: {"model": ErrorDetail, "description": "The phone page is off"}},
+    )
     async def publish_phone_page(c: ContainerDep):
         """Publishes the plans now, ignoring the ten minute pause. A failure lands in `last_error`. 409: the page is off."""
         try:

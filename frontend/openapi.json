@@ -1690,11 +1690,11 @@
       }
      },
      "422": {
-      "description": "Validation Error",
+      "description": "The request is invalid, GitHub refused, or the plans could not be published",
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
+         "$ref": "#/components/schemas/ErrorDetail"
         }
        }
       }
@@ -1718,6 +1718,16 @@
         }
        }
       }
+     },
+     "422": {
+      "description": "GitHub could not replace the page; the phone page is off anyway",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorDetail"
+        }
+       }
+      }
      }
     }
    }
@@ -1737,6 +1747,16 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/PhonePageState"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "The phone page is off",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ErrorDetail"
         }
        }
       }
@@ -2533,6 +2553,20 @@
      "created_at"
     ],
     "title": "DevNotePublic"
+   },
+   "ErrorDetail": {
+    "properties": {
+     "detail": {
+      "type": "string",
+      "title": "Detail",
+      "description": "What went wrong, ready to show"
+     }
+    },
+    "type": "object",
+    "required": [
+     "detail"
+    ],
+    "title": "ErrorDetail"
    },
    "EventKind": {
     "type": "string",

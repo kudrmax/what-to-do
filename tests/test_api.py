@@ -420,7 +420,10 @@ class FakePagesPublisher:
 
 
 def phone_client(tmp_path, publisher):
-    app = create_app(lambda: Container.build(tmp_path, phone_publisher=publisher))
+    bundle = tmp_path / "phone"
+    bundle.mkdir()
+    (bundle / "phone.html").write_text("<html>phone</html>")
+    app = create_app(lambda: Container.build(tmp_path, phone_publisher=publisher, phone_bundle=bundle))
     return TestClient(app)
 
 
@@ -432,6 +435,26 @@ def test_phone_page_turn_on_error_is_422(tmp_path):
         assert response.status_code == 422
         assert response.json()["detail"] == "The token cannot see this repository"
         assert client.get("/phone-page").json()["enabled"] is False
+
+
+def test_phone_page_422_never_carries_the_token(tmp_path):
+    from where_to_go.phone_page.github import PublishError
+
+    with phone_client(tmp_path, FakePagesPublisher(PublishError("GitHub refused the request (422)"))) as client:
+        refused = client.put("/phone-page", json={"repository": "max/plans", "token": "ghp_secret", "password": "hunter2"})
+        invalid = client.put("/phone-page", json={"token": "ghp_secret", "password": "hunter2"})
+        for response in (refused, invalid):
+            assert response.status_code == 422
+            assert "ghp_secret" not in response.text and "hunter2" not in response.text
+
+
+def test_phone_page_refusals_are_in_the_schema(tmp_path):
+    with phone_client(tmp_path, FakePagesPublisher()) as client:
+        paths = client.get("/openapi.json").json()["paths"]
+        error = {"$ref": "#/components/schemas/ErrorDetail"}
+        assert paths["/phone-page"]["put"]["responses"]["422"]["content"]["application/json"]["schema"] == error
+        assert paths["/phone-page"]["delete"]["responses"]["422"]["content"]["application/json"]["schema"] == error
+        assert paths["/phone-page/publish"]["post"]["responses"]["409"]["content"]["application/json"]["schema"] == error
 
 
 def test_phone_page_state_hides_secrets(tmp_path):
