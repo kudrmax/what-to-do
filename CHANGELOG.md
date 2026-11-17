@@ -2,6 +2,18 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.23.0 — 2026-11-17
+
+A digest line gets the whole announcement it links to.
+
+### Posts a digest links to
+Many channels post a weekly digest where each line is a title and a link to the full post. **Refresh** now opens those linked posts, in the same channel or in any other public channel, and reads them too, however old they are. Each digest line joins the card of the post it links to, so the card shows that post's poster, description and price instead of one line. A recurring event, such as one every Saturday, stays one recurring card, and every week's digest line joins it. Links inside a linked post are not followed.
+![](docs/images/changelog/1.23.0/linked-posts.png)
+
+### Fixed
+- A recurring event no longer turns into a one-day event when a post names one of its dates.
+- The latest posts of every channel are read again at the next **Refresh**, so digest lines already in the feed join the cards of their posts. A line you rated or planned stays on its own card.
+
 ## 1.22.2 — 2026-11-17
 
 Other websites can no longer use the app.
