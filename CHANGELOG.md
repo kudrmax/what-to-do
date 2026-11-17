@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.21.3 — 2026-11-17
+
+An honest note for Linux and Windows.
+
+### Improvements
+- The install guide says the app hasn't been tried by hand on Linux and Windows, and asks anyone who does to report how it went or send a fix.
+
 ## 1.21.2 — 2026-11-17
 
 A tidier README.
