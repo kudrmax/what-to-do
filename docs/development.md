@@ -68,7 +68,7 @@ Settings of a copy come from the command-line flags, then `WHERE_TO_GO_PORT`, `W
 
 | Variable | Meaning |
 | --- | --- |
-| `PORT` | Port of this copy, 18765 by default |
+| `PORT` | Port of this copy, kept even when busy. Without it the copy starts on 18765 (48765 for the app from the disk image), moves to a free port nearby when another program holds it and remembers the move in `.pids/port` |
 | `DATA_DIR` | Folder for the database and images; empty means the platform's user data folder |
 | `INSTANCE_ENV_NAME` | Label of this copy: `prod` names the macOS app "What To Do", anything else "What To Do <Name>" |
 | `MENU_BAR_ICON` | `1` makes the macOS app live in the menu bar |

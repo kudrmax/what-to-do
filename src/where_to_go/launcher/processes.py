@@ -152,11 +152,32 @@ class ProcessTree:
 class Ports:
     """Who listens on a local TCP port."""
 
+    NEARBY = 20
+
     @staticmethod
     def is_taken(port: int, host: str = HOST) -> bool:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             probe.settimeout(1)
             return probe.connect_ex((host, port)) == 0
+
+    @classmethod
+    def free_near(cls, port: int, host: str = HOST) -> int:
+        """The first free port after this one, so the address stays recognisable; any free port if all are taken."""
+        for candidate in range(port + 1, min(port + cls.NEARBY, 65535) + 1):
+            if not cls.is_taken(candidate, host) and cls._can_bind(candidate, host):
+                return candidate
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind((host, 0))
+            return int(probe.getsockname()[1])
+
+    @staticmethod
+    def _can_bind(port: int, host: str) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind((host, port))
+            except OSError:
+                return False
+            return True
 
     @classmethod
     def listeners(cls, port: int) -> list[psutil.Process]:

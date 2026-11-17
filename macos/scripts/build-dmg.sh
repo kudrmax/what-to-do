@@ -88,7 +88,7 @@ plutil -replace CFBundleShortVersionString -string "$version" "$plist"
 plutil -replace CFBundleVersion -string "$version" "$plist"
 plutil -remove WTGProjectDir "$plist"
 plutil -replace WTGBundled -bool YES "$plist"
-plutil -replace WTGPort -string 18765 "$plist"
+plutil -replace WTGPort -string 48765 "$plist"
 # Every update replaces the bundle, so the running window offers to restart into the new one.
 plutil -replace WTGMacosTree -string "$version" "$plist"
 plutil -lint -s "$plist"

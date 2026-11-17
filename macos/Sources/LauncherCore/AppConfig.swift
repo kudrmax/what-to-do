@@ -14,10 +14,10 @@ public struct AppConfig: Sendable {
     public static let portVariable = "WHERE_TO_GO_PORT"
 
     public let home: ServerHome
-    public let port: Int
+    public private(set) var port: Int
     /// The server listens only on 127.0.0.1. `localhost` may resolve to ::1 first, where any
     /// other program can listen on the same port and answer instead of the app.
-    public let serverURL: URL
+    public private(set) var serverURL: URL
     /// Answers only the app itself, so a stranger on the port is not taken for it.
     public var versionURL: URL { serverURL.appending(path: "api/version") }
     /// Checked with the server even when WebKit holds a copy it thinks is fresh: an update replaces the page,
@@ -51,6 +51,14 @@ public struct AppConfig: Sendable {
         self.port = port
         serverURL = URL(string: "http://127.0.0.1:\(port)/")!
         showsMenuBarIcon = infoDictionary[Self.menuBarIconKey] as? Bool ?? false
+    }
+
+    /// The same app on another port, once the command line chose one.
+    public func with(port: Int) -> AppConfig {
+        var copy = self
+        copy.port = port
+        copy.serverURL = URL(string: "http://127.0.0.1:\(port)/")!
+        return copy
     }
 
     public var isBundled: Bool {

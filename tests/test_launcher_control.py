@@ -203,6 +203,60 @@ def test_a_server_of_another_copy_on_the_port_is_not_ours(copy: Copy, tmp_path: 
     assert stranger.poll() is None
 
 
+def stranger_on(copy: Copy, port: int) -> subprocess.Popen[bytes]:
+    stranger = subprocess.Popen([sys.executable, "-m", "http.server", str(port), "--bind", HOST], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    copy.started.append(stranger)
+    wait_for(lambda: listens(port))
+    return stranger
+
+
+def control_with(copy: Copy, port: int, *, fixed: bool) -> ServerControl:
+    config = InstanceConfig(port=port, data_dir=copy.data, instance="test", menu_bar_icon=False, port_fixed=fixed)
+    return ServerControl(copy.paths, config, say=copy.said.append, cli=[sys.executable, str(FAKE_SERVER)])
+
+
+def test_a_port_another_program_holds_moves_the_copy_to_a_free_one_and_it_stays_there(copy: Copy) -> None:
+    stranger_on(copy, copy.port)
+
+    moved = control_with(copy, copy.port, fixed=False).choose_port()
+
+    assert moved != copy.port and not listens(moved)
+    assert copy.paths.chosen_port.read_text(encoding="utf-8").strip() == str(moved)
+    assert copy.said == [f"Port {copy.port} is taken by another program, so What To Do moves to port {moved} and stays there."]
+    assert InstanceConfig.load(copy.paths, environ={}).port == moved
+
+
+def test_a_free_port_or_the_copys_own_server_keeps_the_port(copy: Copy) -> None:
+    assert control_with(copy, copy.port, fixed=False).choose_port() == copy.port
+    copy.control.up(copy.spec(), build=False)
+
+    assert control_with(copy, copy.port, fixed=False).choose_port() == copy.port
+    assert not copy.paths.chosen_port.exists()
+
+
+def test_a_running_server_of_the_copy_keeps_its_port_for_the_window(copy: Copy) -> None:
+    elsewhere = free_port()
+    copy.control.up(copy.spec(elsewhere), build=False)
+
+    assert control_with(copy, copy.port, fixed=False).choose_port() == elsewhere
+
+
+def test_a_port_the_user_set_is_kept_even_when_taken(copy: Copy) -> None:
+    stranger_on(copy, copy.port)
+
+    assert control_with(copy, copy.port, fixed=True).choose_port() == copy.port
+    assert not copy.paths.chosen_port.exists()
+
+
+def test_a_port_from_the_environment_or_env_file_is_fixed(copy: Copy) -> None:
+    assert InstanceConfig.load(copy.paths, environ={"WHERE_TO_GO_PORT": "18799"}).port_fixed
+    copy.paths.env_file.write_text("PORT=18800\n", encoding="utf-8")
+    assert InstanceConfig.load(copy.paths, environ={}).port == 18800
+    assert InstanceConfig.load(copy.paths, environ={}).port_fixed
+    copy.paths.env_file.unlink()
+    assert not InstanceConfig.load(copy.paths, environ={}).port_fixed
+
+
 def test_up_takes_the_port_back_from_the_update_progress_page(copy: Copy) -> None:
     status_server = subprocess.Popen([sys.executable, "-c", f"import time; time.sleep({LONG_S})", "update_status_server"])
     copy.started.append(status_server)

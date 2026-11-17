@@ -73,6 +73,30 @@ class ServerControl:
             found.setdefault(server.process.pid, server)
         return [server for server in found.values() if port is None or server.spec.port == port]
 
+    def choose_port(self) -> int:
+        """The port this copy starts on. A port the user set is kept as it is. Otherwise, when another
+        program holds the copy's port, the copy moves to a free one nearby and stays there from then on."""
+        port = self._config.port
+        if self._config.port_fixed or self._holds(port):
+            return port
+        running = self.running(None)
+        if running:
+            # After an update the new window joins the server the updater started, wherever it is.
+            return running[0].spec.port
+        if not Ports.is_taken(port):
+            return port
+        moved = Ports.free_near(port)
+        self._paths.chosen_port.parent.mkdir(parents=True, exist_ok=True)
+        self._paths.chosen_port.write_text(f"{moved}\n", encoding="utf-8")
+        self._say(f"Port {port} is taken by another program, so What To Do moves to port {moved} and stays there.")
+        return moved
+
+    def _holds(self, port: int) -> bool:
+        """This copy's server, or the progress page of its update, is on the port."""
+        if self.running(port):
+            return True
+        return any(STATUS_SERVER_MARKER in part for process in Ports.listeners(port) for part in command_line(process))
+
     def up(self, spec: ServerSpec, build: bool = True) -> None:
         with self._exclusive():
             self._prepare_interface(spec, build)
@@ -182,9 +206,14 @@ class ServerControl:
             raise LaunchError(
                 f"Port {port} is taken by another program (PID {holder.pid}{f', running in {where}' if where else ''}):\n"
                 f"  {' '.join(command_line(holder))[:160]}\n"
-                "Stop it, or start What To Do on another port: where-to-go up --port <number>"
+                f"{self._another_port_hint()}"
             )
-        raise LaunchError(f"Port {port} is taken by another program. Start What To Do on another port: where-to-go up --port <number>")
+        raise LaunchError(f"Port {port} is taken by another program. {self._another_port_hint()}")
+
+    def _another_port_hint(self) -> str:
+        if self._paths.bundle is not None:
+            return f"Change PORT in {self._paths.env_file}, or remove it there to let What To Do pick a free port, and open the app again."
+        return "Stop it, start What To Do on another port with `where-to-go up --port <number>`, or remove PORT from .env to let it pick a free one."
 
     def _prepare_interface(self, spec: ServerSpec, build: bool) -> None:
         if spec.ui is None:

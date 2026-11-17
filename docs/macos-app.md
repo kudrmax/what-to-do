@@ -15,7 +15,7 @@ Both:
 
 Inside the bundle, `Contents/Resources/python` is a relocatable CPython from [python-build-standalone](https://github.com/astral-sh/python-build-standalone) with the app's packages from `uv.lock`, and `Contents/Resources/project` holds the built interface, the changelog and `bundle.json`, which names the bundle's architecture. The app never writes into its bundle: its server records, logs and update downloads go to `~/Library/Application Support/What To Do`, and the data to `~/Library/Application Support/where-to-go`, as for every copy.
 
-The port is 18765. `PORT=<number>` in `~/Library/Application Support/What To Do/.env` changes it; `DATA_DIR` there moves the data. For tests, `WHERE_TO_GO_PORT`, `WHERE_TO_GO_DATA_DIR` and `WHERE_TO_GO_STATE_DIR` override them, for example with `open --env`.
+The port is 48765, one few programs use. Before starting the server the window asks `where-to-go port` which port to use: when another program holds the port, the app moves to a free one nearby and remembers it in `.pids/port` of its state folder. `PORT=<number>` in `~/Library/Application Support/What To Do/.env` fixes the port instead; `DATA_DIR` there moves the data. For tests, `WHERE_TO_GO_PORT`, `WHERE_TO_GO_DATA_DIR` and `WHERE_TO_GO_STATE_DIR` override them, for example with `open --env`.
 
 There is a disk image for Apple Silicon and one for Intel Macs. The Claude CLI alone is 300 MB per architecture, so a universal app would be twice as big.
 
