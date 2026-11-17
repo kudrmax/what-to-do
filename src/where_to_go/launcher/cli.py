@@ -174,11 +174,18 @@ class Cli:
             self._out(f"Updating in the background (PID {pid}). Follow it with: {PROG} logs")
             return 0
         log = UpdateLog(self._paths.update_log, echo=None if arguments.detached_child else sys.stdout)
+        if self._paths.bundle is not None:
+            from where_to_go.launcher.bundle_updater import BundleUpdater
+
+            return BundleUpdater(self._paths, self._config, log, self._paths.bundle).run()
         return Updater(self._paths, self._config, log).run()
 
     def uninstall(self, arguments: argparse.Namespace) -> int:
         from where_to_go.launcher.uninstall import Uninstaller
 
+        if self._paths.bundle is not None:
+            print(f"ERROR: to uninstall the app, quit it and drag {self._paths.bundle.app.name} from Applications to the Trash.", file=sys.stderr)
+            return 2
         uninstaller = Uninstaller(self._paths, self._control(), arguments.data.resolve(), say=self._out)
         delete_data = not arguments.keep_data
         if not arguments.yes:

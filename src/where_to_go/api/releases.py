@@ -44,8 +44,9 @@ class UpdateStatusView(BaseModel):
     available: bool
     entries: list[ChangelogEntryView]
     check_failed: bool
-    restart_command: str
-    update_command: str
+    restart_command: str | None
+    update_command: str | None
+    download_page: str | None
 
 
 class ChangelogPages:

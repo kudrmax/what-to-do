@@ -3,9 +3,10 @@ import { useActiveCity } from "../api/useActiveCity";
 import { refreshLabel, timeLeft } from "../domain/refresh";
 import { Icon } from "../ui/Icon";
 import { InlineCode } from "../ui/InlineCode";
+import { ClaudeSignIn } from "./ClaudeSignIn";
 import "./RefreshButton.css";
 
-/** The backend's own line for a missing login; the note below says it with the steps instead. */
+/** The backend's own line for a missing login; the sign-in note below replaces it. */
 const SIGN_IN_ERROR = "Sign in to Claude Code";
 
 /** Starts a refresh, shows its stage while it runs and what went wrong when it ends. */
@@ -23,14 +24,7 @@ export function RefreshButton() {
         {label}
         {left && <span className="refresh__left">{left}</span>}
       </button>
-      {signedOut && (
-        <div className="note refresh__sign-in" role="alert">
-          <strong>Claude Code isn’t signed in, so nothing was read.</strong>
-          <span>
-            Run <code>claude</code> in a terminal, type <code>/login</code> and follow the steps, then press Refresh again.
-          </span>
-        </div>
-      )}
+      {signedOut && <ClaudeSignIn />}
       {errors.length > 0 && (
         <div className="note refresh__errors" role="status">
           {errors.map((error) => (

@@ -93,34 +93,67 @@ See how many posts and photos Claude read, how many announcements were merged in
 - **Your choice of Claude model** for each step: Haiku, Sonnet or Opus.
 - **Editable prompts.** Every prompt Claude gets is in **Settings**.
 - **One-button updates.** When a new version is out, **New version** appears in the sidebar with the list of changes and an **Update** button.
-- **Optional macOS app** with its own window and a menu bar mode, see [docs/macos-app.md](docs/macos-app.md).
+- **A macOS app** with its own window, installed from a disk image, see [Install and run](#macos).
 
 ## Requirements
 
+A Claude subscription ([claude.ai](https://claude.ai)): Claude reads the posts. The app signs in to it from its own window and uses your subscription through Claude Code, with no API key.
+
+That is all the macOS app needs. On Linux and Windows, and to run the app from its code, you also need:
+
 | What | Why | How to get it |
 | --- | --- | --- |
-| A Claude subscription | Claude reads the posts | [claude.ai](https://claude.ai) |
-| Claude Code, signed in | The app calls Claude through your Claude Code login, with no API key | Install [Claude Code](https://claude.com/claude-code), run `claude` in a terminal and type `/login` |
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | Installs and runs the app | It also installs the right Python by itself |
 | [Node.js](https://nodejs.org) 20 or later | Builds the interface on the first start and after updates that change it | |
 | [Git](https://git-scm.com/downloads) | Downloads the app and its updates | |
 
-Everything works the same on macOS, Linux and Windows.
-
 ## Install and run
 
-Run these in Terminal on macOS, in a Linux terminal or in PowerShell on Windows:
+### macOS
+
+The app needs macOS 14 Sonoma or later.
+
+1. Download the disk image for your Mac from the [latest release](https://github.com/kudrmax/what-to-do/releases/latest):
+
+   | Your Mac | Disk image |
+   | --- | --- |
+   | Apple silicon: an M1 chip or newer | `What-To-Do-<version>-Apple-Silicon.dmg` |
+   | An Intel processor | `What-To-Do-<version>-Intel.dmg` |
+
+   Not sure? Open the Apple menu, then **About This Mac**: the **Chip** line names an Apple chip, the **Processor** line an Intel one.
+2. Open the disk image and drag **What To Do** onto **Applications**.
+3. Open **What To Do** from Applications or Launchpad.
+
+**The first time**, macOS stops the app: it says Apple could not verify that What To Do is free of malware. The app is free and open source, but it isn't notarized by Apple, which needs a paid Apple developer account. To open it:
+
+1. Press **Done** in the message.
+2. Open **System Settings**, then **Privacy & Security**, and scroll down to **Security**.
+3. Next to "What To Do" was blocked to protect your Mac, press **Open Anyway**. The button stays there for about an hour after you tried to open the app.
+4. Enter your Mac's password, then press **Open Anyway** in the message that follows.
+
+![Privacy & Security: "What To Do" was blocked to protect your Mac, with the Open Anyway button](docs/images/readme/macos-open-anyway.png)
+
+macOS remembers this: the app and its updates open without asking again. Control-click and **Open** no longer get past this message since macOS 15 Sequoia.
+
+The window starts the app's server when it opens and stops it when you quit. Your events and settings live in `~/Library/Application Support/where-to-go`.
+
+**Updating.** When a new version is out, **New version** appears in the sidebar with the list of changes and an **Update** button. The app downloads the new version from GitHub and puts it in place of the old one; then a note at the top of the window offers **Restart**. Your data stays where it is.
+
+**Uninstalling.** Quit What To Do and drag it from Applications to the Trash. To delete your events and settings too, move these folders to the Trash: `~/Library/Application Support/where-to-go` (your data) and `~/Library/Application Support/What To Do` (the app's logs). In Finder, press `⇧⌘G` and paste the path to open a folder.
+
+### Linux, Windows, and running from the code
+
+Run these in a Linux terminal, in PowerShell on Windows or in Terminal on macOS:
 
 ```bash
 git clone https://github.com/kudrmax/what-to-do.git
 cd what-to-do
-uv sync
 uv run where-to-go up
 ```
 
-`up` builds the interface, starts the app in the background and prints its address: open **http://127.0.0.1:18765** in your browser. Closing the terminal does not stop the app.
+`up` installs everything the first time, builds the interface, starts the app in the background and prints its address: open **http://127.0.0.1:18765** in your browser. Closing the terminal does not stop the app.
 
-### Everyday commands
+#### Everyday commands
 
 Run them in the `what-to-do` folder:
 
@@ -135,11 +168,11 @@ Run them in the `what-to-do` folder:
 
 Every command has `--help`. On macOS and Linux, `make up`, `make down`, `make status`, `make logs` and `make update` do the same.
 
-### Updating
+#### Updating
 
 When a new version is out, **New version** appears in the sidebar with the list of changes and an **Update** button. It does the same as `uv run where-to-go update`: it downloads the release, installs its packages, rebuilds the interface if needed and restarts the app with the same port and data.
 
-### Uninstalling
+#### Uninstalling
 
 ```bash
 uv run where-to-go uninstall
@@ -147,9 +180,9 @@ uv run where-to-go uninstall
 
 It stops the app, removes the macOS app if you built one and asks whether to delete your data too. Both go to the Trash, or the Recycle Bin on Windows. The last step is yours: delete the `what-to-do` folder, which holds the code and the installed packages. Nothing is installed anywhere else.
 
-### The macOS app
+#### A macOS window for a copy run from the code
 
-An optional native window that starts the app when you open it and stops it when you quit: run `make app`, see [docs/macos-app.md](docs/macos-app.md).
+`make app` builds a native window for the copy in this folder, see [docs/macos-app.md](docs/macos-app.md).
 
 ## First steps
 
@@ -201,11 +234,11 @@ Click a card for the full details and the original posts. With a long feed, try 
 
 ## FAQ
 
-**Refresh says to sign in to Claude Code.**
-The app uses your Claude Code login. Run `claude` in a terminal and type `/login`, then press **Refresh** again. `uv run where-to-go status` shows whether you are signed in.
+**Refresh says to sign in to Claude.**
+Press **Sign in to Claude** under **Refresh**. The sign-in page opens in your browser; sign in with the account of your Claude subscription, come back and press **Refresh** again. If the browser didn't open, the note has a link to the page and a field for the code the page shows. The app keeps this login in Claude Code's place in your keychain, so Claude Code on the same Mac is signed in too, and the other way round.
 
 **The port is busy.**
-Another program uses port 18765. Copy `.env.example` to `.env`, set `PORT` to another number and run `uv run where-to-go up` again.
+Another program uses port 18765. In the macOS app, create the file `~/Library/Application Support/What To Do/.env` with the line `PORT=18766` (or another free number) and open the app again. In a copy run from the code, copy `.env.example` to `.env`, set `PORT` to another number and run `uv run where-to-go up` again.
 
 **Where is my data?**
 In one folder: the SQLite database `where-to-go.sqlite3` and the downloaded images.
@@ -216,7 +249,7 @@ In one folder: the SQLite database `where-to-go.sqlite3` and the downloaded imag
 | Linux | `~/.local/share/where-to-go` |
 | Windows | `%LOCALAPPDATA%\where-to-go` |
 
-`uv run where-to-go status` shows the folder in use; `DATA_DIR` in `.env` moves it. To back it up, copy the folder while the app is stopped.
+`uv run where-to-go status` shows the folder in use in a copy run from the code; `DATA_DIR` in `.env` moves it. To back it up, copy the folder while the app is stopped.
 
 **What leaves my computer?**
 Everything stays on your computer except:
@@ -225,7 +258,7 @@ Everything stays on your computer except:
 | --- | --- |
 | Telegram (`t.me`) and the websites you add | The app downloads their public posts and event pages |
 | Claude, through your Claude Code login | Post texts and photos, to turn them into events |
-| GitHub | `git fetch` of this repository, to check for new versions |
+| GitHub | Checks for new versions and downloads them: the macOS app asks GitHub's list of releases, a copy run from the code runs `git fetch` |
 
 The server listens only on `127.0.0.1`, so other devices on your network can't open it.
 

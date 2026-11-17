@@ -8,7 +8,7 @@ How What To Do is built and how to work on it. For installing and using the app,
 | --- | --- |
 | `src/where_to_go/` | Python backend (FastAPI + SQLModel) |
 | `frontend/` | Web interface (React + TypeScript, Vite) |
-| `macos/` | Optional macOS app, see [macos-app.md](macos-app.md) |
+| `macos/` | The macOS app and its disk image, see [macos-app.md](macos-app.md) |
 | `src/where_to_go/launcher/` | The `where-to-go` command line: up, down, status, logs, update, uninstall on every platform |
 | `scripts/` | Update status page, install smoke test, OpenAPI export, data migration |
 | `tests/` | Backend tests |
@@ -29,7 +29,7 @@ Run `uv run where-to-go serve --help` for the flags:
 | `--data` | Folder for the database and images. Defaults to the platform's user data folder; a git worktree uses its own `./data`. |
 | `--ui` | A built web interface to serve at the root. The API then moves to `/api`. |
 
-Claude is called through `claude-agent-sdk`, that is, through the Claude Code login. The SDK brings its own Claude Code CLI; only the login is needed. No API key is used.
+Claude is called through `claude-agent-sdk`, that is, through the Claude Code login. The SDK brings its own Claude Code CLI; only the login is needed. No API key is used. Without a login, the note under **Refresh** signs in from the app: `POST /claude/sign-in` runs the bundled CLI's `claude auth login`, which opens the sign-in page in the browser and takes the login back by itself (`claude_login.py`).
 
 Each entity is described once in `models.py` (SQLModel): a base class with the fields and their descriptions for Claude, and from it the table and the public API model. Settings, including Claude's prompts, live in `settings.py` (defaults in `prompts.py`).
 
@@ -73,7 +73,7 @@ Settings of a copy come from the command-line flags, then `WHERE_TO_GO_PORT`, `W
 | `INSTANCE_ENV_NAME` | Label of this copy: `prod` names the macOS app "What To Do", anything else "What To Do <Name>" |
 | `MENU_BAR_ICON` | `1` makes the macOS app live in the menu bar |
 
-CI (`.github/workflows/ci.yml`) runs the tests and an install smoke test (`scripts/smoke_test.py`: up, status, down with no processes left, uninstall) on macOS, Linux and Windows. Run the smoke test locally with `uv run python scripts/smoke_test.py`.
+CI (`.github/workflows/ci.yml`) runs the tests and an install smoke test (`scripts/smoke_test.py`: up, status, down with no processes left, uninstall) on macOS, Linux and Windows, and builds and checks the macOS disk images for Apple Silicon and Intel. Run the smoke test locally with `uv run python scripts/smoke_test.py`.
 
 ## Tests
 

@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.15.3"
+  "version": "1.18.0"
  },
  "paths": {
   "/settings": {
@@ -1540,7 +1540,7 @@
      "refresh"
     ],
     "summary": "Claude Sign In",
-    "description": "Whether Claude Code, which reads the posts, is signed in; `hint` says how to sign in.",
+    "description": "Whether Claude Code, which reads the posts, is signed in, and how a sign-in started here goes.",
     "operationId": "claude_sign_in_claude_sign_in_get",
     "responses": {
      "200": {
@@ -1549,6 +1549,68 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/ClaudeSignInView"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "refresh"
+    ],
+    "summary": "Start Claude Sign In",
+    "description": "Opens Claude's sign-in page in the browser; poll `GET /claude/sign-in` until `state` is signed_in.",
+    "operationId": "start_claude_sign_in_claude_sign_in_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ClaudeSignInView"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/claude/sign-in/code": {
+   "post": {
+    "tags": [
+     "refresh"
+    ],
+    "summary": "Submit Claude Sign In Code",
+    "description": "Finishes the sign-in with the code the sign-in page shows. 409: no sign-in waits for a code.",
+    "operationId": "submit_claude_sign_in_code_claude_sign_in_code_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SignInCodeRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ClaudeSignInView"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
         }
        }
       }
@@ -2247,6 +2309,36 @@
      "hint": {
       "type": "string",
       "title": "Hint"
+     },
+     "signing_in": {
+      "type": "boolean",
+      "title": "Signing In",
+      "description": "A sign-in started from the app waits for the browser",
+      "default": false
+     },
+     "page_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page Url",
+      "description": "The sign-in page to open by hand; it shows a code to paste"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error",
+      "description": "Why the last sign-in from the app failed"
      }
     },
     "type": "object",
@@ -3529,6 +3621,22 @@
     "title": "SettingsChange",
     "description": "Only the fields that are sent change."
    },
+   "SignInCodeRequest": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Code",
+      "description": "The code the sign-in page shows"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code"
+    ],
+    "title": "SignInCodeRequest"
+   },
    "SiteExample": {
     "properties": {
      "title": {
@@ -4004,12 +4112,37 @@
       "title": "Check Failed"
      },
      "restart_command": {
-      "type": "string",
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Restart Command"
      },
      "update_command": {
-      "type": "string",
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Update Command"
+     },
+     "download_page": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Download Page"
      }
     },
     "type": "object",
@@ -4020,7 +4153,8 @@
      "entries",
      "check_failed",
      "restart_command",
-     "update_command"
+     "update_command",
+     "download_page"
     ],
     "title": "UpdateStatusView"
    },

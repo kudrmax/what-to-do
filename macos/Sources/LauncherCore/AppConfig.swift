@@ -4,13 +4,16 @@ public struct AppConfigError: Error, CustomStringConvertible {
     public let description: String
 }
 
-/// Which working copy this app bundle runs, as written into Info.plist by `make app`.
+/// Which server this app bundle runs, as its Info.plist says: a git copy's, written there by `make app`,
+/// or its own, for the app installed from the disk image.
 public struct AppConfig: Sendable {
     public static let projectDirKey = "WTGProjectDir"
+    public static let bundledKey = "WTGBundled"
     public static let portKey = "WTGPort"
     public static let menuBarIconKey = "WTGMenuBarIcon"
+    public static let portVariable = "WHERE_TO_GO_PORT"
 
-    public let projectDir: URL
+    public let home: ServerHome
     public let port: Int
     /// The server listens only on 127.0.0.1. `localhost` may resolve to ::1 first, where any
     /// other program can listen on the same port and answer instead of the app.
@@ -23,17 +26,36 @@ public struct AppConfig: Sendable {
     /// The app lives in the menu bar and leaves the Dock when its window is closed.
     public let showsMenuBarIcon: Bool
 
-    public init(infoDictionary: [String: Any]) throws {
-        guard let dir = infoDictionary[Self.projectDirKey] as? String, !dir.isEmpty else {
-            throw AppConfigError(description: "\(Self.projectDirKey) is missing in Info.plist")
+    /// The bundled app takes its port the way its server does: `WHERE_TO_GO_PORT`, then `PORT` in the
+    /// `.env` of its state folder, then the default in Info.plist.
+    public init(
+        infoDictionary: [String: Any],
+        bundleURL: URL = Bundle.main.bundleURL,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        home: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) throws {
+        var portText = infoDictionary[Self.portKey] as? String
+        if infoDictionary[Self.bundledKey] as? Bool == true {
+            self.home = .bundle(at: bundleURL, environment: environment, home: home)
+            let dotenv = DotEnv.read(self.home.workingDirectory.appending(path: ".env"))
+            portText = [environment[Self.portVariable], dotenv["PORT"], portText].compactMap { $0 }.first { !$0.isEmpty }
+        } else {
+            guard let dir = infoDictionary[Self.projectDirKey] as? String, !dir.isEmpty else {
+                throw AppConfigError(description: "\(Self.projectDirKey) is missing in Info.plist")
+            }
+            self.home = .project(URL(fileURLWithPath: dir, isDirectory: true))
         }
-        guard let rawPort = infoDictionary[Self.portKey] as? String, let port = Int(rawPort) else {
+        guard let portText, let port = Int(portText), (1...65535).contains(port) else {
             throw AppConfigError(description: "\(Self.portKey) in Info.plist is not a port number")
         }
-        projectDir = URL(fileURLWithPath: dir, isDirectory: true)
         self.port = port
         serverURL = URL(string: "http://127.0.0.1:\(port)/")!
         showsMenuBarIcon = infoDictionary[Self.menuBarIconKey] as? Bool ?? false
+    }
+
+    public var isBundled: Bool {
+        if case .bundle = home { return true }
+        return false
     }
 
     public func isAppURL(_ url: URL) -> Bool {

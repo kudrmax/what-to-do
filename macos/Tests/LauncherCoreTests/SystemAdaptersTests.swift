@@ -4,7 +4,7 @@ import XCTest
 final class SystemAdaptersTests: XCTestCase {
     func testRunnerReturnsExitCodeAndCombinedOutput() async {
         let dir = FileManager.default.temporaryDirectory
-        let result = await LoginShellRunner().run("pwd; echo oops >&2; exit 3", in: dir)
+        let result = await ShellRunner.login.run("pwd; echo oops >&2; exit 3", in: dir)
 
         XCTAssertEqual(result.exitCode, 3)
         XCTAssertTrue(result.output.contains(dir.resolvingSymlinksInPath().lastPathComponent))
@@ -13,14 +13,14 @@ final class SystemAdaptersTests: XCTestCase {
 
     func testRunnerDoesNotWaitForBackgroundChildren() async {
         let started = ContinuousClock.now
-        let result = await LoginShellRunner().run("sleep 5 & echo started", in: FileManager.default.temporaryDirectory)
+        let result = await ShellRunner.login.run("sleep 5 & echo started", in: FileManager.default.temporaryDirectory)
 
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertLessThan(ContinuousClock.now - started, .seconds(4))
     }
 
     func testRunnerKeepsOutputWithInvalidUTF8() async {
-        let result = await LoginShellRunner().run("printf 'bad \\377 byte\\nstill here'", in: FileManager.default.temporaryDirectory)
+        let result = await ShellRunner.login.run("printf 'bad \\377 byte\\nstill here'", in: FileManager.default.temporaryDirectory)
 
         XCTAssertTrue(result.output.contains("still here"))
     }

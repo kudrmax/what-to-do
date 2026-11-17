@@ -5,26 +5,40 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from where_to_go.launcher.bundle import AppBundle
+
 PROJECT_DIR = Path(__file__).resolve().parents[3]
 
 
 @dataclass(frozen=True)
 class ProjectPaths:
-    """Where a copy of the app keeps its code, its build and what its running processes write."""
+    """Where a copy of the app keeps its code, its build and what its running processes write.
+
+    A git copy writes into its own folder. The app installed from the disk image writes into its state
+    folder: the bundle stays as it was signed."""
 
     root: Path
+    state: Path | None = None
+    bundle: AppBundle | None = None
 
     @classmethod
     def here(cls) -> ProjectPaths:
+        bundle = AppBundle.current()
+        if bundle is not None:
+            return cls(bundle.project, state=AppBundle.state_dir(), bundle=bundle)
         return cls(PROJECT_DIR)
 
     @property
+    def writable(self) -> Path:
+        return self.state or self.root
+
+    @property
     def pids(self) -> Path:
-        return self.root / ".pids"
+        return self.writable / ".pids"
 
     @property
     def logs(self) -> Path:
-        return self.root / ".logs"
+        return self.writable / ".logs"
 
     @property
     def app_log(self) -> Path:
@@ -75,7 +89,7 @@ class ProjectPaths:
 
     @property
     def env_file(self) -> Path:
-        return self.root / ".env"
+        return self.writable / ".env"
 
     @property
     def is_linked_worktree(self) -> bool:

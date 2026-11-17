@@ -1,0 +1,57 @@
+name: macOS disk images
+
+# Builds the self-contained What To Do.app for Apple Silicon and Intel Macs and attaches both disk images
+# to the release. The app installed from them updates itself from these assets.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build, such as v1.19.0"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dmg-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  dmg:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the app and its disk image
+        run: macos/scripts/build-dmg.sh ${{ matrix.arch }} "$RUNNER_TEMP/dmg" "${TAG#v}"
+
+      - name: Smoke test the built app
+        run: macos/scripts/smoke-test-bundle.sh "macos/.build/dmg-work/${{ matrix.arch }}/What To Do.app"
+
+      - name: Attach the disk image to the release
+        run: gh release upload "$TAG" "$RUNNER_TEMP"/dmg/*.dmg --clobber --repo "$GITHUB_REPOSITORY"
