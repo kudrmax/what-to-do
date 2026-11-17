@@ -52,7 +52,7 @@ Switch **Upcoming** to **Review** and go through events like in a dating app. Dr
 
 Click a card to see the date, the place with a map link, the price, the sign-up or ticket link and the full description. **Add to Calendar** downloads an `.ics` file for Apple Calendar, Google Calendar or Outlook.
 
-![Event window: tags, title, time, place, price, Open post and Add to Calendar buttons](docs/images/readme/event.png)
+![Event window: tags, title, time, place, price, Open post in Telegram and Add to Calendar buttons](docs/images/readme/event.png)
 
 ### Duplicates merged, originals one click away
 
