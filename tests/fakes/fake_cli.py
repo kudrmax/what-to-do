@@ -53,8 +53,11 @@ def up(arguments: list[str]) -> int:
             seen = f"alive {current}"
             status_server = psutil.Process(pid)
             status_server.terminate()
-            while status_server.is_running() and status_server.status() != psutil.STATUS_ZOMBIE:
-                time.sleep(0.05)
+            try:
+                while status_server.is_running() and status_server.status() != psutil.STATUS_ZOMBIE:
+                    time.sleep(0.05)
+            except psutil.NoSuchProcess:
+                pass
         pid_file.unlink()
     with (FLAGS / "up_saw").open("a", encoding="utf-8") as saw:
         saw.write(seen + "\n")

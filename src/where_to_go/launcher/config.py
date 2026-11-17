@@ -88,7 +88,7 @@ class InstanceConfig:
         if not text:
             return paths.root / "data" if paths.is_linked_worktree else cls.default_data_dir()
         path = Path(text).expanduser()
-        return (path if path.is_absolute() else paths.root / path).resolve()
+        return (path if path.is_absolute() else paths.writable / path).resolve()
 
     @staticmethod
     def _port(text: str) -> int:

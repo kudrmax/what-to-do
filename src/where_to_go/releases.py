@@ -14,12 +14,15 @@ from typing import Callable, Protocol
 
 from pydantic import BaseModel
 
+from where_to_go.launcher.github_releases import GitHubReleaseFeed, ReleaseFeedError
+from where_to_go.launcher.paths import ProjectPaths
 from where_to_go.updating import UpdateRunner
 
 logger = logging.getLogger(__name__)
 
 CHANGELOG_FILE = "CHANGELOG.md"
 CHANGELOG_IMAGES_DIR = PurePosixPath("docs/images/changelog")
+RELEASES_PAGE = "https://github.com/kudrmax/what-to-do/releases/latest"
 
 
 @dataclass(frozen=True, order=True)
@@ -219,6 +222,37 @@ class GitReleases:
         return completed.stdout
 
 
+class GitHubReleases:
+    """Releases are those published on GitHub with a disk image for this Mac: the app installed from a
+    disk image has no git to ask. Until a release has its image, the installed version is the latest."""
+
+    def __init__(self, feed: GitHubReleaseFeed, installed: AppVersion) -> None:
+        self._feed = feed
+        self._installed = installed
+
+    def latest(self) -> AppVersion | None:
+        try:
+            image = self._feed.latest()
+        except ReleaseFeedError as error:
+            logger.warning("Could not learn the latest release: %s", error)
+            return None
+        return AppVersion(*image.version) if image else self._installed
+
+    def changelog_text(self, version: AppVersion) -> str | None:
+        content = self._file(version, CHANGELOG_FILE)
+        return content.decode("utf-8", errors="replace") if content is not None else None
+
+    def asset(self, version: AppVersion, path: str) -> bytes | None:
+        return self._file(version, path) if is_changelog_asset(path) else None
+
+    def _file(self, version: AppVersion, path: str) -> bytes | None:
+        try:
+            return self._feed.file(str(version), path)
+        except ReleaseFeedError as error:
+            logger.warning("Could not read %s of release %s: %s", path, version, error)
+            return None
+
+
 class ReleaseMemory:
     """What the app remembers about releases between runs, in a small JSON file of the data folder."""
 
@@ -254,15 +288,17 @@ class ReleaseMemory:
 class UpdateStatus(BaseModel):
     """What the copy knows about newer releases. `entries` are the changes an update brings; `check_failed`
     is set when an explicit check could not reach the releases. The commands are what a person types in
-    a terminal when the update from the app hangs or fails."""
+    a terminal when the update from the app hangs or fails; the app installed from a disk image has none
+    and points to `download_page` instead."""
 
     current: str
     latest: str | None
     available: bool
     entries: list[ChangelogEntry]
     check_failed: bool
-    restart_command: str
-    update_command: str
+    restart_command: str | None
+    update_command: str | None
+    download_page: str | None
 
 
 class UpdateCheck:
@@ -281,7 +317,7 @@ class UpdateCheck:
         installed: InstalledRelease,
         source: ReleaseSource,
         memory: ReleaseMemory,
-        commands: UpdateCommands,
+        commands: UpdateCommands | None,
         now: Callable[[], datetime] = datetime.now,
     ) -> None:
         self._installed = installed
@@ -311,8 +347,9 @@ class UpdateCheck:
             available=available,
             entries=entries,
             check_failed=force and fetch_failed,
-            restart_command=self._commands.restart(),
-            update_command=self._commands.update(),
+            restart_command=self._commands.restart() if self._commands else None,
+            update_command=self._commands.update() if self._commands else None,
+            download_page=None if self._commands else RELEASES_PAGE,
         )
 
     def _fresh(self) -> bool:
@@ -390,16 +427,21 @@ class Releases:
     runner: UpdateRunner
 
     @classmethod
-    def build(cls, project_dir: Path, data_dir: Path, source: ReleaseSource | None = None) -> Releases:
-        installed = InstalledRelease(project_dir)
-        source = source or GitReleases(project_dir)
+    def build(cls, paths: ProjectPaths, data_dir: Path, source: ReleaseSource | None = None) -> Releases:
+        installed = InstalledRelease(paths.root)
+        if paths.bundle is not None:
+            source = source or GitHubReleases(GitHubReleaseFeed(paths.bundle.image), installed.version)
+            commands = None
+        else:
+            source = source or GitReleases(paths.root)
+            commands = UpdateCommands(paths.root)
         memory = ReleaseMemory(data_dir / "releases.json")
         return cls(
             installed=installed,
             source=source,
-            check=UpdateCheck(installed, source, memory, UpdateCommands(project_dir)),
+            check=UpdateCheck(installed, source, memory, commands),
             whats_new=WhatsNew(installed, memory),
-            runner=UpdateRunner(project_dir),
+            runner=UpdateRunner(paths.writable),
         )
 
     def asset(self, version: AppVersion, path: str) -> bytes | None:

@@ -49,3 +49,35 @@ jobs:
 
       - name: Install smoke test (up, status, down, uninstall)
         run: uv run python scripts/smoke_test.py --default-data
+
+  dmg:
+    name: disk image ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: macOS app tests
+        run: swift test --package-path macos
+
+      - name: Build the app and its disk image
+        run: macos/scripts/build-dmg.sh ${{ matrix.arch }} "$RUNNER_TEMP/dmg"
+
+      - name: Smoke test the built app
+        run: macos/scripts/smoke-test-bundle.sh "macos/.build/dmg-work/${{ matrix.arch }}/What To Do.app"

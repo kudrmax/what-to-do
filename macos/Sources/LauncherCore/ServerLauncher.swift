@@ -27,7 +27,7 @@ public enum LaunchOutcome: Equatable, Sendable {
 public actor ServerLauncher {
     private static let ansiEscape = "\u{1B}\\[[0-9;?]*[A-Za-z]"
 
-    private let projectDir: URL
+    private let workingDirectory: URL
     private let commands: ServerCommands
     private let probe: HealthProbe
     private let runner: CommandRunner
@@ -37,14 +37,14 @@ public actor ServerLauncher {
     private var inFlightStop: Task<Void, Never>?
 
     public init(
-        projectDir: URL,
+        workingDirectory: URL,
         commands: ServerCommands,
         probe: HealthProbe,
         runner: CommandRunner,
         sleeper: Sleeper,
         policy: LaunchPolicy
     ) {
-        self.projectDir = projectDir
+        self.workingDirectory = workingDirectory
         self.commands = commands
         self.probe = probe
         self.runner = runner
@@ -72,7 +72,7 @@ public actor ServerLauncher {
     private func performStart() async -> LaunchOutcome {
         if await probe.isUp() { return .ready }
 
-        let result = await runner.run(commands.up, in: projectDir)
+        let result = await runner.run(commands.up, in: workingDirectory)
         guard result.exitCode == 0 else {
             return .failed(message: "The server didn’t start (exit code \(result.exitCode))", outputTail: tail(of: result.output))
         }
@@ -86,7 +86,7 @@ public actor ServerLauncher {
 
     private func performStop() async {
         _ = await inFlightStart?.value
-        _ = await runner.run(commands.down, in: projectDir)
+        _ = await runner.run(commands.down, in: workingDirectory)
     }
 
     private func tail(of output: String) -> String {

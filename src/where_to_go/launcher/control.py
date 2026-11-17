@@ -189,7 +189,7 @@ class ServerControl:
     def _prepare_interface(self, spec: ServerSpec, build: bool) -> None:
         if spec.ui is None:
             return
-        if build and spec.ui.resolve() == self._paths.dist.resolve():
+        if build and self._paths.bundle is None and spec.ui.resolve() == self._paths.dist.resolve():
             try:
                 self.build()
             except (BuildError, ToolMissingError) as error:

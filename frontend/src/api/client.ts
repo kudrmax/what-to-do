@@ -30,6 +30,7 @@ export type UpdateProgress = Schemas["UpdateProgress"];
 export type UpdateStep = Schemas["UpdateStep"];
 export type ChangelogEntry = Schemas["ChangelogEntryView"];
 export type CityStats = Schemas["CityStats"];
+export type ClaudeSignIn = Schemas["ClaudeSignInView"];
 export type FeedQuery = NonNullable<paths["/events"]["get"]["parameters"]["query"]>;
 
 export class ApiError extends Error {
@@ -104,6 +105,9 @@ export function createApi(baseUrl: string) {
 
     refresh: () => answer(client.POST("/refresh")),
     refreshStatus: () => answer(client.GET("/refresh")),
+    claudeSignIn: () => answer(client.GET("/claude/sign-in")),
+    startClaudeSignIn: () => answer(client.POST("/claude/sign-in")),
+    submitClaudeSignInCode: (code: string) => answer(client.POST("/claude/sign-in/code", { body: { code } })),
 
     stats: () => answer(client.GET("/stats")),
 

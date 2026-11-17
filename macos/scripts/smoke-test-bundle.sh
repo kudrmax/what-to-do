@@ -1,0 +1,27 @@
+#!/bin/zsh
+# Starts the server of a built What To Do.app on a free port with its own data, checks it answers, serves
+# the interface, finds the Claude CLI, stops with no process left, and leaves the bundle as it was signed.
+# Usage: smoke-test-bundle.sh "<path to What To Do.app>"
+set -euo pipefail
+
+app=${1:?path to What To Do.app}
+app=${app:A}
+python=$app/Contents/Resources/python/bin/python3
+scratch=$(mktemp -d)
+port=$(/usr/bin/python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+export WHERE_TO_GO_STATE_DIR=$scratch/state WHERE_TO_GO_DATA_DIR=$scratch/data PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
+unset PYTHONHOME PYTHONPATH VIRTUAL_ENV
+cd "$scratch"
+
+fail() { echo "SMOKE TEST FAILED: $1"; "$python" -m where_to_go down >/dev/null 2>&1 || true; exit 1; }
+
+"$python" -m where_to_go up --port "$port" || fail "the server didn't start"
+version=$(curl -sf "http://127.0.0.1:$port/api/version") || fail "no answer on /api/version"
+echo "Answers: $version"
+curl -sf "http://127.0.0.1:$port/" | grep -q '<title>What To Do</title>' || fail "the interface isn't served"
+curl -sf "http://127.0.0.1:$port/api/claude/sign-in" | grep -qE '"state":"(signed_in|signed_out)"' || fail "the bundled Claude CLI didn't answer"
+"$python" -m where_to_go down
+sleep 1
+if pgrep -f "$app/Contents/Resources/python" >/dev/null; then fail "processes are left: $(pgrep -fl "$app/Contents/Resources/python")"; fi
+codesign --verify --strict "$app" || fail "running the app changed its bundle"
+echo "Smoke test passed."

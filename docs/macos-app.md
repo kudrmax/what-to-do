@@ -1,12 +1,31 @@
 # The macOS app
 
-**What To Do** runs in any browser at `http://127.0.0.1:<PORT>`. The optional macOS app wraps the same page in a native window:
+**What To Do** runs in any browser at `http://127.0.0.1:<PORT>`. The macOS app wraps the same page in a native window. It comes in two kinds:
+
+- **From the disk image**, for everyone: a self-contained `What To Do.app` with Python, the app's packages, the built interface and the Claude CLI inside. Install and first launch are in the [README](../README.md#macos). It updates from the disk images of GitHub releases.
+- **Built from a git copy** with `make app`, for developers: a window for the copy in that folder, updated with git like the copy itself.
+
+Both:
 
 - It starts the server on launch, so you don't need the terminal.
 - The window has no separate title bar: the page runs under it. Drag the window by an empty spot of the strip along the top, and double-click there to zoom it.
 - Optional **menu bar** mode.
 
-## Building it
+## The app from the disk image
+
+Inside the bundle, `Contents/Resources/python` is a relocatable CPython from [python-build-standalone](https://github.com/astral-sh/python-build-standalone) with the app's packages from `uv.lock`, and `Contents/Resources/project` holds the built interface, the changelog and `bundle.json`, which names the bundle's architecture. The app never writes into its bundle: its server records, logs and update downloads go to `~/Library/Application Support/What To Do`, and the data to `~/Library/Application Support/where-to-go`, as for every copy.
+
+The port is 18765. `PORT=<number>` in `~/Library/Application Support/What To Do/.env` changes it; `DATA_DIR` there moves the data. For tests, `WHERE_TO_GO_PORT`, `WHERE_TO_GO_DATA_DIR` and `WHERE_TO_GO_STATE_DIR` override them, for example with `open --env`.
+
+There is a disk image for Apple Silicon and one for Intel Macs. The Claude CLI alone is 300 MB per architecture, so a universal app would be twice as big.
+
+**Building.** `macos/scripts/build-dmg.sh <arm64|x86_64> [output folder] [version]` builds the app and its disk image on any Mac with Xcode or its Command Line Tools, uv and Node.js, for either architecture. `macos/scripts/smoke-test-bundle.sh <app>` starts the built app's server on a free port with its own data and checks it. The release workflow (`.github/workflows/release-dmg.yml`) runs both for each architecture when a release is published and attaches the images to it; CI builds them on every push.
+
+**Signing.** There is no Apple Developer ID, so the bundle is signed ad hoc: Apple Silicon runs no unsigned code. The Claude CLI keeps Anthropic's own signature. macOS asks the user once to allow the app (see the README); the approval covers everything inside the bundle.
+
+**Updating.** The updater (`src/where_to_go/launcher/bundle_updater.py`) asks GitHub's releases for the newest one with a disk image for this Mac, downloads it to the state folder and checks its SHA-256 against GitHub's, copies the app out of the image next to the installed one while the app still runs, then stops the server, swaps the two bundles, moves the old one to the Trash and starts the new server. The window then shows **Restart to finish updating**. An app opened from the disk image or from Downloads runs from a read-only copy macOS made of it and says to move it to Applications first. `WHERE_TO_GO_GITHUB_API` and `WHERE_TO_GO_GITHUB_RAW` point the updater at another server, for testing.
+
+## Building it from a git copy
 
 The app needs Xcode or the Xcode Command Line Tools (`xcode-select --install`) and macOS 14 or later.
 
@@ -55,4 +74,6 @@ The page talks to the window through `frontend/src/native/nativeHost.ts`:
 - The window sets `--shell-titlebar-h`, `--shell-inset-start` and `--shell-inset-end` on the root element: where its own controls sit over the page.
 - The menu dispatches `nativeopensettings` and `nativecheckforupdates` on `window`.
 
-`Info.plist` of the built app carries `WTGProjectDir`, `WTGPort`, `WTGMenuBarIcon` and `WTGMacosTree`, the git tree of `macos/` the app was built from: when an update changes it, the running app shows the restart note.
+`Info.plist` of the app built from a git copy carries `WTGProjectDir`, `WTGPort`, `WTGMenuBarIcon` and `WTGMacosTree`, the git tree of `macos/` the app was built from: when an update changes it, the running app shows the restart note. The app from the disk image carries `WTGBundled` instead of `WTGProjectDir`, and its version as `WTGMacosTree`, so every update offers the restart.
+
+`macos/dmg/settings.py` lays out the disk image window for [dmgbuild](https://dmgbuild.readthedocs.io); `scripts/render-dmg-background.swift` draws its background.
