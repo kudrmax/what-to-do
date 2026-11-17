@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Field, SQLModel
@@ -18,6 +17,7 @@ from sqlmodel import Field, SQLModel
 from where_to_go.about import APP_NAME, VERSION
 from where_to_go.api import releases as release_routes
 from where_to_go.api.errors import validation_error
+from where_to_go.api.origin import SameOriginOnly
 from where_to_go.calendar_file import EventCalendarFile
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn
 from where_to_go.cities import BusyCityError, CityError, DuplicateCityError
@@ -205,7 +205,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         + [{"name": release_routes.TAG, "description": release_routes.TAG_HELP}],
         lifespan=lifespan,
     )
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(SameOriginOnly)
     app.add_exception_handler(RequestValidationError, validation_error)
     app.add_exception_handler(ValidationError, validation_error)
 
