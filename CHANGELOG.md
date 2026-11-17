@@ -2,6 +2,20 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.24.0 — 2026-11-18
+
+Keep the events worth remembering.
+
+### Collections
+Make your own sets of events to keep, such as the funniest or the most unusual ones. Turn them on in **Settings → Advanced → Collections** and add a collection. Each card then has a heart in its top-right corner: click it and tick the collections the event goes into. The heart fills in while the event is in a collection. The event window has the same heart.
+![](docs/images/changelog/1.24.0/collections-heart.png)
+
+**Collections** in the menu shows one collection at a time as the usual feed with the usual filters. Past events stay in it, and a regular event appears there once, on its next date. Your marks don't change what it shows. Turning collections off only hides them, and deleting a collection leaves its events in the feed.
+![](docs/images/changelog/1.24.0/collections-screen.png)
+
+### Fixed
+- Esc in a menu inside the event window closes only the menu, not the whole window.
+
 ## 1.23.0 — 2026-11-17
 
 A digest line gets the whole announcement it links to.
