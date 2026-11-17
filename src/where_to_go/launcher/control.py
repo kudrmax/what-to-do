@@ -77,7 +77,13 @@ class ServerControl:
         """The port this copy starts on. A port the user set is kept as it is. Otherwise, when another
         program holds the copy's port, the copy moves to a free one nearby and stays there from then on."""
         port = self._config.port
-        if self._config.port_fixed or not Ports.is_taken(port) or self._holds(port):
+        if self._config.port_fixed or self._holds(port):
+            return port
+        running = self.running(None)
+        if running:
+            # After an update the new window joins the server the updater started, wherever it is.
+            return running[0].spec.port
+        if not Ports.is_taken(port):
             return port
         moved = Ports.free_near(port)
         self._paths.chosen_port.parent.mkdir(parents=True, exist_ok=True)

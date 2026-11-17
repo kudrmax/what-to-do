@@ -234,6 +234,13 @@ def test_a_free_port_or_the_copys_own_server_keeps_the_port(copy: Copy) -> None:
     assert not copy.paths.chosen_port.exists()
 
 
+def test_a_running_server_of_the_copy_keeps_its_port_for_the_window(copy: Copy) -> None:
+    elsewhere = free_port()
+    copy.control.up(copy.spec(elsewhere), build=False)
+
+    assert control_with(copy, copy.port, fixed=False).choose_port() == elsewhere
+
+
 def test_a_port_the_user_set_is_kept_even_when_taken(copy: Copy) -> None:
     stranger_on(copy, copy.port)
 
