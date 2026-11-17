@@ -347,6 +347,19 @@ async def test_publish_now_ignores_the_wait_after_a_failure(service, publisher, 
     assert state.last_error is None and state.published_at == clock.now
 
 
+async def test_turn_on_again_after_pages_were_turned_on_by_hand(service, publisher):
+    publisher.failing["ensure_pages"] = "Turn on GitHub Pages for this repository"
+    with pytest.raises(PublishError):
+        await service.turn_on(REPOSITORY, TOKEN, PASSWORD)
+    assert publisher.publishes == 1 and not service.state().enabled
+
+    del publisher.failing["ensure_pages"]
+    state = await service.turn_on(REPOSITORY, TOKEN, PASSWORD)
+
+    assert state.enabled and state.page_url == "https://max.github.io/plans/" and state.last_error is None
+    assert publisher.publishes == 2
+
+
 async def test_turn_on_without_a_bundle_fails_and_publishes_nothing(config, builder, publisher, clock, tmp_path):
     service = PhonePageService(config, builder, publisher, FakeCipher, tmp_path / "absent", clock)
 

@@ -10,6 +10,7 @@ MARKER = ".what-to-do-phone-page"
 GITHUB_STARTER_FILES = frozenset({"README.md", "LICENSE", ".gitignore"})
 REPOSITORY_PATTERN = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 COMMIT_MESSAGE = "Publish the phone page"
+PAGES_OFF = "Turn on GitHub Pages for this repository: Settings → Pages → Deploy from a branch, main, / (root). Then turn the page on again."
 RATE_LIMITED = "GitHub is limiting requests. The app will try again later."
 
 
@@ -96,13 +97,12 @@ class GitHubPagesPublisher:
             return self._site_url(repository, response.json())
         if response.status_code != 404:
             raise _unexpected(response)
-        site = await session.expect(
-            "POST",
-            "/pages",
-            201,
-            json={"build_type": "legacy", "source": {"branch": BRANCH, "path": "/"}},
-        )
-        return self._site_url(repository, site)
+        created = await session.send("POST", "/pages", json={"build_type": "legacy", "source": {"branch": BRANCH, "path": "/"}})
+        if created.status_code in (403, 404) and not _rate_limited(created):
+            raise PublishError(PAGES_OFF)
+        if created.status_code != 201:
+            raise _unexpected(created)
+        return self._site_url(repository, created.json())
 
     async def current_blobs(self, repository: str, token: str) -> dict[str, str]:
         entries = await self._tree(self._session(repository, token), recursive=True)

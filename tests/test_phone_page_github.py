@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-from where_to_go.phone_page.github import RATE_LIMITED, GitHubPagesPublisher, PublishError
+from where_to_go.phone_page.github import PAGES_OFF, RATE_LIMITED, GitHubPagesPublisher, PublishError
 
 API = "https://api.github.com/repos/max/plans"
 REPO = "max/plans"
@@ -141,6 +141,25 @@ async def test_pages_turned_on_when_off(publisher):
     create = respx.post(f"{API}/pages").respond(201, json={"html_url": "https://max.github.io/plans/"})
     assert await publisher.ensure_pages(REPO, TOKEN) == "https://max.github.io/plans/"
     assert body(create) == {"build_type": "legacy", "source": {"branch": "main", "path": "/"}}
+
+
+@respx.mock
+@pytest.mark.parametrize("status", [403, 404])
+async def test_pages_the_token_cannot_turn_on_ask_the_user_to(publisher, status):
+    respx.get(f"{API}/pages").respond(404, json={"message": "Not Found"})
+    respx.post(f"{API}/pages").respond(status, json={"message": "Resource not accessible by personal access token"})
+    with pytest.raises(PublishError) as error:
+        await publisher.ensure_pages(REPO, TOKEN)
+    assert str(error.value) == PAGES_OFF
+
+
+@respx.mock
+async def test_rate_limit_on_turning_pages_on_is_not_taken_for_pages_off(publisher):
+    respx.get(f"{API}/pages").respond(404, json={"message": "Not Found"})
+    respx.post(f"{API}/pages").respond(403, json={"message": "API rate limit exceeded"}, headers={"x-ratelimit-remaining": "0"})
+    with pytest.raises(PublishError) as error:
+        await publisher.ensure_pages(REPO, TOKEN)
+    assert str(error.value) == RATE_LIMITED
 
 
 @respx.mock

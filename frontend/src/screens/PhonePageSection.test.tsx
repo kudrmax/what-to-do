@@ -7,6 +7,7 @@ import { ApiContext } from "../api/queries";
 import { clock } from "../domain/dates";
 import { PhonePageSection } from "./PhonePageSection";
 
+const PAGES_OFF = "Turn on GitHub Pages for this repository: Settings → Pages → Deploy from a branch, main, / (root). Then turn the page on again.";
 const TOKEN_URL = "https://github.com/settings/personal-access-tokens/new";
 
 const OFF: PhonePage = {
@@ -80,6 +81,29 @@ describe("phone page", () => {
     expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
     expect(screen.getByRole("button", { name: "Turn on" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Publish now" })).not.toBeInTheDocument();
+  });
+
+  it("guide ends with turning GitHub Pages on, linked to the repository once it is typed", async () => {
+    setup(OFF);
+    const steps = within(await screen.findByRole("list", { name: "How to set it up" })).getAllByRole("listitem");
+    const pages = steps.find((step) => within(step).queryByRole("list", { name: "GitHub Pages settings" }))!;
+    const settings = within(within(pages).getByRole("list", { name: "GitHub Pages settings" })).getAllByRole("listitem");
+    expect(settings.map((row) => row.textContent)).toEqual(["SourceDeploy from a branch", "Branchmain", "Folder/ (root)"]);
+    expect(within(pages).getByRole("link", { name: /How to turn on GitHub Pages/ })).toHaveAttribute("href", expect.stringContaining("docs.github.com/en/pages"));
+    fill("Repository", "max/plans");
+    expect(within(pages).getByRole("link", { name: /Pages settings on GitHub/ })).toHaveAttribute("href", "https://github.com/max/plans/settings/pages");
+  });
+
+  it("asks to turn GitHub Pages on by hand when the token could not", async () => {
+    const { turnOn } = setup(OFF);
+    turnOn.mockRejectedValue(new ApiError(422, PAGES_OFF));
+    await screen.findByLabelText("Repository");
+    fill("Repository", "max/plans");
+    fireEvent.click(screen.getByRole("button", { name: "Turn on" }));
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("GitHub Pages is off for this repository")).toBeInTheDocument();
+    expect(within(alert).getByRole("link", { name: /Pages settings on GitHub/ })).toHaveAttribute("href", "https://github.com/max/plans/settings/pages");
+    expect(screen.queryByText(PAGES_OFF)).not.toBeInTheDocument();
   });
 
   it("shows the password on the eye", async () => {

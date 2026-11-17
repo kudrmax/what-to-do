@@ -13,6 +13,14 @@ import "./PhonePageSection.css";
 const NEW_REPOSITORY_URL = "https://github.com/new";
 const NEW_TOKEN_URL = "https://github.com/settings/personal-access-tokens/new";
 const TOKEN_PERMISSIONS = ["Contents", "Pages"];
+const PAGES_GUIDE_URL = "https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site";
+const PAGES_SETTINGS = [
+  { name: "Source", value: "Deploy from a branch" },
+  { name: "Branch", value: "main" },
+  { name: "Folder", value: "/ (root)" },
+];
+const REPOSITORY = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
+const PAGES_OFF = "Turn on GitHub Pages for this repository: Settings → Pages → Deploy from a branch, main, / (root). Then turn the page on again.";
 
 type Field = "repository" | "token" | "password";
 
@@ -40,7 +48,6 @@ export function PhonePageSection() {
     <Section title="Phone page" hint="Your upcoming plans on a web page for the phone, locked with a password. The app keeps it on GitHub Pages and updates it while it runs.">
       {page?.enabled && <Published page={page} busy={publish.isPending || turnOff.isPending} onPublish={() => publish.mutate()} onTurnOff={() => turnOff.mutate()} error={publish.error ?? turnOff.error} />}
       {page && !page.enabled && turnOff.error ? <LeftBehind error={turnOff.error} /> : null}
-      {page && !page.enabled && <Guide />}
       {page && <ConnectionForm key={String(page.enabled)} page={page} />}
       {state.isError && <p className="error-text">{errorText(state.error)}</p>}
     </Section>
@@ -60,7 +67,7 @@ function LeftBehind({ error }: { error: unknown }) {
   );
 }
 
-function Guide() {
+function Guide({ repository }: { repository: string }) {
   return (
     <ol className="phone-guide" aria-label="How to set it up">
       <li className="phone-guide__step">
@@ -82,9 +89,45 @@ function Guide() {
         <ExternalLink href={NEW_TOKEN_URL}>New token on GitHub</ExternalLink>
       </li>
       <li className="phone-guide__step">
-        <p className="phone-guide__text">Fill in the fields below and turn the page on. The password is what you type on the phone to open it.</p>
+        <p className="phone-guide__text">Fill in the fields below and press Turn on. The password is what you type on the phone to open it.</p>
+      </li>
+      <li className="phone-guide__step">
+        <p className="phone-guide__text">If the app says GitHub Pages is off, turn it on in the repository’s settings and press Turn on again</p>
+        <PagesSettings repository={repository} />
       </li>
     </ol>
+  );
+}
+
+/** What to choose in the repository's Pages settings, and a link straight there once the repository is known. */
+function PagesSettings({ repository }: { repository: string }) {
+  const known = REPOSITORY.test(repository);
+  return (
+    <>
+      <ul className="phone-guide__permissions" aria-label="GitHub Pages settings">
+        {PAGES_SETTINGS.map(({ name, value }) => (
+          <li key={name} className="phone-guide__permission">
+            <span className="phone-guide__permission-name">{name}</span>
+            <span className="phone-guide__permission-access phone-guide__permission-access--setting">{value}</span>
+          </li>
+        ))}
+      </ul>
+      <ExternalLink href={known ? `https://github.com/${repository}/settings/pages` : PAGES_GUIDE_URL}>{known ? "Pages settings on GitHub" : "How to turn on GitHub Pages"}</ExternalLink>
+    </>
+  );
+}
+
+/** The plans are uploaded, but the token may not turn Pages on: the user does it once on GitHub. */
+function PagesOff({ repository }: { repository: string }) {
+  return (
+    <div className="phone-form__pages-off" role="alert">
+      <Icon name="alert" size={16} className="phone-form__pages-off-icon" />
+      <div className="phone-form__pages-off-text">
+        <p className="phone-form__pages-off-title">GitHub Pages is off for this repository</p>
+        <p>The plans are uploaded. Turn Pages on in the repository’s settings, then press Turn on again.</p>
+        <PagesSettings repository={repository} />
+      </div>
+    </div>
   );
 }
 
@@ -210,7 +253,8 @@ function ConnectionForm({ page }: { page: PhonePage }) {
   const message = errorText(turnOn.error);
   const field = message ? FIELD_OF_ERROR[message] : undefined;
   const errorOf = (name: Field) => (field === name ? message : null);
-  const formError = message && !field ? message : null;
+  const pagesOff = message === PAGES_OFF;
+  const formError = message && !field && !pagesOff ? message : null;
   const changed = repository.trim() !== page.repository || token !== "" || password !== "";
   const edit = (set: (value: string) => void) => (value: string) => {
     set(value);
@@ -229,70 +273,74 @@ function ConnectionForm({ page }: { page: PhonePage }) {
     );
   };
   return (
-    <form className="phone-form" onSubmit={submit}>
-      <div className="phone-form__fields">
-        <FormField id={`${ids}-repository`} label="Repository" error={errorOf("repository")}>
-          <input
-            id={`${ids}-repository`}
-            className="input"
-            value={repository}
-            placeholder="owner/name"
-            spellCheck={false}
-            autoComplete="off"
-            aria-invalid={field === "repository"}
-            aria-describedby={describedBy(`${ids}-repository`, field === "repository")}
-            onChange={(e) => edit(setRepository)(e.target.value)}
-          />
-        </FormField>
-        <FormField id={`${ids}-token`} label="Token" error={errorOf("token")}>
-          <input
-            id={`${ids}-token`}
-            className="input"
-            type="password"
-            value={token}
-            placeholder={page.has_token ? "Saved" : "github_pat_…"}
-            autoComplete="off"
-            aria-invalid={field === "token"}
-            aria-describedby={describedBy(`${ids}-token`, field === "token")}
-            onChange={(e) => edit(setToken)(e.target.value)}
-          />
-        </FormField>
-        <FormField id={`${ids}-password`} label="Password" error={errorOf("password")} hint="Typed on the phone to open the page">
-          <div className="phone-form__secret">
+    <>
+      {!page.enabled && <Guide repository={repository.trim()} />}
+      <form className="phone-form" onSubmit={submit}>
+        <div className="phone-form__fields">
+          <FormField id={`${ids}-repository`} label="Repository" error={errorOf("repository")}>
             <input
-              id={`${ids}-password`}
-              className="input phone-form__secret-input"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              placeholder={page.has_password ? "Saved" : undefined}
-              autoComplete="new-password"
-              aria-invalid={field === "password"}
-              aria-describedby={describedBy(`${ids}-password`, field === "password", true)}
-              onChange={(e) => edit(setPassword)(e.target.value)}
+              id={`${ids}-repository`}
+              className="input"
+              value={repository}
+              placeholder="owner/name"
+              spellCheck={false}
+              autoComplete="off"
+              aria-invalid={field === "repository"}
+              aria-describedby={describedBy(`${ids}-repository`, field === "repository")}
+              onChange={(e) => edit(setRepository)(e.target.value)}
             />
-            <IconButton
-              icon={showPassword ? "eyeOff" : "eye"}
-              label={showPassword ? "Hide the password" : "Show the password"}
-              aria-pressed={showPassword}
-              className="phone-form__eye"
-              onClick={() => setShowPassword(!showPassword)}
+          </FormField>
+          <FormField id={`${ids}-token`} label="Token" error={errorOf("token")}>
+            <input
+              id={`${ids}-token`}
+              className="input"
+              type="password"
+              value={token}
+              placeholder={page.has_token ? "Saved" : "github_pat_…"}
+              autoComplete="off"
+              aria-invalid={field === "token"}
+              aria-describedby={describedBy(`${ids}-token`, field === "token")}
+              onChange={(e) => edit(setToken)(e.target.value)}
             />
-          </div>
-        </FormField>
-      </div>
-      <div className="phone-form__actions">
-        {page.enabled ? (
-          <button type="submit" className="button button--small" disabled={!changed || turnOn.isPending}>
-            {turnOn.isPending ? "Saving…" : "Save and publish"}
-          </button>
-        ) : (
-          <button type="submit" className="button" disabled={turnOn.isPending}>
-            {turnOn.isPending ? "Turning on…" : "Turn on"}
-          </button>
-        )}
-        {formError && <p className="error-text phone-form__error">{formError}</p>}
-      </div>
-    </form>
+          </FormField>
+          <FormField id={`${ids}-password`} label="Password" error={errorOf("password")} hint="Typed on the phone to open the page">
+            <div className="phone-form__secret">
+              <input
+                id={`${ids}-password`}
+                className="input phone-form__secret-input"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                placeholder={page.has_password ? "Saved" : undefined}
+                autoComplete="new-password"
+                aria-invalid={field === "password"}
+                aria-describedby={describedBy(`${ids}-password`, field === "password", true)}
+                onChange={(e) => edit(setPassword)(e.target.value)}
+              />
+              <IconButton
+                icon={showPassword ? "eyeOff" : "eye"}
+                label={showPassword ? "Hide the password" : "Show the password"}
+                aria-pressed={showPassword}
+                className="phone-form__eye"
+                onClick={() => setShowPassword(!showPassword)}
+              />
+            </div>
+          </FormField>
+        </div>
+        <div className="phone-form__actions">
+          {page.enabled ? (
+            <button type="submit" className="button button--small" disabled={!changed || turnOn.isPending}>
+              {turnOn.isPending ? "Saving…" : "Save and publish"}
+            </button>
+          ) : (
+            <button type="submit" className="button" disabled={turnOn.isPending}>
+              {turnOn.isPending ? "Turning on…" : "Turn on"}
+            </button>
+          )}
+          {formError && <p className="error-text phone-form__error">{formError}</p>}
+        </div>
+        {pagesOff && <PagesOff repository={turnOn.variables?.repository ?? repository.trim()} />}
+      </form>
+    </>
   );
 }
 
