@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.21.1 — 2026-11-17
+
+Clearer first-launch steps on a Mac.
+
+### Improvements
+- The install guide says up front that macOS blocks the app's first launch, and shows how to open it with **Open Anyway** in **Privacy & Security**. The app isn't broken when this happens.
+
 ## 1.21.0 — 2026-11-17
 
 What To Do starts even when another program already uses its port.
