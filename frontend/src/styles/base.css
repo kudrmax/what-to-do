@@ -281,6 +281,12 @@ p {
   flex-direction: column;
 }
 
+/* A menu that would run past the window's right edge opens leftwards from its trigger. */
+.popover--end {
+  left: auto;
+  right: 0;
+}
+
 .popover__item {
   display: flex;
   align-items: center;
