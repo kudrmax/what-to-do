@@ -1,8 +1,16 @@
 import type { Mention } from "../api/client";
 import { ago } from "../domain/dates";
+import { originalPlace, type OriginalPlace } from "../domain/sources";
 import { Icon } from "../ui/Icon";
 import { Popover } from "../ui/Popover";
 import "./OpenPostButton.css";
+
+const OPEN_ORIGINAL: Record<OriginalPlace, string> = {
+  website: "Open on website",
+  telegram: "Open post in Telegram",
+  instagramPost: "Open post on Instagram",
+  instagramHighlight: "Open highlight on Instagram",
+};
 
 /** The organizer's own post goes first: it is the one to register through. */
 function postsInOpeningOrder(mentions: Mention[]): Mention[] {
@@ -17,7 +25,7 @@ export function OpenPostButton({ mentions }: { mentions: Mention[] }) {
     <div className="open-post">
       <a className={`button open-post__main${others.length ? " open-post__main--split" : ""}`} href={main.post_url} target="_blank" rel="noreferrer" data-tip={main.source_title}>
         <Icon name="external" size={16} />
-        {main.source_kind === "web" ? "Open on website" : "Open post"}
+        {OPEN_ORIGINAL[originalPlace(main)]}
       </a>
       {others.length > 0 && (
         <Popover
