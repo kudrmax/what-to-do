@@ -53,6 +53,17 @@ function setup(state: PhonePage) {
   return { load, turnOn, turnOff, publish };
 }
 
+async function withClipboard(clipboard: Partial<Clipboard> | undefined, run: () => Promise<void>) {
+  const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+  try {
+    await run();
+  } finally {
+    if (original) Object.defineProperty(navigator, "clipboard", original);
+    else delete (navigator as { clipboard?: Clipboard }).clipboard;
+  }
+}
+
 const fill = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
 describe("phone page", () => {
@@ -157,11 +168,37 @@ describe("phone page", () => {
 
   it("copies the link", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    setup(ON);
-    fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
-    expect(writeText).toHaveBeenCalledWith(ON.page_url);
-    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+    await withClipboard({ writeText }, async () => {
+      setup(ON);
+      fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
+      expect(writeText).toHaveBeenCalledWith(ON.page_url);
+      expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+    });
+  });
+
+  it("says it couldn't copy when the browser has no clipboard", async () => {
+    await withClipboard(undefined, async () => {
+      setup(ON);
+      fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
+      expect(await screen.findByRole("button", { name: "Couldn’t copy" })).toBeInTheDocument();
+    });
+  });
+
+  it("forgets a failed turn off once the page is on again", async () => {
+    const { load, turnOff, turnOn } = setup(ON);
+    turnOff.mockImplementation(() => {
+      load.mockResolvedValue(OFF);
+      return Promise.reject(new ApiError(422, "Could not reach GitHub. Check the internet connection."));
+    });
+    turnOn.mockImplementation(() => {
+      load.mockResolvedValue(ON);
+      return Promise.resolve(ON);
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Turn on" }));
+    expect(await screen.findByRole("button", { name: "Publish now" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Could not reach GitHub. Check the internet connection.")).not.toBeInTheDocument());
   });
 
   it("secret_fields_never_show_values: saved ones only say so, and saving keeps them", async () => {

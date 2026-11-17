@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import qrcode from "qrcode-generator";
 
 import type { PhonePage } from "../api/client";
@@ -31,6 +31,11 @@ export function PhonePageSection() {
   const publish = usePublishPhonePage();
   const turnOff = useTurnPhonePageOff();
   const page = state.data;
+  const enabled = page?.enabled;
+  const forgetTurnOffError = turnOff.reset;
+  useEffect(() => {
+    if (enabled) forgetTurnOffError();
+  }, [enabled, forgetTurnOffError]);
   return (
     <Section title="Phone page" hint="Your upcoming plans on a web page for the phone, locked with a password. The app keeps it on GitHub Pages and updates it while it runs.">
       {page?.enabled && <Published page={page} busy={publish.isPending || turnOff.isPending} onPublish={() => publish.mutate()} onTurnOff={() => turnOff.mutate()} error={publish.error ?? turnOff.error} />}
@@ -125,11 +130,13 @@ const COPY_LABELS = { idle: "Copy", copied: "Copied", failed: "Couldn’t copy" 
 
 function PageLink({ url }: { url: string }) {
   const [copy, setCopy] = useState<keyof typeof COPY_LABELS>("idle");
-  const copyLink = () =>
+  const copyLink = () => {
+    if (!navigator.clipboard) return setCopy("failed");
     navigator.clipboard.writeText(url).then(
       () => setCopy("copied"),
       () => setCopy("failed"),
     );
+  };
   return (
     <div className="phone-page__link-row">
       <Icon name="link" size={16} className="phone-page__link-icon" />
