@@ -132,15 +132,17 @@ export interface paths {
         };
         /**
          * List Sources
-         * @description Channels of the active city with the result of their last refresh.
+         * @description Sources of the active city with the result of their last refresh.
          */
         get: operations["list_sources_sources_get"];
         put?: never;
         /**
          * Add Source
-         * @description Adds a public Telegram channel or a website to the active city. Its posts or events are read on the next refresh.
+         * @description Adds a public Telegram channel, a public Instagram profile or a website to the active city.
+         *     Its posts or events are read on the next refresh.
          *
-         *     422: not a channel or event page link, the channel is closed, or the site cannot be read. 409: already added.
+         *     422: not a channel, profile or event page link, a bare name without the kind, the channel or profile is closed,
+         *     nothing is chosen to read from an Instagram profile, or the site cannot be read. 409: already added.
          */
         post: operations["add_source_sources_post"];
         delete?: never;
@@ -160,9 +162,11 @@ export interface paths {
         put?: never;
         /**
          * Preview Source
-         * @description What adding the link would add: a channel's title, or a website's name, its event pages and a few examples.
+         * @description What adding the link would add: a channel's or an Instagram profile's title (with its number of pinned stories),
+         *     or a website's name, its event pages and a few examples.
          *
-         *     422: the link is not a channel, or the site has no list of pages or no event markup.
+         *     422: the link is not a channel or profile, a bare name comes without the kind, the profile cannot be read,
+         *     or the site has no list of pages or no event markup.
          */
         post: operations["preview_source_sources_preview_post"];
         delete?: never;
@@ -228,6 +232,29 @@ export interface paths {
          * @description Pauses or resumes a source. Refresh skips a paused one, so no new posts come from it; its cards stay.
          */
         put: operations["pause_source_sources__source_id__paused_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sources/{source_id}/instagram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Instagram Reading
+         * @description Sets what is read from an Instagram profile: posts, pinned stories or both.
+         *
+         *     422: not an Instagram source, or both are off. Turning one off keeps what was collected; turning it on collects it
+         *     from the next refresh.
+         */
+        put: operations["set_instagram_reading_sources__source_id__instagram_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1455,6 +1482,22 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * InstagramReading
+         * @description What is read from an Instagram profile.
+         */
+        InstagramReading: {
+            /**
+             * Posts
+             * @default true
+             */
+            posts: boolean;
+            /**
+             * Stories
+             * @default true
+             */
+            stories: boolean;
+        };
         /** InterestCount */
         InterestCount: {
             /**
@@ -1886,12 +1929,17 @@ export interface components {
              * @default []
              */
             examples: components["schemas"]["SiteExample"][];
+            /**
+             * Highlights
+             * @default 0
+             */
+            highlights: number;
         };
         /**
          * SourceKind
          * @enum {string}
          */
-        SourceKind: "telegram" | "web";
+        SourceKind: "telegram" | "web" | "instagram";
         /** SourcePause */
         SourcePause: {
             /** Paused */
@@ -1934,9 +1982,11 @@ export interface components {
             paused: boolean;
             /** Id */
             id: number;
+            /** @description What is read from an Instagram source; null for other kinds */
+            instagram: components["schemas"]["InstagramReading"] | null;
             /**
              * Url
-             * @description The channel on t.me, or the site's section with its events.
+             * @description The channel on t.me, the site's section with its events, or the Instagram profile.
              */
             readonly url: string;
         };
@@ -1949,7 +1999,7 @@ export interface components {
         SourceRequest: {
             /**
              * Link
-             * @description A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha
+             * @description A public channel (t.me/name, @name, name), a public Instagram profile (instagram.com/name, @name) or a link to any event page of a website with an afisha
              * @example t.me/londonevents
              */
             link: string;
@@ -1958,6 +2008,10 @@ export interface components {
              * @description Empty: the channel's own title is used
              */
             title?: string | null;
+            /** @description Only for a bare name valid for both Telegram and Instagram */
+            kind?: components["schemas"]["SourceKind"] | null;
+            /** @description Only for an Instagram profile: what to read; both by default */
+            instagram?: components["schemas"]["InstagramReading"] | null;
         };
         /** SourceStats */
         SourceStats: {
@@ -2563,6 +2617,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SourcePause"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_instagram_reading_sources__source_id__instagram_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstagramReading"];
             };
         };
         responses: {

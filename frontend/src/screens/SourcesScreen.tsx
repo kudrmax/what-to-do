@@ -44,7 +44,7 @@ export function AddSourceForm() {
     event.preventDefault();
     add.reset();
     setSite(null);
-    check.mutate(link.trim(), { onSuccess: (preview) => (preview.kind === "web" ? setSite(preview) : addNow()) });
+    check.mutate({ link: link.trim() }, { onSuccess: (preview) => (preview.kind === "web" ? setSite(preview) : addNow()) });
   };
   const busy = check.isPending || add.isPending;
   const error = check.error ?? add.error;

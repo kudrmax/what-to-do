@@ -143,11 +143,14 @@ class SourceTypes:
         self._types = types
 
     def for_link(self, link: str, kind: SourceKind | None = None) -> SourceType:
-        """The type serving the link; a bare name valid on several networks needs the kind the user picked."""
-        kind = kind or SourceLink.kind_of(link)
-        if kind is None:
+        """The type serving the link. A link that names its network decides alone; a bare name valid on several
+        networks needs the kind the user picked."""
+        named = SourceLink.kind_of(link)
+        if named is None:
+            named = kind
+        if named is None:
             raise AmbiguousNameError
-        return self.of(kind)
+        return self.of(named)
 
     def of(self, kind: SourceKind) -> SourceType:
         return next(t for t in self._types if t.kind == kind)

@@ -123,5 +123,11 @@ class TestSourceTypesRouting:
         assert types.for_link("t.me/x_events").kind == SourceKind.TELEGRAM
         assert types.for_link("https://example.com/events").kind == SourceKind.WEB
 
+    def test_a_link_naming_its_network_ignores_a_contradicting_kind(self):
+        types = self._types()
+        assert types.for_link("t.me/x_events", SourceKind.INSTAGRAM).kind == SourceKind.TELEGRAM
+        assert types.for_link("instagram.com/eje.belgrade", SourceKind.TELEGRAM).kind == SourceKind.INSTAGRAM
+        assert types.for_link("https://example.com/events", SourceKind.TELEGRAM).kind == SourceKind.WEB
+
     def test_instagram_links_go_to_instagram(self):
         assert self._types().for_link("instagram.com/eje.belgrade").kind == SourceKind.INSTAGRAM

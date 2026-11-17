@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 import time
 
 import pytest
@@ -393,6 +394,95 @@ def test_adding_right_after_preview_does_not_check_the_site_again(client):
     before = site_calls()
     assert client.post("/sources", json={"link": "https://site.test/ru/events/a"}).status_code == 201
     assert site_calls() == before
+
+
+INSTAGRAM_PROFILE = (Path(__file__).parent / "fixtures" / "instagram" / "profile.html").read_text(encoding="utf-8")
+AMBIGUOUS = "Pick whether this is a Telegram channel or an Instagram profile"
+
+
+def serve_instagram_profile():
+    respx.route(host="testserver").pass_through()
+    respx.get("https://www.instagram.com/eje.belgrade/").respond(200, text=INSTAGRAM_PROFILE)
+
+
+@respx.mock
+def test_instagram_link_previews_with_its_highlights(client):
+    serve_instagram_profile()
+    client.post("/cities", json=BELGRADE)
+    preview = client.post("/sources/preview", json={"link": "https://www.instagram.com/eje.belgrade/"}).json()
+    assert (preview["kind"], preview["handle"]) == ("instagram", "eje.belgrade")
+    assert preview["highlights"] == 7
+
+
+@respx.mock
+def test_instagram_source_is_added_with_what_to_read_and_listed(client):
+    serve_instagram_profile()
+    client.post("/cities", json=BELGRADE)
+    added = client.post("/sources", json={"link": "@eje.belgrade", "instagram": {"posts": False, "stories": True}})
+    assert added.status_code == 201
+    assert added.json()["instagram"] == {"posts": False, "stories": True}
+    assert added.json()["url"] == "https://www.instagram.com/eje.belgrade/"
+    assert [s["instagram"] for s in client.get("/sources").json()] == [{"posts": False, "stories": True}]
+
+
+@respx.mock
+def test_instagram_source_reads_both_by_default_and_telegram_has_none(client):
+    serve_instagram_profile()
+    respx.get("https://t.me/s/quizbg").respond(200, text=channel_page("quizbg", []))
+    client.post("/cities", json=BELGRADE)
+    client.post("/sources", json={"link": "instagram.com/eje.belgrade"})
+    client.post("/sources", json={"link": "t.me/quizbg"})
+    by_kind = {s["kind"]: s["instagram"] for s in client.get("/sources").json()}
+    assert by_kind == {"instagram": {"posts": True, "stories": True}, "telegram": None}
+
+
+@respx.mock
+def test_instagram_source_cannot_be_added_with_nothing_to_read(client):
+    serve_instagram_profile()
+    client.post("/cities", json=BELGRADE)
+    response = client.post("/sources", json={"link": "@eje.belgrade", "instagram": {"posts": False, "stories": False}})
+    assert response.status_code == 422
+    assert client.get("/sources").json() == []
+
+
+@respx.mock
+@pytest.mark.parametrize("path", ["/sources/preview", "/sources"])
+def test_bare_name_valid_on_both_networks_needs_a_kind(client, path):
+    respx.route(host="testserver").pass_through()
+    client.post("/cities", json=BELGRADE)
+    response = client.post(path, json={"link": "@londonevents"})
+    assert response.status_code == 422 and response.json()["detail"] == AMBIGUOUS
+
+
+@respx.mock
+def test_picked_kind_resolves_a_bare_name(client):
+    respx.route(host="testserver").pass_through()
+    respx.get("https://t.me/s/londonevents").respond(200, text=channel_page("londonevents", []))
+    client.post("/cities", json=BELGRADE)
+    preview = client.post("/sources/preview", json={"link": "@londonevents", "kind": "telegram"}).json()
+    assert (preview["kind"], preview["handle"]) == ("telegram", "londonevents")
+
+
+@respx.mock
+def test_what_to_read_of_an_instagram_source_can_change(client):
+    serve_instagram_profile()
+    client.post("/cities", json=BELGRADE)
+    source = client.post("/sources", json={"link": "@eje.belgrade"}).json()
+    changed = client.put(f"/sources/{source['id']}/instagram", json={"posts": True, "stories": False})
+    assert changed.status_code == 200 and changed.json()["instagram"] == {"posts": True, "stories": False}
+    assert client.get("/sources").json()[0]["instagram"] == {"posts": True, "stories": False}
+    assert client.put(f"/sources/{source['id']}/instagram", json={"posts": False, "stories": False}).status_code == 422
+    assert client.get("/sources").json()[0]["instagram"] == {"posts": True, "stories": False}
+
+
+@respx.mock
+def test_what_to_read_cannot_be_set_on_other_sources(client):
+    respx.route(host="testserver").pass_through()
+    respx.get("https://t.me/s/quizbg").respond(200, text=channel_page("quizbg", []))
+    client.post("/cities", json=BELGRADE)
+    source = client.post("/sources", json={"link": "t.me/quizbg"}).json()
+    assert client.put(f"/sources/{source['id']}/instagram", json={"posts": True, "stories": True}).status_code == 422
+    assert client.put("/sources/999/instagram", json={"posts": True, "stories": True}).status_code == 404
 
 
 class FakePagesPublisher:

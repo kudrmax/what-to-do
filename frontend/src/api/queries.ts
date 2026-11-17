@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, CityChange, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceStatus, Tag } from "./client";
+import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -100,13 +100,16 @@ export const usePotentialSources = () => useApiQuery(keys.potentialSources, (api
 export const useMarkPotentialSource = () =>
   useApiMutation((api, { id, processed }: { id: number; processed: boolean }) => api.markPotentialSource(id, processed), STALE.potentialSources);
 export const useAdoptPotentialSource = () => useApiMutation((api, id: number) => api.adoptPotentialSource(id), STALE.sources);
-export const usePreviewSource = () => useApiMutation((api, link: string) => api.previewSource(link), []);
+export const usePreviewSource = () =>
+  useApiMutation((api, { link, kind }: { link: string; kind?: SourceKind }) => api.previewSource(link, kind), []);
 export const useAddSource = () => useApiMutation((api, source: NewSource) => api.addSource(source), STALE.sources);
 export const useRenameSource = () => useApiMutation((api, { id, title }: { id: number; title: string }) => api.renameSource(id, title), STALE.sources);
 export const useMarkSource = () =>
   useApiMutation((api, { id, status }: { id: number; status: SourceStatus }) => api.markSource(id, status), STALE.sources);
 export const usePauseSource = () =>
   useApiMutation((api, { id, paused }: { id: number; paused: boolean }) => api.pauseSource(id, paused), STALE.sourceCards);
+export const useSetInstagramReading = () =>
+  useApiMutation((api, { id, reading }: { id: number; reading: InstagramReading }) => api.setInstagramReading(id, reading), STALE.sources);
 export const useDeleteSource = () => useApiMutation((api, id: number) => api.deleteSource(id), STALE.city);
 export const useAddTag = () => useApiMutation((api, name: string) => api.addTag(name), STALE.tags);
 export const useHideTag = () => useApiMutation((api, { id, hidden }: { id: number; hidden: boolean }) => api.hideTag(id, hidden), STALE.tags);

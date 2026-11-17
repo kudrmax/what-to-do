@@ -436,6 +436,7 @@ class Source(SourceBase, table=True):
 
 class SourcePublic(SourceBase, Public):
     id: int
+    instagram: InstagramReading | None = Field(default=None, description="What is read from an Instagram source; null for other kinds")
 
     @computed_field
     @property

@@ -18,6 +18,7 @@ function source(id: number, title: string, status: Source["status"], paused = fa
     last_error: null,
     events_found: 0,
     paused,
+    instagram: null,
   };
 }
 
@@ -72,6 +73,7 @@ const SITE_PREVIEW: SitePreview = {
   title: "Polako Hedonist",
   handle: "polakohedonist.club/ru/events/",
   pages_found: 820,
+  highlights: 0,
   examples: [
     { title: "Искусство быть нелепым", day: "2026-11-18", time: "19:00", url: "https://polakohedonist.club/ru/events/a" },
     { title: "Выставка-ярмарка антиквариата", day: "2026-11-18", time: null, url: "https://polakohedonist.club/ru/events/b" },
@@ -129,7 +131,7 @@ describe("adding a source", () => {
   });
 
   it("telegram link is added without preview card", async () => {
-    const { addSource, submit } = setupForm({ kind: "telegram", title: "Квизы", handle: "quizbg", pages_found: 0, examples: [] });
+    const { addSource, submit } = setupForm({ kind: "telegram", title: "Квизы", handle: "quizbg", pages_found: 0, highlights: 0, examples: [] });
     submit("t.me/quizbg");
     await waitFor(() => expect(addSource).toHaveBeenCalledWith({ link: "t.me/quizbg", title: null }));
     expect(screen.queryByRole("region")).toBeNull();
