@@ -330,7 +330,7 @@ class RefreshService:
     async def _store(self, source: Source, found: list[CollectedPost]) -> None:
         for post in found:
             paths = await self._media(post) if post.read else []
-            if self._posts.add_new(source.id, post, paths):
+            if self._posts.add_new(source.id, post, paths) and post.read:
                 self.progress.new_posts += 1
 
     async def _media(self, post: CollectedPost) -> list[str]:

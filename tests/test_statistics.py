@@ -74,3 +74,18 @@ def test_weeks_go_back_no_further_than_the_limit(tmp_path):
     c.posts.mark_processed(c.posts.unprocessed([source.id])[0].id, "rules")
     weeks = c.statistics.of_city(city, NOW).weeks
     assert len(weeks) == WEEKS_SHOWN and weeks[-1].start == date(2026, 11, 9)
+
+
+def test_a_skipped_story_is_not_a_read_post(tmp_path):
+    c = Container.build(tmp_path)
+    city = add_city(c, "Белград", "Europe/Belgrade")
+    source = c.sources.add(Source(handle="eje", title="EJE", city_id=city.id))
+    c.posts.add_new(source.id, CollectedPost(external_id=1, url="u1", published_at=NOW, text="т"), [])
+    c.posts.mark_processed(c.posts.unprocessed([source.id])[0].id, "rules")
+    c.posts.add_new(source.id, CollectedPost(external_id=2, url="u2", published_at=NOW, text="", read=False), [])
+
+    stats = c.statistics.of_city(city, NOW)
+
+    assert stats.posts.read == 1
+    assert [s.posts for s in stats.sources] == [1]
+    assert stats.weeks[-1].posts == 1
