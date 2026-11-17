@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.21.2 — 2026-11-17
+
+A tidier README.
+
+### Improvements
+- The README opens with what the app does; the warning about the first launch on a Mac now sits only in the macOS install steps, where you meet it.
+
 ## 1.21.1 — 2026-11-17
 
 Clearer first-launch steps on a Mac.
