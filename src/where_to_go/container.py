@@ -15,6 +15,7 @@ from where_to_go.linking import EventCards, EventLinker, PostMentions
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.originals import OriginalPosts
+from where_to_go.phone_page.config import PhonePageConfigRepository
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
 from where_to_go.claude_login import ClaudeSignInFlow
@@ -73,6 +74,7 @@ class Container:
     releases: Releases
     claude_sign_in: ClaudeSignInFlow
     statistics: Statistics
+    phone_config: PhonePageConfigRepository
 
     @classmethod
     def build(
@@ -171,6 +173,7 @@ class Container:
             releases=Releases.build(project or ProjectPaths.here(), data_dir, release_source),
             statistics=Statistics(db),
             claude_sign_in=ClaudeSignInFlow(),
+            phone_config=PhonePageConfigRepository(db),
         )
 
     async def close(self) -> None:
