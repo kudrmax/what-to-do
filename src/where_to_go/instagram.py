@@ -118,6 +118,14 @@ class InstagramPage:
             highlights=highlights,
         )
 
+    def holds_highlight(self, highlight_id: str) -> bool:
+        """The page carries the highlight's own data, even when the highlight has no stories left."""
+        for connection in self._values("xdt_api__v1__feed__reels_media__connection"):
+            for node in self._nodes(connection if isinstance(connection, dict) else None):
+                if node.get("id") == f"highlight:{highlight_id}" and isinstance(node.get("items"), list):
+                    return True
+        return False
+
     def post(self) -> PostDetails | None:
         for media in self._values("if_not_gated_logged_out"):
             if isinstance(media, dict) and media.get("taken_at") and media.get("code"):

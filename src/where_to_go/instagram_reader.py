@@ -119,8 +119,9 @@ class InstagramReader:
             profile = await self._profile(name)
             if reading.posts:
                 for summary in profile.posts:
-                    if summary.pk not in known:
-                        found[summary.pk] = await self._post(summary)
+                    post = await self._post(summary) if summary.pk not in known else None
+                    if post is not None:
+                        found[post.external_id] = post
             if reading.stories:
                 await self._stories(profile.highlights, known, now, found)
         except InstagramRefused as refused:
@@ -143,8 +144,12 @@ class InstagramReader:
             raise SourceError("This Instagram profile is private")
         return profile
 
-    async def _post(self, summary: PostSummary) -> CollectedPost:
-        details = (await self._requests.page(InstagramUrls.post(summary.code), lambda p: p.post() is not None)).post()
+    async def _post(self, summary: PostSummary) -> CollectedPost | None:
+        """None when the post was deleted after the profile listed it."""
+        page = await self._unless_gone(InstagramUrls.post(summary.code), lambda p: p.post() is not None)
+        details = page.post() if page is not None else None
+        if details is None:
+            return None
         place = f"\n\nPlace: {details.place}" if details.place else ""
         return CollectedPost(
             external_id=details.pk,
@@ -155,11 +160,19 @@ class InstagramReader:
             video_urls=details.video_urls,
         )
 
+    async def _unless_gone(self, url: str, has_data: Callable[[InstagramPage], bool]) -> InstagramPage | None:
+        try:
+            return await self._requests.page(url, has_data)
+        except InstagramRefused as refused:
+            if refused.status == NOT_FOUND:
+                return None
+            raise
+
     async def _stories(self, highlights: list[Highlight], known: set[int], now: datetime, found: dict[int, CollectedPost]) -> None:
         """A story pinned to several highlights is one story, told under the first highlight it was found in."""
         for highlight in highlights:
-            page = await self._requests.page(InstagramUrls.highlight(highlight.id), lambda p: bool(p.stories()))
-            for story in page.stories():
+            page = await self._unless_gone(InstagramUrls.highlight(highlight.id), lambda p: p.holds_highlight(highlight.id))
+            for story in page.stories() if page is not None else []:
                 if story.pk in known or story.pk in found:
                     continue
                 found[story.pk] = CollectedPost(

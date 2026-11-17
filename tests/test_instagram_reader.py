@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -79,7 +80,7 @@ class FakeInstagram:
             side_effect=self._answer(lambda request: httpx.Response(200, text=self.post_page(self._part(request))))
         )
         self.highlight = mock.get(url__regex=r"^https://www\.instagram\.com/stories/highlights/\d+/$", name="highlight").mock(
-            side_effect=self._answer(lambda request: httpx.Response(200, text=read(self.highlights.get(self._part(request), "highlight_timetable.html"))))
+            side_effect=self._answer(lambda request: httpx.Response(200, text=self.highlight_page(self._part(request))))
         )
 
     @staticmethod
@@ -90,6 +91,11 @@ class FakeInstagram:
         summary = next(p for p in PROFILE.posts if p.code == code)
         media = {"pk": str(summary.pk), "code": code, "taken_at": int(noon(summary.day).timestamp()), "display_uri": summary.image_url}
         return f'<script type="application/json">{json.dumps({"if_not_gated_logged_out": media})}</script>'
+
+    def highlight_page(self, highlight_id: str, name: str | None = None) -> str:
+        """A saved highlight page, told as the highlight asked for."""
+        page = read(name or self.highlights.get(highlight_id, "highlight_timetable.html"))
+        return re.sub(r'"highlight:\d+"', f'"highlight:{highlight_id}"', page)
 
     def _answer(self, respond):
         def answer(request: httpx.Request) -> httpx.Response:
@@ -161,7 +167,7 @@ async def test_post_page_without_data_ends_the_reading_and_keeps_what_came_befor
 async def test_refused_highlight_ends_the_reading_and_keeps_what_came_before(instagram, client):
     refused_id = PROFILE.highlights[2].id
     instagram.highlight.side_effect = instagram._answer(
-        lambda request: httpx.Response(429) if instagram._part(request) == refused_id else httpx.Response(200, text=read(HIGHLIGHT_PAGES.get(instagram._part(request), "highlight_timetable.html")))
+        lambda request: httpx.Response(429) if instagram._part(request) == refused_id else httpx.Response(200, text=instagram.highlight_page(instagram._part(request)))
     )
 
     with pytest.raises(InstagramRefused, match="will try again on the next refresh") as raised:
@@ -170,6 +176,57 @@ async def test_refused_highlight_ends_the_reading_and_keeps_what_came_before(ins
     assert {p.external_id for p in raised.value.collected} == ALL_POSTS | set(STORIES)
     assert instagram.highlight.call_count == 3
     assert [p.published_at for p in raised.value.collected] == sorted(p.published_at for p in raised.value.collected)
+
+
+async def test_empty_highlight_is_not_a_refusal(instagram, client):
+    empty = PROFILE.highlights[0].id
+    instagram.highlight.side_effect = instagram._answer(
+        lambda request: httpx.Response(
+            200,
+            text=instagram.highlight_page(instagram._part(request)).replace(
+                f'"highlight:{empty}","items":[', f'"highlight:{empty}","items":[],"gone":['
+            ),
+        )
+    )
+
+    collected = await reader(client, instagram.clock).collect(NAME, ALL_POSTS, InstagramReading(), NOW)
+
+    assert instagram.highlight.call_count == len(PROFILE.highlights)
+    assert {p.external_id for p in collected} == set(STORIES)
+
+
+async def test_highlight_page_of_another_highlight_is_a_refusal(instagram, client):
+    instagram.highlight.side_effect = instagram._answer(lambda _: httpx.Response(200, text=read("highlight_timetable.html")))
+
+    with pytest.raises(InstagramRefused):
+        await reader(client, instagram.clock).collect(NAME, ALL_POSTS, InstagramReading(), NOW)
+
+
+async def test_deleted_post_is_skipped_and_reading_goes_on(instagram, client, caplog):
+    deleted = PROFILE.posts[3]
+    instagram.post.side_effect = instagram._answer(
+        lambda request: httpx.Response(404) if instagram._part(request) == deleted.code else httpx.Response(200, text=instagram.post_page(instagram._part(request)))
+    )
+
+    with caplog.at_level(logging.WARNING):
+        collected = await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(), NOW)
+
+    assert {p.external_id for p in collected} == (ALL_POSTS - {deleted.pk}) | set(STORIES)
+    assert "refused" not in caplog.text
+
+
+async def test_deleted_highlight_is_skipped_and_reading_goes_on(instagram, client, caplog):
+    deleted = PROFILE.highlights[1].id
+    instagram.highlight.side_effect = instagram._answer(
+        lambda request: httpx.Response(404) if instagram._part(request) == deleted else httpx.Response(200, text=instagram.highlight_page(instagram._part(request)))
+    )
+
+    with caplog.at_level(logging.WARNING):
+        collected = await reader(client, instagram.clock).collect(NAME, ALL_POSTS, InstagramReading(), NOW)
+
+    assert instagram.highlight.call_count == len(PROFILE.highlights)
+    assert {p.external_id for p in collected} == {s.pk for s in InstagramPage(read("highlight_timetable.html")).stories()}
+    assert "refused" not in caplog.text
 
 
 async def test_post_page_is_requested_only_for_unknown_posts(instagram, client):
