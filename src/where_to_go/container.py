@@ -47,7 +47,8 @@ from where_to_go.statistics import Statistics
 from where_to_go.telegram import TelegramChannelReader
 from where_to_go.web import SitemapReader
 from where_to_go.localities import LocalityJudge, LocalityRepository
-from where_to_go.source_types import SourceTypes, TelegramSourceType, WebSourceType
+from where_to_go.instagram_reader import InstagramReader, InstagramRequests
+from where_to_go.source_types import InstagramSourceType, SourceTypes, TelegramSourceType, WebSourceType
 from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 
 
@@ -56,6 +57,7 @@ from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 class Container:
     db: Database
     http: httpx.AsyncClient
+    instagram_http: httpx.AsyncClient
     settings: SettingsRepository
     cities: CityRepository
     city_catalog: CityCatalog
@@ -100,6 +102,7 @@ class Container:
         project = project or ProjectPaths.here()
         db = Database(data_dir / "where-to-go.sqlite3")
         http = http or httpx.AsyncClient(timeout=30, headers={"User-Agent": USER_AGENT})
+        instagram_http = httpx.AsyncClient(timeout=30, follow_redirects=False)
         settings = SettingsRepository(db)
         cities = CityRepository(db, settings)
         sources = SourceRepository(db)
@@ -126,6 +129,7 @@ class Container:
                 WebSiteReader(http, sitemaps, web, posts, LocalityJudge(matching_llm, LocalityRepository(db))),
                 web,
             ),
+            InstagramSourceType(InstagramReader(InstagramRequests(instagram_http)), posts, instagram),
         )
         catalog = SourceCatalog(sources, events, cards, types)
         potential_sources = PotentialSources(PotentialSourceRepository(db), sources, posts, catalog)
@@ -181,6 +185,7 @@ class Container:
         return cls(
             db=db,
             http=http,
+            instagram_http=instagram_http,
             settings=settings,
             cities=cities,
             city_catalog=CityCatalog(cities, tags, lambda: refresh.progress.running),
@@ -215,4 +220,5 @@ class Container:
         await self.refresh.stop()
         self.claude_sign_in.stop()
         await self.http.aclose()
+        await self.instagram_http.aclose()
         self.db.close()

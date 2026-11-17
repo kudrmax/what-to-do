@@ -4,7 +4,7 @@ import respx
 
 from tests.helpers import channel_page
 from where_to_go.models import SourceKind
-from where_to_go.source_types import SourceTypes, TelegramSourceType, WebSourceType
+from where_to_go.source_types import InstagramSourceType, SourceTypes, TelegramSourceType, WebSourceType
 from where_to_go.telegram import AmbiguousNameError, HtmlText, SourceError, SourceLink, TelegramChannelReader, TelegramHandle, TelegramPageParser
 from selectolax.lexbor import LexborHTMLParser
 
@@ -108,6 +108,7 @@ class TestSourceTypesRouting:
         return SourceTypes(
             TelegramSourceType(None, None, None),
             WebSourceType(None, None, None),
+            InstagramSourceType(None, None, None),
         )
 
     def test_bare_name_is_ambiguous(self):
@@ -122,6 +123,5 @@ class TestSourceTypesRouting:
         assert types.for_link("t.me/x_events").kind == SourceKind.TELEGRAM
         assert types.for_link("https://example.com/events").kind == SourceKind.WEB
 
-    def test_instagram_is_refused_while_no_type_serves_it(self):
-        with pytest.raises(SourceError, match="Instagram profiles are not supported yet"):
-            self._types().for_link("instagram.com/eje.belgrade")
+    def test_instagram_links_go_to_instagram(self):
+        assert self._types().for_link("instagram.com/eje.belgrade").kind == SourceKind.INSTAGRAM

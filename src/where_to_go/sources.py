@@ -5,6 +5,7 @@ from where_to_go.models import (
     ChannelLink,
     ChannelReference,
     City,
+    InstagramReading,
     Post,
     PotentialSourceOrigin,
     PotentialSourcePublic,
@@ -41,11 +42,13 @@ class SourceCatalog:
         self._refuse_duplicate(city, source_type, preview.handle)
         return preview
 
-    async def add(self, city: City, link: str, title: str | None, kind: SourceKind | None = None) -> Source:
+    async def add(
+        self, city: City, link: str, title: str | None, kind: SourceKind | None = None, reading: InstagramReading | None = None
+    ) -> Source:
         preview = await self.preview(city, link, title, kind)
         source_type = self._types.for_link(link, kind)
         source = self._sources.add(Source(city_id=city.id, kind=source_type.kind, handle=preview.handle, title=preview.title))
-        await source_type.attach(source, city, link)
+        await source_type.attach(source, city, link, reading)
         return source
 
     def _refuse_duplicate(self, city: City, kind: SourceType, handle: str) -> None:
