@@ -677,6 +677,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/phone-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Phone Page
+         * @description Whether the phone page is on, where it lives and how its last publish went. Never returns the token or password.
+         */
+        get: operations["phone_page_phone_page_get"];
+        /**
+         * Turn Phone Page On
+         * @description Checks the repository, publishes the plans and keeps them fresh. An empty token or password keeps the saved one. 422: GitHub refused.
+         */
+        put: operations["turn_phone_page_on_phone_page_put"];
+        post?: never;
+        /**
+         * Turn Phone Page Off
+         * @description Replaces the published page with an empty one. The page is off even when 422 says GitHub could not be reached.
+         */
+        delete: operations["turn_phone_page_off_phone_page_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/phone-page/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Phone Page
+         * @description Publishes the plans now, ignoring the ten minute pause. A failure lands in `last_error`. 409: the page is off.
+         */
+        post: operations["publish_phone_page_phone_page_publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/version": {
         parameters: {
             query?: never;
@@ -1167,6 +1215,14 @@ export interface components {
              */
             created_at: string;
         };
+        /** ErrorDetail */
+        ErrorDetail: {
+            /**
+             * Detail
+             * @description What went wrong, ready to show
+             */
+            detail: string;
+        };
         /**
          * EventKind
          * @enum {string}
@@ -1482,6 +1538,55 @@ export interface components {
              */
             date: string;
             event: components["schemas"]["EventPublic"];
+        };
+        /** PhonePageRequest */
+        PhonePageRequest: {
+            /**
+             * Repository
+             * @description The GitHub repository to publish to, as owner/name
+             */
+            repository: string;
+            /**
+             * Token
+             * @description A GitHub token with access to it; empty keeps the saved one
+             */
+            token?: string | null;
+            /**
+             * Password
+             * @description Opens the page on the phone; empty keeps the saved one
+             */
+            password?: string | null;
+        };
+        /** PhonePageState */
+        PhonePageState: {
+            /** Enabled */
+            enabled: boolean;
+            /** Repository */
+            repository: string;
+            /** Has Token */
+            has_token: boolean;
+            /** Has Password */
+            has_password: boolean;
+            /**
+             * Page Url
+             * @description The published page; empty until the first turn on
+             */
+            page_url: string | null;
+            /**
+             * Published At
+             * @description When the plans were last published
+             */
+            published_at: string | null;
+            /**
+             * Last Error
+             * @description Why the last publish failed, ready to show
+             */
+            last_error: string | null;
+            /**
+             * Publishing
+             * @description A publish is running right now
+             */
+            publishing: boolean;
         };
         /** PhotoStats */
         PhotoStats: {
@@ -3180,6 +3285,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CityStats"];
+                };
+            };
+        };
+    };
+    phone_page_phone_page_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhonePageState"];
+                };
+            };
+        };
+    };
+    turn_phone_page_on_phone_page_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhonePageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhonePageState"];
+                };
+            };
+            /** @description The request is invalid, GitHub refused, or the plans could not be published */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    turn_phone_page_off_phone_page_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhonePageState"];
+                };
+            };
+            /** @description GitHub could not replace the page; the phone page is off anyway */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    publish_phone_page_phone_page_publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhonePageState"];
+                };
+            };
+            /** @description The phone page is off */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };

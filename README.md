@@ -74,6 +74,10 @@ In **Settings**, describe in your own words what you look for, for example "even
 
 ![Want to go: events you plan to attend, by day](docs/images/readme/plans.png)
 
+### Your plans on the phone
+
+The app runs on your computer, but your plans can go with you. Turn on **Settings → Phone page** and the app keeps a copy of **Want to go** on a GitHub Pages site of your own: the same cards, filters and event window, read-only. The site is public, so everything on it is encrypted with a password you choose; the phone asks for it once. The app updates the page by itself while it runs, at most once every 10 minutes. You need a free GitHub account: the section walks you through creating an empty repository, a token limited to it and turning Pages on.
+
 ### Sources you control
 
 Add a public Telegram channel or an event page on a website. Each source shows when it was last read, how many events it brought and whether it works. Star your favorites, pause a source instead of deleting it, and check **Potential sources**: channels your sources forward from or link to, ready to add in one click.

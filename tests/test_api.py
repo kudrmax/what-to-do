@@ -393,3 +393,106 @@ def test_adding_right_after_preview_does_not_check_the_site_again(client):
     before = site_calls()
     assert client.post("/sources", json={"link": "https://site.test/ru/events/a"}).status_code == 201
     assert site_calls() == before
+
+
+class FakePagesPublisher:
+    def __init__(self, failure=None):
+        self.failure = failure
+        self.replaced = []
+
+    async def check(self, repository, token):
+        if self.failure:
+            raise self.failure
+
+    async def ensure_empty_or_ours(self, repository, token):
+        pass
+
+    async def ensure_pages(self, repository, token):
+        return "https://max.github.io/plans/"
+
+    async def current_blobs(self, repository, token):
+        return {}
+
+    async def replace(self, repository, token, files, reuse):
+        if self.failure:
+            raise self.failure
+        self.replaced.append(files)
+
+
+def phone_client(tmp_path, publisher):
+    bundle = tmp_path / "phone"
+    bundle.mkdir()
+    (bundle / "phone.html").write_text("<html>phone</html>")
+    app = create_app(lambda: Container.build(tmp_path, phone_publisher=publisher, phone_bundle=bundle))
+    return TestClient(app)
+
+
+def test_phone_page_turn_on_error_is_422(tmp_path):
+    from where_to_go.phone_page.github import PublishError
+
+    with phone_client(tmp_path, FakePagesPublisher(PublishError("The token cannot see this repository"))) as client:
+        response = client.put("/phone-page", json={"repository": "max/plans", "token": "ghp_secret", "password": "hunter2"})
+        assert response.status_code == 422
+        assert response.json()["detail"] == "The token cannot see this repository"
+        assert client.get("/phone-page").json()["enabled"] is False
+
+
+def test_phone_page_422_never_carries_the_token(tmp_path):
+    from where_to_go.phone_page.github import PublishError
+
+    with phone_client(tmp_path, FakePagesPublisher(PublishError("GitHub refused the request (422)"))) as client:
+        refused = client.put("/phone-page", json={"repository": "max/plans", "token": "ghp_secret", "password": "hunter2"})
+        invalid = client.put("/phone-page", json={"token": "ghp_secret", "password": "hunter2"})
+        for response in (refused, invalid):
+            assert response.status_code == 422
+            assert "ghp_secret" not in response.text and "hunter2" not in response.text
+
+
+def test_phone_page_refusals_are_in_the_schema(tmp_path):
+    with phone_client(tmp_path, FakePagesPublisher()) as client:
+        paths = client.get("/openapi.json").json()["paths"]
+        error = {"$ref": "#/components/schemas/ErrorDetail"}
+        assert paths["/phone-page"]["put"]["responses"]["422"]["content"]["application/json"]["schema"] == error
+        assert paths["/phone-page"]["delete"]["responses"]["422"]["content"]["application/json"]["schema"] == error
+        assert paths["/phone-page/publish"]["post"]["responses"]["409"]["content"]["application/json"]["schema"] == error
+
+
+def test_phone_page_state_hides_secrets(tmp_path):
+    publisher = FakePagesPublisher()
+    with phone_client(tmp_path, publisher) as client:
+        client.post("/cities", json=BELGRADE)
+        bodies = [
+            client.get("/phone-page"),
+            client.put("/phone-page", json={"repository": "max/plans", "token": "ghp_secret", "password": "hunter2"}),
+            client.get("/phone-page"),
+            client.post("/phone-page/publish"),
+            client.delete("/phone-page"),
+        ]
+        for response in bodies:
+            assert response.status_code == 200, response.text
+            assert "ghp_secret" not in response.text and "hunter2" not in response.text
+        turned_on = bodies[1].json()
+        assert turned_on["enabled"] is True and turned_on["has_token"] and turned_on["has_password"]
+        assert turned_on["page_url"] == "https://max.github.io/plans/"
+        assert bodies[4].json()["enabled"] is False
+
+
+def test_phone_page_publish_now_while_off_is_409(tmp_path):
+    with phone_client(tmp_path, FakePagesPublisher()) as client:
+        response = client.post("/phone-page/publish")
+        assert response.status_code == 409
+        assert response.json()["detail"] == "The phone page is off"
+
+
+def test_phone_page_turn_off_reports_a_github_failure_but_stays_off(tmp_path):
+    from where_to_go.phone_page.github import PublishError
+
+    publisher = FakePagesPublisher()
+    with phone_client(tmp_path, publisher) as client:
+        client.post("/cities", json=BELGRADE)
+        client.put("/phone-page", json={"repository": "max/plans", "token": "t", "password": "p"})
+        publisher.failure = PublishError("GitHub is down")
+        response = client.delete("/phone-page")
+        assert response.status_code == 422
+        assert response.json()["detail"] == "GitHub is down"
+        assert client.get("/phone-page").json()["enabled"] is False

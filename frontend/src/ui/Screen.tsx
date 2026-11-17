@@ -5,14 +5,17 @@ import { errorText } from "./errors";
 import { Icon } from "./Icon";
 import "./Screen.css";
 
-export function Screen({ title, action, toolbar, children, narrow }: { title: string; action?: ReactNode; toolbar?: ReactNode; children: ReactNode; narrow?: boolean }) {
+/** A screen of the app; without a title and an action (the phone page) the header is just the toolbar. */
+export function Screen({ title, action, toolbar, children, narrow }: { title?: string; action?: ReactNode; toolbar?: ReactNode; children: ReactNode; narrow?: boolean }) {
   return (
     <div className={`screen${narrow ? " screen--narrow" : ""}`}>
       <header className="screen__header">
-        <div className="screen__title-row">
-          <h1 className="title">{title}</h1>
-          {action}
-        </div>
+        {(title || action) && (
+          <div className="screen__title-row">
+            {title && <h1 className="title">{title}</h1>}
+            {action}
+          </div>
+        )}
         {toolbar}
       </header>
       {children}

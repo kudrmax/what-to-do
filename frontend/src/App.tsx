@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useLocation, type Location } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import type { Api } from "./api/client";
 import { ApiContext } from "./api/queries";
 import { AppShell } from "./app/AppShell";
 import { EVENT_PATH, SECTIONS } from "./app/routes";
 import { EventWindow } from "./events/EventWindow";
+import { useScreenLocation } from "./events/navigation";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { PlansScreen } from "./screens/PlansScreen";
@@ -19,10 +20,7 @@ const queries = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000
 
 /** The screens; an event opens in a window over the screen it was opened from (the feed when opened by its link). */
 function Screens() {
-  const location = useLocation();
-  const background = (location.state as { background?: Location } | null)?.background;
-  const isEvent = location.pathname.startsWith("/event/");
-  const screen = background ?? (isEvent ? { ...location, pathname: SECTIONS.feed.path, search: "" } : location);
+  const screen = useScreenLocation(SECTIONS.feed.path);
   return (
     <>
       <AppShell screenPath={screen.pathname}>

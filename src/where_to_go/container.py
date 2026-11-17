@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -15,6 +16,11 @@ from where_to_go.linking import EventCards, EventLinker, PostMentions
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.originals import OriginalPosts
+from where_to_go.phone_page.cipher import SnapshotCipher
+from where_to_go.phone_page.config import PhonePageConfigRepository
+from where_to_go.phone_page.github import GitHubPagesPublisher
+from where_to_go.phone_page.service import PagesPublisher, PhonePageService
+from where_to_go.phone_page.snapshot import SnapshotBuilder
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
 from where_to_go.claude_login import ClaudeSignInFlow
@@ -73,6 +79,8 @@ class Container:
     releases: Releases
     claude_sign_in: ClaudeSignInFlow
     statistics: Statistics
+    phone_config: PhonePageConfigRepository
+    phone_page: PhonePageService
 
     @classmethod
     def build(
@@ -84,7 +92,10 @@ class Container:
         http: httpx.AsyncClient | None = None,
         project: ProjectPaths | None = None,
         release_source: ReleaseSource | None = None,
+        phone_publisher: PagesPublisher | None = None,
+        phone_bundle: Path | None = None,
     ) -> Container:
+        project = project or ProjectPaths.here()
         db = Database(data_dir / "where-to-go.sqlite3")
         http = http or httpx.AsyncClient(timeout=30, headers={"User-Agent": USER_AGENT})
         settings = SettingsRepository(db)
@@ -144,6 +155,26 @@ class Container:
             post_mentions=post_mentions,
             linker=linker,
         )
+        feed = Feed(events, sources)
+        originals = OriginalPosts(photo_texts)
+        phone_config = PhonePageConfigRepository(db)
+        phone_page = PhonePageService(
+            config=phone_config,
+            builder=SnapshotBuilder(
+                settings=settings,
+                cities=cities,
+                sources=sources,
+                tags=tags,
+                feed=feed,
+                mentions=mentions,
+                originals=originals,
+                images=images,
+            ),
+            publisher=phone_publisher or GitHubPagesPublisher(http),
+            cipher_factory=SnapshotCipher,
+            bundle_dir=phone_bundle or project.dist / "phone",
+            clock=lambda: datetime.now(UTC),
+        )
         return cls(
             db=db,
             http=http,
@@ -162,18 +193,21 @@ class Container:
             dev_notes=DevNoteRepository(db),
             images=images,
             photos=photos,
-            originals=OriginalPosts(photo_texts),
+            originals=originals,
             cards=cards,
             linker=linker,
-            feed=Feed(events, sources),
+            feed=feed,
             post_reader=post_reader,
             refresh=refresh,
-            releases=Releases.build(project or ProjectPaths.here(), data_dir, release_source),
+            releases=Releases.build(project, data_dir, release_source),
             statistics=Statistics(db),
             claude_sign_in=ClaudeSignInFlow(),
+            phone_config=phone_config,
+            phone_page=phone_page,
         )
 
     async def close(self) -> None:
+        await self.phone_page.stop()
         await self.refresh.stop()
         self.claude_sign_in.stop()
         await self.http.aclose()

@@ -13,6 +13,7 @@ import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { UpdatesSection } from "../updates/UpdatesSection";
 import { CollapsibleSection, Screen, Section, Subsection } from "../ui/Screen";
 import { CitiesSection } from "./CitiesSection";
+import { PhonePageSection } from "./PhonePageSection";
 import "./SettingsScreen.css";
 
 export function SettingsScreen() {
@@ -25,6 +26,7 @@ export function SettingsScreen() {
         {settings.data && <PriorityWish wish={settings.data.priority_wish} />}
         <TagsSubsection />
       </Section>
+      <PhonePageSection />
       <UpdatesSection />
       {settings.data && <AdvancedSection settings={settings.data} />}
     </Screen>

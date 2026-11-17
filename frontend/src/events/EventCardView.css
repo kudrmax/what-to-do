@@ -147,3 +147,8 @@
   display: inline-flex;
   color: var(--text-faint);
 }
+
+/* Without the marks row the text ends the card, as far from its edge as from the top. */
+.card--read-only .card__body {
+  padding-bottom: 16px;
+}

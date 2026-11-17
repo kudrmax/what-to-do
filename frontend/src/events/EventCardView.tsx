@@ -3,6 +3,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import type { EventCard } from "../api/client";
 import { usePrefetchMentions, useTags } from "../api/queries";
 import { useCardLanguage } from "../api/useActiveCity";
+import { useReadOnly } from "../app/readOnly";
 import { formatPrice } from "../domain/price";
 import { orderTags } from "../domain/tags";
 import { EventPhoto } from "./EventPhoto";
@@ -22,6 +23,7 @@ interface Props {
 
 /** A card in a list. A click anywhere opens the event; the marks below work on their own. */
 export function EventCardView({ event, day, shownTags = [] }: Props) {
+  const readOnly = useReadOnly();
   const open = useOpenEvent();
   const prefetch = usePrefetchMentions();
   const show = () => open(event.id, day);
@@ -29,7 +31,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
 
   return (
     <article
-      className={`card${event.is_cancelled ? " card--cancelled" : ""}${event.is_priority ? " card--priority" : ""}`}
+      className={`card${readOnly ? " card--read-only" : ""}${event.is_cancelled ? " card--cancelled" : ""}${event.is_priority ? " card--priority" : ""}`}
       role="link"
       tabIndex={0}
       aria-label={event.title}
@@ -42,13 +44,15 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       <EventPhoto path={event.image_url} className="card__photo" />
       <div className="card__body">
         <EventCardSummary event={event} shownTags={shownTags} />
-        <div className="card__marks" onClick={keepToMarks} onKeyDown={keepToMarks}>
-          <div className="marks-row">
-          <InterestPicker event={event} size="small" />
-          <DevNoteButton event={event} size="small" />
-        </div>
-          <PlanPicker event={event} size="small" />
-        </div>
+        {!readOnly && (
+          <div className="card__marks" onClick={keepToMarks} onKeyDown={keepToMarks}>
+            <div className="marks-row">
+              <InterestPicker event={event} size="small" />
+              <DevNoteButton event={event} size="small" />
+            </div>
+            <PlanPicker event={event} size="small" />
+          </div>
+        )}
       </div>
       </div>
     </article>
