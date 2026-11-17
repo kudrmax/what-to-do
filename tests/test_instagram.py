@@ -111,7 +111,11 @@ def test_name_from_link(link):
     assert InstagramName.parse(link) == "eje.belgrade"
 
 
-@pytest.mark.parametrize("link", ["https://example.com/eje", "instagram.com/p/DfmlSc4DQL_/", "instagram.com/", "@"])
+def test_bare_name_is_a_profile_name():
+    assert InstagramName.parse(" LondonEvents ") == "londonevents"
+
+
+@pytest.mark.parametrize("link", ["https://example.com/eje", "instagram.com/p/DfmlSc4DQL_/", "instagram.com/", "@", "london events", "a" * 31])
 def test_not_a_profile_link_is_rejected(link):
     with pytest.raises(SourceError, match="Instagram profile"):
         InstagramName.parse(link)

@@ -30,7 +30,12 @@ class InstagramName:
     @classmethod
     def parse(cls, link: str) -> str:
         text = link.strip()
-        name = text[1:] if text.startswith("@") else cls._from_link(text)
+        if text.startswith("@"):
+            name = text[1:]
+        elif "/" not in text:
+            name = text
+        else:
+            name = cls._from_link(text)
         if name is None or not _NAME.match(name):
             raise SourceError("This doesn't look like a link to an Instagram profile")
         return name.lower()

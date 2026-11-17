@@ -464,6 +464,15 @@ def test_picked_kind_resolves_a_bare_name(client):
 
 
 @respx.mock
+def test_picked_instagram_resolves_a_bare_name_without_at(client):
+    respx.route(host="testserver").pass_through()
+    respx.get("https://www.instagram.com/londonevents/").respond(200, text=INSTAGRAM_PROFILE)
+    client.post("/cities", json=BELGRADE)
+    preview = client.post("/sources/preview", json={"link": "londonevents", "kind": "instagram"}).json()
+    assert (preview["kind"], preview["handle"]) == ("instagram", "londonevents")
+
+
+@respx.mock
 def test_what_to_read_of_an_instagram_source_can_change(client):
     serve_instagram_profile()
     client.post("/cities", json=BELGRADE)
