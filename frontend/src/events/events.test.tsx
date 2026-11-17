@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApi, type EventCard } from "../api/client";
 import { MultiSelectChip } from "../ui/Chips";
 import { ApiContext } from "../api/queries";
+import { ReadOnlyContext } from "../app/readOnly";
 import { EventCardView } from "./EventCardView";
 import { EventTime } from "./EventTime";
 import { SearchField } from "./SearchField";
@@ -50,19 +51,21 @@ function Where() {
   return <output data-testid="where">{location.pathname + location.search}</output>;
 }
 
-function setup(children: ReactNode, path = "/") {
+function setup(children: ReactNode, path = "/", readOnly = false) {
   const api = createApi("");
   const mark = vi.spyOn(api, "mark").mockResolvedValue(card());
   render(
-    <ApiContext.Provider value={api}>
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route path="*" element={<>{children}<Where /></>} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </ApiContext.Provider>,
+    <ReadOnlyContext.Provider value={readOnly}>
+      <ApiContext.Provider value={api}>
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route path="*" element={<>{children}<Where /></>} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </ApiContext.Provider>
+    </ReadOnlyContext.Provider>,
   );
   return { mark };
 }
@@ -81,6 +84,25 @@ describe("event card", () => {
     fireEvent.click(screen.getByRole("button", { name: "Interesting" }));
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(7, { interest: null, plan: null }));
     expect(screen.getByTestId("where").textContent).toBe("/");
+  });
+
+  it("offers a note to the developer", () => {
+    setup(<EventCardView event={card()} day="2026-11-13" />);
+    expect(screen.getByRole("button", { name: "Note to developer" })).toBeInTheDocument();
+  });
+
+  it("read-only shows the marks as they are but does nothing on a tap, and has no note to the developer", () => {
+    const { mark } = setup(<EventCardView event={card({ interest: 4, plan: "sure" })} day="2026-11-13" />, "/", true);
+    const sure = screen.getByRole("button", { name: "Going for sure" });
+    const interesting = screen.getByRole("button", { name: "Interesting" });
+    expect(sure).toHaveAttribute("aria-pressed", "true");
+    expect(interesting).toHaveAttribute("aria-pressed", "true");
+    expect(sure).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(sure);
+    fireEvent.click(screen.getByRole("button", { name: "Maybe going" }));
+    expect(mark).not.toHaveBeenCalled();
+    expect(screen.getByTestId("where").textContent).toBe("/");
+    expect(screen.queryByRole("button", { name: "Note to developer" })).not.toBeInTheDocument();
   });
 
   it("marks an event that fits the wish from settings", () => {

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 
 import type { EventCard } from "../api/client";
 import { useAddDevNote } from "../api/queries";
+import { useReadOnly } from "../app/readOnly";
 import { Icon } from "../ui/Icon";
 import { Modal } from "../ui/Modal";
 import "./DevNoteButton.css";
@@ -9,7 +10,9 @@ import "./DevNoteButton.css";
 /** The developer's own inbox of ideas about a card: the text is only saved, the app never shows it back. */
 export function DevNoteButton({ event, size }: { event: EventCard; size: "small" | "large" }) {
   const [open, setOpen] = useState(false);
+  const readOnly = useReadOnly();
   const close = () => setOpen(false);
+  if (readOnly) return null;
   return (
     <>
       <button type="button" className={`dev-note__button dev-note__button--${size}`} aria-label="Note to developer" data-tip="Note to developer" aria-expanded={open} onClick={() => setOpen(true)}>

@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import type { EventCard, Mention } from "../api/client";
 import { useApi, useEvent, useFeed, useMentions, useMerge, useSplit, useTags } from "../api/queries";
 import { useCardLanguage } from "../api/useActiveCity";
+import { useReadOnly } from "../app/readOnly";
 import { SECTIONS } from "../app/routes";
 import { clock, dayAndMonth, longDate, momentDay, momentText } from "../domain/dates";
 import { formatPrice } from "../domain/price";
@@ -207,8 +208,7 @@ function OriginalsMissing({ load }: { load: MentionsLoad }) {
 }
 
 function PostLine({ event, day, mention, named, canSplit }: { event: EventCard; day: string; mention: Mention; named: boolean; canSplit: boolean }) {
-  const split = useSplit();
-  const open = useOpenEvent();
+  const readOnly = useReadOnly();
   const posted = momentText(mention.published_at);
   const openLabel = mention.source_kind === "web" ? "Open page on website" : "Open post in Telegram";
   return (
@@ -220,16 +220,18 @@ function PostLine({ event, day, mention, named, canSplit }: { event: EventCard; 
         <a className="icon-button" href={mention.post_url} target="_blank" rel="noreferrer" aria-label={openLabel} data-tip={openLabel}>
           <Icon name="external" size={17} />
         </a>
-        {canSplit &&
-          (mention.data.start_date === null ? (
-            <IconButton icon="split" label="The post has no date, so it can’t be a separate event" aria-disabled />
-          ) : (
-            <IconButton icon="split" label="Split into a separate event" onClick={() => split.mutate({ id: event.id, mentionId: mention.id }, { onSuccess: (created) => open(created.id, day, true) })} />
-          ))}
-        <MergeMenu event={event} day={day} />
+        {!readOnly && canSplit && <SplitButton event={event} day={day} mention={mention} />}
+        {!readOnly && <MergeMenu event={event} day={day} />}
       </span>
     </div>
   );
+}
+
+function SplitButton({ event, day, mention }: { event: EventCard; day: string; mention: Mention }) {
+  const split = useSplit();
+  const open = useOpenEvent();
+  if (mention.data.start_date === null) return <IconButton icon="split" label="The post has no date, so it can’t be a separate event" aria-disabled />;
+  return <IconButton icon="split" label="Split into a separate event" onClick={() => split.mutate({ id: event.id, mentionId: mention.id }, { onSuccess: (created) => open(created.id, day, true) })} />;
 }
 
 function Thumb({ url, label, onClick }: { url: string; label: string; onClick: () => void }) {
