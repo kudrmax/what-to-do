@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { Icon, type IconName } from "./Icon";
 import { Popover } from "./Popover";
 
@@ -15,34 +17,57 @@ interface Option<T> {
   label: string;
 }
 
-/** A chip that opens a list of checkboxes; while something is chosen it shows how many. */
+/**
+ * A chip that opens a list of checkboxes. Nothing chosen means every option counts, so then every box is ticked.
+ * Any row can be picked alone with "Only"; the last ticked box stays, since an empty list would show nothing.
+ * A remembered choice of an option that no longer exists is dropped, so it cannot hide events unseen.
+ */
 export function MultiSelectChip<T extends string | number>({ label, options, selected, onChange }: { label: string; options: Option<T>[]; selected: T[]; onChange: (selected: T[]) => void }) {
-  const toggle = (value: T) => onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+  const all = options.map((option) => option.value);
+  const known = selected.filter((value) => all.includes(value));
+  const narrowed = known.length > 0 && known.length < all.length;
+  const ticked = narrowed ? known : all;
+  const choose = (next: T[]) => onChange(next.length === all.length ? [] : next);
+  const stale = all.length > 0 && known.length < selected.length;
+  useEffect(() => {
+    if (stale) choose(known);
+  });
+  const toggle = (value: T) => choose(ticked.includes(value) ? ticked.filter((v) => v !== value) : all.filter((v) => v === value || ticked.includes(v)));
   return (
     <Popover
       trigger={(open, toggleOpen) => (
-        <button type="button" className="chip" aria-pressed={selected.length > 0} aria-expanded={open} onClick={toggleOpen}>
+        <button type="button" className="chip" aria-pressed={narrowed} aria-expanded={open} onClick={toggleOpen}>
           {label}
-          {selected.length > 0 && <span className="chip__count">{selected.length}</span>}
+          {narrowed && <span className="chip__count">{known.length}</span>}
           <Icon name="chevronDown" size={14} />
         </button>
       )}
     >
       {() => (
         <>
-          {options.map((option) => (
-            <label key={option.value} className="popover__item">
-              <input type="checkbox" checked={selected.includes(option.value)} onChange={() => toggle(option.value)} />
-              {option.label}
+          <div className="popover__header">
+            <label className="popover__item">
+              <input type="checkbox" checked={!narrowed} onChange={() => narrowed && onChange([])} />
+              All {label.toLowerCase()}
             </label>
-          ))}
-          {selected.length > 0 && (
-            <div className="popover__footer">
-              <button type="button" className="popover__item" onClick={() => onChange([])}>
-                Reset
-              </button>
-            </div>
-          )}
+          </div>
+          {options.map((option) => {
+            const on = ticked.includes(option.value);
+            const alone = on && ticked.length === 1;
+            return (
+              <div key={option.value} className="popover__row">
+                <label className="popover__item">
+                  <input type="checkbox" checked={on} onChange={() => !alone && toggle(option.value)} />
+                  {option.label}
+                </label>
+                {!alone && all.length > 1 && (
+                  <button type="button" className="popover__only" aria-label={`Only ${option.label}`} onClick={() => choose([option.value])}>
+                    Only
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </>
       )}
     </Popover>

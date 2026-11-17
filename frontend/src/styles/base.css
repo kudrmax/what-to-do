@@ -281,6 +281,12 @@ p {
   flex-direction: column;
 }
 
+/* A menu that would run past the window's right edge opens leftwards from its trigger. */
+.popover--end {
+  left: auto;
+  right: 0;
+}
+
 .popover__item {
   display: flex;
   align-items: center;
@@ -313,6 +319,52 @@ p {
 
 .popover__item > input[type="checkbox"] {
   margin-top: 4px;
+}
+
+.popover__header {
+  position: sticky;
+  top: -4px;
+  z-index: 1;
+  margin: -4px -4px 2px;
+  padding: 4px 4px 2px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.popover__row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.popover__row > .popover__item {
+  padding-right: 56px;
+}
+
+.popover__only {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-small);
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.popover__row:hover > .popover__only,
+.popover__only:focus-visible {
+  opacity: 1;
+}
+
+.popover__only:hover {
+  background: var(--accent-soft);
 }
 
 .popover__footer {
