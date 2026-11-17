@@ -91,18 +91,14 @@ describe("event card", () => {
     expect(screen.getByRole("button", { name: "Note to developer" })).toBeInTheDocument();
   });
 
-  it("read-only shows the marks as they are but does nothing on a tap, and has no note to the developer", () => {
-    const { mark } = setup(<EventCardView event={card({ interest: 4, plan: "sure" })} day="2026-11-13" />, "/", true);
-    const sure = screen.getByRole("button", { name: "Going for sure" });
-    const interesting = screen.getByRole("button", { name: "Interesting" });
-    expect(sure).toHaveAttribute("aria-pressed", "true");
-    expect(interesting).toHaveAttribute("aria-pressed", "true");
-    expect(sure).toHaveAttribute("aria-disabled", "true");
-    fireEvent.click(sure);
-    fireEvent.click(screen.getByRole("button", { name: "Maybe going" }));
-    expect(mark).not.toHaveBeenCalled();
-    expect(screen.getByTestId("where").textContent).toBe("/");
+  it("read-only has no marks and no note to the developer, and still opens the event", () => {
+    setup(<EventCardView event={card({ interest: 4, plan: "sure" })} day="2026-11-13" />, "/", true);
+    expect(screen.queryByRole("group", { name: "Interest" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Status" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Note to developer" })).not.toBeInTheDocument();
+    expect(document.querySelector(".card__marks")).toBeNull();
+    fireEvent.click(screen.getByText("Командный квиз"));
+    expect(screen.getByTestId("where").textContent).toBe("/event/7?day=2026-11-13");
   });
 
   it("marks an event that fits the wish from settings", () => {

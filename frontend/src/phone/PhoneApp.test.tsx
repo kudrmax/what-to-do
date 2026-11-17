@@ -73,9 +73,6 @@ test("is_the_apps_want_to_go_screen_without_a_title_or_the_past", async () => {
   await openWith(PASSWORD);
   const card = await screen.findByRole("link", { name: "Jazz at Dorćol" });
   expect(within(card).getByText("About Jazz at Dorćol")).toBeInTheDocument();
-  expect(within(card).getByRole("group", { name: "Interest" })).toBeInTheDocument();
-  expect(within(card).getByRole("button", { name: "Interesting" })).toHaveAttribute("aria-pressed", "true");
-  expect(within(card).getByRole("button", { name: "Going for sure" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("searchbox", { name: "Search events" })).toBeInTheDocument();
   for (const chip of ["Only “Going for sure”", "Tags", "Sources", "Only with time", "Hide multi-day"]) {
     expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
@@ -86,14 +83,14 @@ test("is_the_apps_want_to_go_screen_without_a_title_or_the_past", async () => {
   expect(screen.queryByRole("button", { name: "Note to developer" })).not.toBeInTheDocument();
 });
 
-test("marks_do_nothing", async () => {
+test("shows_no_marks_on_cards_or_in_the_event_window", async () => {
   render(<PhoneApp files={files(await seal(PLANS, freshSalt()))} now={() => NOW} />);
   await openWith(PASSWORD);
-  const card = await screen.findByRole("link", { name: "Jazz at Dorćol" });
-  fireEvent.click(within(card).getByRole("button", { name: "Maybe going" }));
-  expect(within(card).getByRole("button", { name: "Going for sure" })).toHaveAttribute("aria-pressed", "true");
-  expect(within(card).getByRole("button", { name: "Maybe going" })).toHaveAttribute("aria-pressed", "false");
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("link", { name: "Jazz at Dorćol" }));
+  await screen.findByRole("dialog", { name: "Jazz at Dorćol" });
+  expect(screen.queryAllByRole("group", { name: "Interest" })).toHaveLength(0);
+  expect(screen.queryAllByRole("group", { name: "Status" })).toHaveLength(0);
+  expect(document.querySelector(".card__marks, .details__marks")).toBeNull();
 });
 
 test("only_sure_chip_filters", async () => {

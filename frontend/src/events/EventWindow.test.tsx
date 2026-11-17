@@ -83,6 +83,8 @@ describe("event window editing", () => {
     expect(await screen.findByRole("button", { name: "Split into a separate event" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Merge with another event on this day" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Note to developer" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Interest" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Status" })).toBeInTheDocument();
   });
 
   it("read-only keeps the tabs and the posts but leaves out every editing control", async () => {
@@ -93,7 +95,9 @@ describe("event window editing", () => {
     expect(screen.queryByRole("button", { name: "Split into a separate event" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Merge with another event on this day" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Note to developer" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Going for sure" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByRole("group", { name: "Interest" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Status" })).not.toBeInTheDocument();
+    expect(document.querySelector(".details__marks")).toBeNull();
   });
 });
 

@@ -53,16 +53,19 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
   const mentions = query.data ?? [];
   const load: MentionsLoad = { loading: query.isPending, error: query.error, retry: () => void query.refetch() };
   const [viewing, setViewing] = useState<{ photos: ViewedPhoto[]; start: number } | null>(null);
+  const readOnly = useReadOnly();
   return (
     <article className="details">
       <Head event={event} day={day} mentions={mentions} />
-      <div className="details__marks">
-        <div className="marks-row">
-          <InterestPicker event={event} size="large" />
-          <DevNoteButton event={event} size="large" />
+      {!readOnly && (
+        <div className="details__marks">
+          <div className="marks-row">
+            <InterestPicker event={event} size="large" />
+            <DevNoteButton event={event} size="large" />
+          </div>
+          <PlanPicker event={event} size="large" />
         </div>
-        <PlanPicker event={event} size="large" />
-      </div>
+      )}
       <Description event={event} day={day} mentions={mentions} load={load} onView={(photos, start) => setViewing({ photos, start })} />
       {viewing && <PhotoViewer photos={viewing.photos} start={viewing.start} onClose={() => setViewing(null)} />}
     </article>

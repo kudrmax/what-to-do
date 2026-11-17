@@ -14,10 +14,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.marks--read-only button {
-  pointer-events: none;
-}
-
 .marks button:not([aria-pressed="true"]):hover {
   background: var(--bg-hover);
   color: var(--text);
