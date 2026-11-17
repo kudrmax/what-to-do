@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createApi, type EventCard } from "../api/client";
+import { MultiSelectChip } from "../ui/Chips";
 import { ApiContext } from "../api/queries";
 import { EventCardView } from "./EventCardView";
 import { EventTime } from "./EventTime";
@@ -41,6 +42,8 @@ function card(overrides: Partial<EventCard> = {}): EventCard {
     ...overrides,
   };
 }
+
+beforeEach(() => window.localStorage.clear());
 
 function Where() {
   const location = useLocation();
@@ -125,6 +128,73 @@ describe("filters", () => {
     fireEvent.click(screen.getByText("timed"));
     expect(screen.getByTestId("where").textContent).toBe("/?tags=%D0%9A%D0%B8%D0%BD%D0%BE&tags=%D0%A2%D0%B5%D0%B0%D1%82%D1%80&only_timed=true");
     expect(JSON.parse(screen.getByTestId("query").textContent!)).toEqual({ tags: ["Кино", "Театр"], sources: [], only_timed: true, hide_multiday: false, only_priority: false, search: "" });
+  });
+
+  it("brings the filters back on a screen opened without them, but not the search", () => {
+    setup(<Probe />, "/?search=джаз");
+    fireEvent.click(screen.getByText("timed"));
+    cleanup();
+    setup(<Probe />, "/calendar");
+    expect(screen.getByTestId("where").textContent).toBe("/calendar?only_timed=true");
+    expect(JSON.parse(screen.getByTestId("query").textContent!)).toMatchObject({ only_timed: true, search: "" });
+  });
+
+  it("lets an address that names filters win over the remembered ones", () => {
+    setup(<Probe />);
+    fireEvent.click(screen.getByText("timed"));
+    cleanup();
+    setup(<Probe />, "/?tags=Кино");
+    expect(JSON.parse(screen.getByTestId("query").textContent!)).toMatchObject({ tags: ["Кино"], only_timed: false });
+  });
+});
+
+describe("multi-select chip", () => {
+  const options = ["Кино", "Театр", "Джаз"].map((name) => ({ value: name, label: name }));
+
+  function open(selected: string[]) {
+    const onChange = vi.fn();
+    render(<MultiSelectChip label="Tags" options={options} selected={selected} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: /Tags/ }));
+    return onChange;
+  }
+
+  const box = (name: string) => screen.getByRole("checkbox", { name });
+
+  it("ticks every box while nothing narrows the list", () => {
+    open([]);
+    expect(box("All tags")).toBeChecked();
+    options.forEach((option) => expect(box(option.label)).toBeChecked());
+  });
+
+  it("unticking one keeps the others, and picking one alone takes only it", () => {
+    const onChange = open([]);
+    fireEvent.click(box("Театр"));
+    expect(onChange).toHaveBeenLastCalledWith(["Кино", "Джаз"]);
+    fireEvent.click(screen.getByRole("button", { name: "Only Джаз" }));
+    expect(onChange).toHaveBeenLastCalledWith(["Джаз"]);
+  });
+
+  it("shows a narrowed list as it is and goes back to all", () => {
+    const onChange = open(["Кино"]);
+    expect(screen.getByRole("button", { name: /Tags/ })).toHaveTextContent("1");
+    expect(box("Кино")).toBeChecked();
+    fireEvent.click(box("Кино"));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(box("Театр")).not.toBeChecked();
+    fireEvent.click(box("All tags"));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("ticking the last missing box means all again", () => {
+    const onChange = open(["Кино", "Театр"]);
+    fireEvent.click(box("Джаз"));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("drops a remembered option that no longer exists", () => {
+    const onChange = vi.fn();
+    render(<MultiSelectChip label="Tags" options={options} selected={["Опера", "Кино"]} onChange={onChange} />);
+    expect(onChange).toHaveBeenCalledWith(["Кино"]);
   });
 });
 

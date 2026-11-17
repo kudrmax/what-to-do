@@ -9,3 +9,7 @@ afterEach(cleanup);
 
 // jsdom has no matchMedia; the page's theme asks it whether the system is dark.
 window.matchMedia ??= vi.fn((query: string) => ({ matches: false, media: query, onchange: null, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn() })) as unknown as typeof window.matchMedia;
+
+// Node 25+ has its own localStorage, empty without --localstorage-file, and it hides the one of jsdom.
+declare const jsdom: { window: Window };
+if (!globalThis.localStorage) Object.defineProperty(globalThis, "localStorage", { value: jsdom.window.localStorage, configurable: true });

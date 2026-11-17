@@ -1,15 +1,58 @@
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import type { FeedQuery } from "../api/client";
 
 type Shared = Pick<FeedQuery, "tags" | "sources" | "only_timed" | "hide_multiday" | "only_priority" | "search">;
 
-/** The filters every list of events shares. They live in the address, under the API's own names. */
+/** The filters that stay as they were when the user moves to another screen or opens the app again. The search is a passing look and is not kept. */
+const KEPT = ["tags", "sources", "only_timed", "hide_multiday", "only_priority"] as const;
+const STORAGE_KEY = "event-filters";
+
+function kept(params: URLSearchParams): URLSearchParams {
+  const result = new URLSearchParams();
+  params.forEach((value, key) => {
+    if ((KEPT as readonly string[]).includes(key)) result.append(key, value);
+  });
+  return result;
+}
+
+function remembered(): URLSearchParams {
+  try {
+    return kept(new URLSearchParams(localStorage.getItem(STORAGE_KEY) ?? ""));
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+function remember(params: URLSearchParams) {
+  try {
+    localStorage.setItem(STORAGE_KEY, kept(params).toString());
+  } catch {
+    // Without storage the filters last until the screen changes.
+  }
+}
+
+/** An address without any kept filter takes the remembered ones; an address that names some is the user's choice. */
+function withRemembered(params: URLSearchParams): URLSearchParams {
+  if (kept(params).size > 0) return params;
+  const next = new URLSearchParams(params);
+  remembered().forEach((value, key) => next.append(key, value));
+  return next;
+}
+
+/** The filters every list of events shares. They live in the address, under the API's own names, and are remembered across screens and launches. */
 export function useEventFilters() {
-  const [params, setParams] = useSearchParams();
+  const [address, setParams] = useSearchParams();
+  const params = withRemembered(address);
+  const restoring = params.toString() !== address.toString();
+  useEffect(() => {
+    if (restoring) setParams(params, { replace: true });
+  });
   const change = (edit: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(params);
     edit(next);
+    remember(next);
     setParams(next, { replace: true });
   };
   const flag = (name: keyof Shared) => params.get(name) === "true";
