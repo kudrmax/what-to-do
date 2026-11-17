@@ -1476,6 +1476,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anyio" },
     { name = "claude-agent-sdk" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "filelock" },
     { name = "httpx" },
@@ -1503,6 +1504,7 @@ dev = [
 requires-dist = [
     { name = "anyio", specifier = ">=4.16.0" },
     { name = "claude-agent-sdk", specifier = ">=0.2.180" },
+    { name = "cryptography", specifier = ">=50.0.2" },
     { name = "fastapi", specifier = ">=0.162.2" },
     { name = "filelock", specifier = ">=4.2.10" },
     { name = "httpx", specifier = ">=0.28.1" },
