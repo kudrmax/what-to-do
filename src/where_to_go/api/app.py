@@ -179,6 +179,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.container = container_factory()
+        app.state.container.phone_page.start()
         yield
         await app.state.container.close()
 

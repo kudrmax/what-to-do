@@ -19,6 +19,7 @@ class PhonePageConfig(BaseModel):
     published_hash: str = ""
     published_at: datetime | None = None
     last_error: str | None = None
+    page_url: str = ""
 
 
 class PhonePageConfigRepository:
