@@ -1,7 +1,7 @@
 import type { Tag } from "../api/client";
 
 /** A card's tags in the order set in the settings; tags the settings do not know go last, as they came. */
-export function orderTags(names: string[], tags: Tag[] | undefined): string[] {
+export function orderTags(names: string[], tags: Pick<Tag, "name">[] | undefined): string[] {
   const position = new Map((tags ?? []).map((tag, index) => [tag.name, index]));
   const rank = (name: string) => position.get(name) ?? Number.MAX_SAFE_INTEGER;
   return [...names].sort((a, b) => rank(a) - rank(b));

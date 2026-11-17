@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.phone.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "api:types": "cd .. && uv run python scripts/export_openapi.py frontend/openapi.json && cd frontend && openapi-typescript openapi.json -o src/api/schema.d.ts",

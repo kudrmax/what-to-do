@@ -115,6 +115,12 @@ const PATHS = {
       <circle cx="12" cy="12" r="9" />
     </>
   ),
+  lock: (
+    <>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
   plus: <path d="M12 5v14M5 12h14" />,
   pause: <path d="M9 5v14M15 5v14" />,
   play: <path d="M7 4.5v15l12-7.5z" />,
