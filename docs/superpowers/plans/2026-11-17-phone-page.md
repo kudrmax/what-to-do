@@ -83,7 +83,7 @@ def test_secrets_do_not_reach_app_settings(client):  # API client fixture as in 
   - `encrypt(data: bytes) -> bytes` with a random IV.
   - `encrypt_stable(data: bytes) -> bytes` with `IV = HMAC-SHA256(key, data)[:12]`: same input gives the same bytes (used for posters).
   - `decrypt(blob: bytes) -> bytes`; raises `WrongPassword` on a tag failure or a salt mismatch. Used by tests and by the vector check.
-- The vector file: `{"password": "correct horse", "plaintext": "{\"hello\":\"мир\"}", "blob_base64": "..."}` produced once by `encrypt` and committed; Task 7 decrypts the same file in the browser code.
+- The vector file: `{"password": "correct horse", "plaintext": "{\"hello\":\"wörld ✓\"}", "blob_base64": "..."}` produced once by `encrypt` and committed; Task 7 decrypts the same file in the browser code.
 
 - [ ] **Step 1: Write the failing tests**
 
