@@ -49,6 +49,8 @@ from where_to_go.models import (
     TagPublic,
     TagVisibility,
 )
+from where_to_go.phone_page.github import PublishError
+from where_to_go.phone_page.service import PhonePageState
 from where_to_go.refresh import RefreshProgress
 from where_to_go.search import SearchQuery
 from where_to_go.settings import AppSettings, SettingsChange
@@ -78,6 +80,7 @@ class ApiTag(StrEnum):
     EVENTS = "events"
     REFRESH = "refresh"
     STATS = "stats"
+    PHONE_PAGE = "phone page"
 
 
 TAG_HELP = {
@@ -87,6 +90,7 @@ TAG_HELP = {
     ApiTag.EVENTS: "The feed, a card, marks, manual merge and split",
     ApiTag.REFRESH: "Collect new posts and turn them into cards",
     ApiTag.STATS: "Counts of what was read, found and marked",
+    ApiTag.PHONE_PAGE: "The encrypted page of upcoming plans on GitHub Pages, for the phone",
 }
 
 
@@ -100,6 +104,12 @@ class ClaudeSignInView(BaseModel):
 
 class SignInCodeRequest(BaseModel):
     code: str = Field(min_length=1, max_length=2000, description="The code the sign-in page shows")
+
+
+class PhonePageRequest(BaseModel):
+    repository: str = Field(description="The GitHub repository to publish to, as owner/name")
+    token: str | None = Field(default=None, description="A GitHub token with access to it; empty keeps the saved one")
+    password: str | None = Field(default=None, description="Opens the page on the phone; empty keeps the saved one")
 
 
 class SourceRequest(SQLModel):
@@ -532,6 +542,37 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         """What the active city's posts gave: posts and photos read, events found and merged, the user's marks,
         tags, sources and posts per week."""
         return c.statistics.of_city(city)
+
+    # ---------- phone page ----------
+
+    @app.get("/phone-page", response_model=PhonePageState, tags=[ApiTag.PHONE_PAGE])
+    def phone_page(c: ContainerDep):
+        """Whether the phone page is on, where it lives and how its last publish went. Never returns the token or password."""
+        return c.phone_page.state()
+
+    @app.put("/phone-page", response_model=PhonePageState, tags=[ApiTag.PHONE_PAGE])
+    async def turn_phone_page_on(body: PhonePageRequest, c: ContainerDep):
+        """Checks the repository, publishes the plans and keeps them fresh. An empty token or password keeps the saved one. 422: GitHub refused."""
+        try:
+            return await c.phone_page.turn_on(body.repository, body.token, body.password)
+        except PublishError as error:
+            raise HTTPException(422, str(error)) from None
+
+    @app.delete("/phone-page", response_model=PhonePageState, tags=[ApiTag.PHONE_PAGE])
+    async def turn_phone_page_off(c: ContainerDep):
+        """Replaces the published page with an empty one. The page is off even when 422 says GitHub could not be reached."""
+        try:
+            return await c.phone_page.turn_off()
+        except PublishError as error:
+            raise HTTPException(422, str(error)) from None
+
+    @app.post("/phone-page/publish", response_model=PhonePageState, tags=[ApiTag.PHONE_PAGE])
+    async def publish_phone_page(c: ContainerDep):
+        """Publishes the plans now, ignoring the ten minute pause. A failure lands in `last_error`. 409: the page is off."""
+        try:
+            return await c.phone_page.publish_now()
+        except PublishError as error:
+            raise HTTPException(409, str(error)) from None
 
     app.include_router(release_routes.router)
     return app

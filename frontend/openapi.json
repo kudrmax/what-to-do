@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.18.0"
+  "version": "1.21.3"
  },
  "paths": {
   "/settings": {
@@ -1640,6 +1640,110 @@
     }
    }
   },
+  "/phone-page": {
+   "get": {
+    "tags": [
+     "phone page"
+    ],
+    "summary": "Phone Page",
+    "description": "Whether the phone page is on, where it lives and how its last publish went. Never returns the token or password.",
+    "operationId": "phone_page_phone_page_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PhonePageState"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "phone page"
+    ],
+    "summary": "Turn Phone Page On",
+    "description": "Checks the repository, publishes the plans and keeps them fresh. An empty token or password keeps the saved one. 422: GitHub refused.",
+    "operationId": "turn_phone_page_on_phone_page_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PhonePageRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PhonePageState"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "phone page"
+    ],
+    "summary": "Turn Phone Page Off",
+    "description": "Replaces the published page with an empty one. The page is off even when 422 says GitHub could not be reached.",
+    "operationId": "turn_phone_page_off_phone_page_delete",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PhonePageState"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/phone-page/publish": {
+   "post": {
+    "tags": [
+     "phone page"
+    ],
+    "summary": "Publish Phone Page",
+    "description": "Publishes the plans now, ignoring the ten minute pause. A failure lands in `last_error`. 409: the page is off.",
+    "operationId": "publish_phone_page_phone_page_publish_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PhonePageState"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/version": {
    "get": {
     "tags": [
@@ -3102,6 +3206,118 @@
     ],
     "title": "Occurrence"
    },
+   "PhonePageRequest": {
+    "properties": {
+     "repository": {
+      "type": "string",
+      "title": "Repository",
+      "description": "The GitHub repository to publish to, as owner/name"
+     },
+     "token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Token",
+      "description": "A GitHub token with access to it; empty keeps the saved one"
+     },
+     "password": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Password",
+      "description": "Opens the page on the phone; empty keeps the saved one"
+     }
+    },
+    "type": "object",
+    "required": [
+     "repository"
+    ],
+    "title": "PhonePageRequest"
+   },
+   "PhonePageState": {
+    "properties": {
+     "enabled": {
+      "type": "boolean",
+      "title": "Enabled"
+     },
+     "repository": {
+      "type": "string",
+      "title": "Repository"
+     },
+     "has_token": {
+      "type": "boolean",
+      "title": "Has Token"
+     },
+     "has_password": {
+      "type": "boolean",
+      "title": "Has Password"
+     },
+     "page_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page Url",
+      "description": "The published page; empty until the first turn on"
+     },
+     "published_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Published At",
+      "description": "When the plans were last published"
+     },
+     "last_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Error",
+      "description": "Why the last publish failed, ready to show"
+     },
+     "publishing": {
+      "type": "boolean",
+      "title": "Publishing",
+      "description": "A publish is running right now"
+     }
+    },
+    "type": "object",
+    "required": [
+     "enabled",
+     "repository",
+     "has_token",
+     "has_password",
+     "page_url",
+     "published_at",
+     "last_error",
+     "publishing"
+    ],
+    "title": "PhonePageState"
+   },
    "PhotoStats": {
     "properties": {
      "total": {
@@ -4291,6 +4507,10 @@
   {
    "name": "stats",
    "description": "Counts of what was read, found and marked"
+  },
+  {
+   "name": "phone page",
+   "description": "The encrypted page of upcoming plans on GitHub Pages, for the phone"
   },
   {
    "name": "releases",

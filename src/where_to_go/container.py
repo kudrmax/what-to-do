@@ -19,7 +19,7 @@ from where_to_go.originals import OriginalPosts
 from where_to_go.phone_page.cipher import SnapshotCipher
 from where_to_go.phone_page.config import PhonePageConfigRepository
 from where_to_go.phone_page.github import GitHubPagesPublisher
-from where_to_go.phone_page.service import PhonePageService
+from where_to_go.phone_page.service import PagesPublisher, PhonePageService
 from where_to_go.phone_page.snapshot import SnapshotBuilder
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
@@ -92,6 +92,7 @@ class Container:
         http: httpx.AsyncClient | None = None,
         project: ProjectPaths | None = None,
         release_source: ReleaseSource | None = None,
+        phone_publisher: PagesPublisher | None = None,
     ) -> Container:
         project = project or ProjectPaths.here()
         db = Database(data_dir / "where-to-go.sqlite3")
@@ -158,7 +159,7 @@ class Container:
         phone_page = PhonePageService(
             config=phone_config,
             builder=SnapshotBuilder(feed, cities, tags, mentions, images),
-            publisher=GitHubPagesPublisher(http),
+            publisher=phone_publisher or GitHubPagesPublisher(http),
             cipher_factory=SnapshotCipher,
             bundle_dir=project.dist / "phone",
             clock=lambda: datetime.now(UTC),
