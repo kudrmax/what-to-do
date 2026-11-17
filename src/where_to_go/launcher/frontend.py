@@ -20,13 +20,16 @@ class FrontendBuild:
         "src",
         "public",
         "index.html",
+        "phone.html",
         "package.json",
         "package-lock.json",
         "vite.config.ts",
+        "vite.phone.config.ts",
         "tsconfig.json",
         "tsconfig.app.json",
         "tsconfig.node.json",
     )
+    OUTPUTS = (Path("index.html"), Path("phone") / "phone.html")
     DEPENDENCIES_STAMP = Path("node_modules") / ".package-lock.json"
 
     def __init__(self, paths: ProjectPaths, tools: Tools, say: Callable[[str], None] = print) -> None:
@@ -35,10 +38,10 @@ class FrontendBuild:
         self._say = say
 
     def is_stale(self) -> bool:
-        index = self._paths.dist / "index.html"
-        if not index.is_file():
+        outputs = [self._paths.dist / output for output in self.OUTPUTS]
+        if not all(output.is_file() for output in outputs):
             return True
-        return self._newest_source() > index.stat().st_mtime
+        return self._newest_source() > min(output.stat().st_mtime for output in outputs)
 
     def ensure(self) -> bool:
         """Builds the interface when it is missing or older than its sources; tells whether it built."""
