@@ -2,6 +2,21 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.19.0 — 2026-11-17
+
+What To Do installs on a Mac like any other app now: download a disk image, drag it to Applications, done.
+
+### A Mac app you just download
+There is a disk image for Apple Silicon Macs and one for Intel Macs on the release page. Everything the app needs is inside: no Terminal, no Python, no Node.js, no git. Open the image and drag What To Do to Applications. The first time, macOS asks you to allow the app once in System Settings, Privacy & Security; the README shows each step. Your events stay in the same folder as before, and **Update** in the app downloads the next version and replaces itself.
+![](docs/images/changelog/1.19.0/disk-image.png)
+
+### Sign in to Claude from the app
+When Claude isn't signed in, the note under **Refresh** now has a **Sign in to Claude** button instead of terminal steps. The sign-in page opens in your browser and the app picks up the login by itself. If the browser didn't open, the note links to the page and takes the code it shows.
+![](docs/images/changelog/1.19.0/sign-in.png)
+
+### Improvements
+- Installing from the code is one step shorter: `git clone`, then `uv run where-to-go up` installs everything by itself.
+
 ## 1.18.0 — 2026-11-17
 
 Settings are tidied up: what everyone needs comes first, expert knobs wait under Advanced.
