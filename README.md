@@ -6,9 +6,6 @@ Event announcements are scattered across dozens of channels: long digests, poste
 
 It runs on your own computer and uses your existing Claude subscription through Claude Code. No API key, no account, no server.
 
-> [!IMPORTANT]
-> **On a Mac, the first launch is blocked by macOS!** That is expected for an app from outside the App Store. [Here is how to open it](#macos), once.
-
 ![The Upcoming feed: event cards by day with photo, time, tag, price and description](docs/images/readme/feed.png)
 
 ## Contents
