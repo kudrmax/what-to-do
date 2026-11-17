@@ -71,7 +71,7 @@ export function AddSourceForm() {
             className="input"
             value={link}
             onChange={(e) => changeLink(e.target.value)}
-            placeholder="t.me/channel, instagram.com/profile or an event page"
+            placeholder="Link or @name"
             required
             aria-invalid={Boolean(error)}
           />
@@ -86,7 +86,7 @@ export function AddSourceForm() {
         )}
         <label className="add-source__field">
           <span className="label">Name</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Same as the channel, profile or website" />
+          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Its own name" />
         </label>
         {!preview && (
           <button type="submit" className="button" disabled={busy || !link.trim() || unchosen} title={unchosen ? "Choose Telegram or Instagram first" : undefined}>
