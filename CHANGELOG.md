@@ -2,6 +2,18 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.22.0 — 2026-11-17
+
+Your plans on the phone.
+
+### Want to go, on your phone
+The app runs on your computer, but your plans can now go with you. Turn on **Settings → Phone page** and the app keeps a copy of **Want to go** on a GitHub Pages site of your own: the same cards, filters and event window, without the buttons that change anything. The site is public, so everything on it is encrypted with a password you choose; the phone asks for it once and remembers it. While the app runs, it updates the page by itself, at most once every 10 minutes, and the page shows when it was last updated.
+![](docs/images/changelog/1.22.0/phone-page.png)
+
+### New
+- **Settings → Phone page** walks you through a free GitHub repository, a token limited to it and turning GitHub Pages on, then shows the page link with a QR code for the phone.
+![](docs/images/changelog/1.22.0/settings.png)
+
 ## 1.21.3 — 2026-11-17
 
 An honest note for Linux and Windows.
