@@ -123,3 +123,17 @@ def test_hash_ignores_made_at(container, builder):
 
 def test_no_active_city_gives_none(builder):
     assert builder.build(NOW) is None
+
+
+def test_no_phone_page_setting_or_secret_reaches_the_snapshot(container, builder):
+    seed(container, "Show", TODAY, Plan.SURE)
+    container.phone_config.update(
+        enabled=True, repository="max/plans-repo", token="ghp_TOKEN_never_published", password="phone-password-never-published", salt="c2FsdHNhbHRzYWx0c2FsdA=="
+    )
+
+    snapshot, _ = builder.build(NOW)
+    published = snapshot.model_dump_json()
+
+    assert "phone_page" not in published
+    for secret in ("ghp_TOKEN_never_published", "phone-password-never-published", "c2FsdHNhbHRzYWx0c2FsdA==", "max/plans-repo"):
+        assert secret not in published

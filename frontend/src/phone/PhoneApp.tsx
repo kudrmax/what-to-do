@@ -138,6 +138,6 @@ export function PhoneApp({ files, now: clock = realNow }: { files: PageFiles; no
     case "locked":
       return <PasswordScreen wrong={state.wrong} busy={state.busy} onOpen={(password) => void unlock(state.blob, password)} />;
     case "open":
-      return <PhoneScreens api={state.api} tools={<PageMenu snapshot={state.snapshot} now={now()} onLock={() => lock(state.blob)} />} />;
+      return <PhoneScreens api={state.api} tools={<PageMenu snapshot={state.snapshot} now={now} onLock={() => lock(state.blob)} />} />;
   }
 }

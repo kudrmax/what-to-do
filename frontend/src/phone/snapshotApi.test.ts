@@ -12,7 +12,7 @@ const CARDS = snapshot(
     { date: "2026-11-16", event: event(1, "Yesterday's talk", "sure") },
     { date: "2026-11-17", event: event(2, "Jazz", "sure", { tags: ["music"], source_ids: [1], description: "Trio; then a jam\nBring friends" }) },
     { date: "2026-11-17", event: event(3, "Puppets", "maybe", { tags: ["theatre"], source_ids: [2], start_time: null, venue: "Pinokio" }) },
-    { date: "2026-11-18", event: event(4, "Fair", "maybe", { kind: "multiday", tags: ["market"], source_ids: [3], is_priority: true, description: "Crafts and food" }) },
+    { date: "2026-11-18", event: event(4, "Fair", "maybe", { kind: "multiday", start_date: "2026-11-18", end_date: "2026-11-19", tags: ["market"], source_ids: [3], is_priority: true, description: "Crafts and food" }) },
   ],
   "2026-11-16T10:00:00Z",
   { "2": [mention(21, "jazz", "https://t.me/jazz/21")] },
@@ -48,6 +48,30 @@ describe("feed", () => {
   });
 });
 
+describe("multi-day events", () => {
+  const running = snapshot(
+    [
+      { date: "2026-11-15", event: event(5, "Fair", "maybe", { kind: "multiday", start_date: "2026-11-14", end_date: "2026-11-20" }) },
+      { date: "2026-11-15", event: event(6, "Over", "maybe", { kind: "multiday", start_date: "2026-11-14", end_date: "2026-11-16" }) },
+      { date: "2026-11-17", event: event(7, "Show", "sure") },
+      { date: "2026-11-25", event: event(8, "Later fair", "maybe", { kind: "multiday", start_date: "2026-11-25", end_date: "2026-11-28" }) },
+    ],
+    "2026-11-15T10:00:00Z",
+  );
+  const feed = createSnapshotApi(running, PageImages.none, NOW);
+  const days = (found: Occurrence[]) => found.map((item) => `${item.date} ${item.event.title}`);
+
+  test("one still running is shown on today, after the timed cards, as the backend lays it out", async () => {
+    expect(days(await feed.feed({}))).toEqual(["2026-11-17 Show", "2026-11-17 Fair", "2026-11-25 Later fair"]);
+  });
+
+  test("a later start moves it to that day while it still runs", async () => {
+    expect(days(await feed.feed({ start: "2026-11-19" }))).toEqual(["2026-11-19 Fair", "2026-11-25 Later fair"]);
+    expect(days(await feed.feed({ start: "2026-11-21", end: "2026-11-24" }))).toEqual([]);
+    expect(days(await feed.feed({ end: "2026-11-26", start: "2026-11-26" }))).toEqual(["2026-11-26 Later fair"]);
+  });
+});
+
 test("answers the read calls from the snapshot", async () => {
   expect(await api.settings()).toEqual(CARDS.settings);
   expect(await api.cities()).toEqual(CARDS.cities);
@@ -76,6 +100,6 @@ test("gives the calendar file of a card with its first post", () => {
   expect(file).toContain("URL:https://t.me/jazz/21\r\n");
   expect(file).toContain("DESCRIPTION:Trio\\; then a jam\\nBring friends\\n\\nhttps://t.me/jazz/21\r\n");
   const allDay = decodeURIComponent(api.calendarFileUrl(4));
-  expect(allDay).toContain("DTSTART;VALUE=DATE:20261117");
-  expect(allDay).toContain("DTEND;VALUE=DATE:20261118");
+  expect(allDay).toContain("DTSTART;VALUE=DATE:20261118");
+  expect(allDay).toContain("DTEND;VALUE=DATE:20261120");
 });

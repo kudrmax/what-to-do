@@ -111,6 +111,15 @@ test("empty_snapshot_shows_no_plans_yet", async () => {
   render(<PhoneApp files={files(await seal(snapshot([]), freshSalt()))} now={() => NOW} />);
   await openWith(PASSWORD);
   expect(await screen.findByText("No plans yet")).toBeInTheDocument();
+  expect(screen.queryByText(/Mark an event/)).not.toBeInTheDocument();
+});
+
+test("a_search_that_finds_nothing_does_not_lead_to_the_feed", async () => {
+  window.history.replaceState(null, "", "/#/?search=nothing-like-this");
+  render(<PhoneApp files={files(await seal(PLANS, freshSalt()))} now={() => NOW} />);
+  await openWith(PASSWORD);
+  expect(await screen.findByText("Nothing found")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Open / })).not.toBeInTheDocument();
 });
 
 test("lock_forgets_key", async () => {

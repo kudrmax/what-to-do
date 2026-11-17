@@ -20,7 +20,19 @@ export class SnapshotFeed {
   query(query: FeedQuery): Occurrence[] {
     const today = todayIn(this.snapshot.timezone, this.now());
     const start = query.start && query.start > today ? query.start : today;
-    return this.snapshot.occurrences.filter((item) => item.date >= start && (!query.end || item.date <= query.end) && this.accepts(item.event, query));
+    const laidOut = this.snapshot.occurrences.flatMap((item) => {
+      const date = this.day(item, start, query.end);
+      return date && this.accepts(item.event, query) ? [{ ...item, date }] : [];
+    });
+    return laidOut.sort(byFeedOrder);
+  }
+
+  /** The day the backend shows the card on (feed.py, Feed._days): a multi-day event once, on the first day of the range it still runs. */
+  private day({ date, event }: Occurrence, start: string, end: string | null | undefined): string | null {
+    if (event.kind !== "multiday") return date >= start && (!end || date <= end) ? date : null;
+    const last = event.end_date ?? event.start_date;
+    if (last < start || (end && event.start_date > end)) return null;
+    return event.start_date > start ? event.start_date : start;
   }
 
   private accepts(event: EventCard, query: FeedQuery): boolean {
@@ -36,6 +48,16 @@ export class SnapshotFeed {
     if (query.only_priority && !event.is_priority) return false;
     return !plans.length || plans.includes(event.plan ?? "none");
   }
+}
+
+/** Feed._order of the backend: by day, multi-day last, then unknown time, then time and title. */
+function byFeedOrder(a: Occurrence, b: Occurrence): number {
+  const key = ({ date, event }: Occurrence) => [date, event.kind === "multiday" ? 1 : 0, event.start_time === null ? 1 : 0, event.start_time ?? "", event.title] as const;
+  const [left, right] = [key(a), key(b)];
+  for (let i = 0; i < left.length; i++) {
+    if (left[i] !== right[i]) return left[i] < right[i] ? -1 : 1;
+  }
+  return 0;
 }
 
 function searchable(event: EventCard): string {

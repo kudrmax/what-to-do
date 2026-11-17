@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
+
 import { ago } from "../domain/dates";
 import { Icon } from "../ui/Icon";
 import { Popover } from "../ui/Popover";
 import { isStale, type PhoneSnapshot } from "./snapshot";
 
 /** One small control among the filters: when the plans were published, in the warning colour once a day old, and Lock. */
-export function PageMenu({ snapshot, now, onLock }: { snapshot: PhoneSnapshot; now: Date; onLock: () => void }) {
+export function PageMenu({ snapshot, now: clock, onLock }: { snapshot: PhoneSnapshot; now: () => Date; onLock: () => void }) {
+  const now = useNow(clock);
   const stale = isStale(snapshot, now);
   const when = ago(snapshot.made_at, now);
   return (
@@ -39,4 +42,22 @@ export function PageMenu({ snapshot, now, onLock }: { snapshot: PhoneSnapshot; n
       )}
     </Popover>
   );
+}
+
+const TICK_MS = 60_000;
+
+/** The current moment, looked at again every minute and whenever the page comes back to the foreground. */
+function useNow(clock: () => Date): Date {
+  const [now, setNow] = useState(clock);
+  useEffect(() => {
+    const look = () => setNow(clock());
+    const onVisibility = () => document.visibilityState === "visible" && look();
+    const timer = setInterval(look, TICK_MS);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [clock]);
+  return now;
 }
