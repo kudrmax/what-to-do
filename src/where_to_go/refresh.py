@@ -10,7 +10,7 @@ import anyio
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import City, CollectedPost, ExtractedEvent, Post, Public, Source, SourceKind
+from where_to_go.models import ChannelReference, City, CollectedPost, ExtractedEvent, Post, Public, Source, SourceKind
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
@@ -21,6 +21,7 @@ from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
     CityRepository,
     EventRepository,
+    InstagramRepository,
     MentionRepository,
     PlaceRepository,
     PhotoTextRepository,
@@ -161,9 +162,17 @@ class PostReader:
                 self._places.forget_post(result.post_id)
                 for place in result.places:
                     self._places.add(context.city.id, result.post_id, place)
-                self._potential_sources.note(context.city.id, by_id[result.post_id], result.channels)
+                self._potential_sources.note(context.city.id, post, self._channels(post, sources[post.source_id], result.channels))
                 self._posts.mark_processed(result.post_id, context.rules)
 
+
+    @staticmethod
+    def _channels(post: Post, source: Source, channels: list[ChannelReference]) -> list[ChannelReference]:
+        """An Instagram caption is full of @accounts that are not Telegram channels: only a real t.me link counts there."""
+        if source.kind != SourceKind.INSTAGRAM:
+            return channels
+        text = post.text.lower()
+        return [c for c in channels if f"t.me/{c.handle.lower()}" in text]
 
     def _settled(self, post: Post, source: Source, events: list[tuple[ExtractedEvent, int | None]]) -> list[tuple[ExtractedEvent, int | None]]:
         """An event page's own facts replace Claude's reading of them; a page Claude split into several events is left as read."""
@@ -187,6 +196,7 @@ class RefreshService:
         settings: SettingsRepository,
         cities: CityRepository,
         sources: SourceRepository,
+        instagram: InstagramRepository,
         posts: PostRepository,
         mentions: MentionRepository,
         events: EventRepository,
@@ -203,6 +213,7 @@ class RefreshService:
         self._settings = settings
         self._cities = cities
         self._sources = sources
+        self._instagram = instagram
         self._posts = posts
         self._mentions = mentions
         self._events = events
@@ -264,7 +275,8 @@ class RefreshService:
 
         context = self._post_reader.context(city)
         today = datetime.now(ZoneInfo(city.timezone)).date()
-        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts, today)
+        readings = self._instagram.readings(sources)
+        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts, today, readings)
 
         self.progress.enter(Stage.PHOTOS)
         with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text

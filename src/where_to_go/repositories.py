@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from itertools import groupby
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import func, or_
@@ -12,6 +12,7 @@ from where_to_go.db import Database
 from where_to_go.models import (
     InstagramProfile,
     InstagramReading,
+    InstagramUrls,
     City,
     CityContents,
     CollectedPost,
@@ -312,27 +313,43 @@ class PostRepository:
             query = select(Post).where(col(Post.processed_at).is_(None), col(Post.source_id).in_(list(source_ids)))
             return list(s.exec(query.order_by(Post.published_at)))
 
-    def to_read(self, source_ids: Iterable[int], rules: str, recent: int, today: date) -> list[Post]:
-        """Posts never read, and those read with other rules: the latest `recent` of every channel, and the pages of
-        websites whose events are still ahead.
+    STORY_DAYS = 30
+    _NO_INSTAGRAM: dict[int, InstagramReading] = {}
+
+    def to_read(
+        self, source_ids: Iterable[int], rules: str, recent: int, today: date, instagram: dict[int, InstagramReading] = _NO_INSTAGRAM
+    ) -> list[Post]:
+        """Posts never read, and those read with other rules: the latest `recent` of every channel or Instagram profile,
+        the Instagram stories of the last 30 days (counted from the start of `today`, UTC), and the pages of websites
+        whose events are still ahead.
 
         A post whose events the user merged or split by hand is not read again: their decision stays.
+        A kind an Instagram source has turned off is never read, not even when it is new.
         """
         ids = list(source_ids)
         with self._db.session() as s:
             curated = set(s.exec(select(Mention.post_id).where(Mention.locked == True)))  # noqa: E712
             chosen = {p.id: p for p in self.unprocessed(ids)}
-            telegram = set(s.exec(select(Source.id).where(col(Source.id).in_(ids), Source.kind == SourceKind.TELEGRAM)))
-            for source_id in (i for i in ids if i in telegram):
+            kinds = {i: k for i, k in s.exec(select(Source.id, Source.kind).where(col(Source.id).in_(ids))).all()}
+            for source_id in (i for i in ids if kinds.get(i) == SourceKind.TELEGRAM):
                 latest = s.exec(select(Post).where(Post.source_id == source_id).order_by(col(Post.published_at).desc()).limit(recent))
                 chosen |= {p.id: p for p in latest if p.read_with != rules and p.id not in curated}
+            for source_id in (i for i in ids if kinds.get(i) == SourceKind.INSTAGRAM):
+                reading = instagram.get(source_id, InstagramReading())
+                posts = s.exec(select(Post).where(Post.source_id == source_id).order_by(col(Post.published_at).desc())).all()
+                stories = [p for p in posts if InstagramUrls.is_story(p.url)]
+                plain = [p for p in posts if not InstagramUrls.is_story(p.url)]
+                for post in (stories if not reading.stories else []) + (plain if not reading.posts else []):
+                    chosen.pop(post.id, None)
+                cutoff = datetime.combine(today - timedelta(days=self.STORY_DAYS), time.min, tzinfo=UTC)
+                fresh = [p for p in stories if p.published_at.replace(tzinfo=p.published_at.tzinfo or UTC) >= cutoff]
+                again = (plain[:recent] if reading.posts else []) + (fresh if reading.stories else [])
+                chosen |= {p.id: p for p in again if p.read_with not in (rules, self.SKIPPED) and p.id not in curated}
+            others = [i for i in ids if kinds.get(i) not in (SourceKind.TELEGRAM, SourceKind.INSTAGRAM)]
             ahead = (
                 select(Post)
                 .join(WebPage, (WebPage.id == Post.external_id) & (WebPage.source_id == Post.source_id))
-                .where(
-                    col(Post.source_id).in_([i for i in ids if i not in telegram]),
-                    func.coalesce(WebPage.end_day, WebPage.start_day) >= today,
-                )
+                .where(col(Post.source_id).in_(others), func.coalesce(WebPage.end_day, WebPage.start_day) >= today)
             )
             chosen |= {p.id: p for p in s.exec(ahead).unique() if p.read_with != rules and p.id not in curated}
         return sorted(chosen.values(), key=lambda p: p.published_at)

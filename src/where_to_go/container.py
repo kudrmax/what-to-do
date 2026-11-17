@@ -155,6 +155,7 @@ class Container:
             settings=settings,
             cities=cities,
             sources=sources,
+            instagram=instagram,
             posts=posts,
             mentions=mentions,
             events=events,

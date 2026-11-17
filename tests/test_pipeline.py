@@ -780,3 +780,82 @@ async def test_a_video_that_cannot_be_downloaded_costs_the_post_only_its_frames(
     [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
 
     assert len(stored.image_paths) == 1 and "-f" not in stored.image_paths[0]
+
+
+class InstagramShelf:
+    """An Instagram source with posts and stories of given ages, all read under old rules."""
+
+    def __init__(self, container: Container) -> None:
+        city = add_city(container, "Белград", "Europe/Belgrade")
+        self.container = container
+        self.source = container.sources.add(Source(city_id=city.id, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="EJE"))
+        self.today = datetime.now(UTC).date()
+        self._count = 0
+
+    def add(self, url: str, age_days: int, *, read: bool = True, processed: bool = True) -> int:
+        self._count += 1
+        post = CollectedPost(external_id=self._count, url=url, published_at=datetime.now(UTC) - timedelta(days=age_days), text="Квиз", read=read)
+        self.container.posts.add_new(self.source.id, post, [])
+        post_id = self.container.posts.id_of(self.source.id, self._count)
+        if processed and read:
+            self.container.posts.mark_processed(post_id, "old rules")
+        return post_id
+
+    def post(self, age_days: int = 1, **kwargs) -> int:
+        return self.add(f"https://www.instagram.com/p/c{self._count}/", age_days, **kwargs)
+
+    def story(self, age_days: int, **kwargs) -> int:
+        return self.add(f"https://www.instagram.com/stories/highlights/{self._count}/", age_days, **kwargs)
+
+    def to_read(self, reading: InstagramReading = InstagramReading(), recent: int = 20) -> set[int]:
+        chosen = self.container.posts.to_read([self.source.id], "new rules", recent, self.today, {self.source.id: reading})
+        return {p.id for p in chosen}
+
+
+@pytest.fixture
+async def shelf(tmp_path):
+    container = Container.build(tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
+    yield InstagramShelf(container)
+    await container.close()
+
+
+async def test_a_rules_change_reads_instagram_posts_and_fresh_stories_again_but_not_old_or_skipped_ones(shelf):
+    post = shelf.post()
+    fresh = shelf.story(29)
+    shelf.story(31)
+    shelf.story(2, read=False)
+
+    assert shelf.to_read() == {post, fresh}
+
+
+async def test_a_rules_change_reads_only_the_latest_instagram_posts(shelf):
+    shelf.post(5)
+    newer = shelf.post(2)
+    newest = shelf.post(1)
+
+    assert shelf.to_read(recent=2) == {newer, newest}
+
+
+async def test_stories_turned_off_are_never_chosen_read_or_not(shelf):
+    post = shelf.post()
+    shelf.story(3)
+    shelf.story(1, processed=False)
+
+    assert shelf.to_read(InstagramReading(stories=False)) == {post}
+    with shelf.container.db.session() as s:
+        assert all(p.processed_at is not None for p in s.exec(select(Post)) if "highlights" in p.url and p.read_with == "old rules")
+
+
+async def test_posts_turned_off_are_never_chosen(shelf):
+    shelf.post()
+    unread_post = shelf.post(processed=False)
+    story = shelf.story(3)
+
+    assert shelf.to_read(InstagramReading(posts=False)) == {story}
+    assert unread_post not in shelf.to_read(InstagramReading(posts=False))
+
+
+async def test_an_unread_fresh_story_is_chosen_and_an_unread_old_one_is_not_needed_twice(shelf):
+    story = shelf.story(1, processed=False)
+
+    assert shelf.to_read() == {story}

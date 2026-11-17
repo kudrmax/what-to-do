@@ -10,7 +10,7 @@ from tests.helpers import BELGRADE, add_city, FakeLlm, channel_page, judge_same_
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.api import create_app
 from where_to_go.container import Container
-from where_to_go.models import ChannelLink, Source
+from where_to_go.models import ChannelLink, CollectedPost, Source, SourceKind
 from where_to_go.repositories import PotentialSourceRepository
 from where_to_go.refresh import Stage
 from where_to_go.telegram import SourceError, TelegramPageParser
@@ -281,4 +281,24 @@ async def test_a_lead_found_before_the_fix_disappears_once_its_channel_is_known_
     PotentialSourceRepository(container.db).note(1, afisha_post.id, {"kafana_new": ChannelLink.LINK})
 
     assert handles(container) == []
+    await container.close()
+
+
+@respx.mock
+async def test_an_instagram_caption_notes_only_its_t_me_links_not_its_mentions(tmp_path, monkeypatch):
+    extraction = pointing({"@scruscru": [link("scruscru"), link("belgrade_events")]})
+    container = await build(tmp_path, extraction)
+    source = container.sources.add(Source(city_id=1, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="EJE"))
+    caption = "Вечер с @scruscru, анонсы: https://T.me/Belgrade_Events"
+
+    async def collect(*args, **kwargs):
+        return [CollectedPost(external_id=1, url="https://www.instagram.com/p/a/", published_at=datetime.now(UTC), text=caption)]
+
+    monkeypatch.setattr(container.refresh._types.of(SourceKind.INSTAGRAM), "collect", collect)
+    respx.get("https://t.me/s/kafana").respond(200, text=channel_page("kafana", []))
+    respx.get("https://t.me/s/afisha").respond(200, text=channel_page("afisha", []))
+
+    await refresh(container)
+
+    assert source.id and handles(container) == ["belgrade_events"]
     await container.close()
