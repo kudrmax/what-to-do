@@ -2,6 +2,21 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.20.0 — 2026-11-17
+
+Filters tell the truth and stay where you put them.
+
+### Filters you can trust
+The **Tags** and **Sources** lists show what is really in the feed: when every tag counts, every box is ticked, with **All tags** on top to come back to that. Untick what you don't want, or hover a row and click **Only** to keep just that one.
+![](docs/images/changelog/1.20.0/tags-all.png)
+
+### Filters stay put
+Tags, sources, **For you**, **Only with time** and **Hide multi-day** now follow you from Upcoming to Calendar and Want to go, and are still there after the app restarts. The search is a quick look and starts empty each time.
+![](docs/images/changelog/1.20.0/filters-kept.png)
+
+### Fixed
+- A filter list near the right edge of the window opens to the left instead of being cut off.
+
 ## 1.19.0 — 2026-11-17
 
 What To Do installs on a Mac like any other app now: download a disk image, drag it to Applications, done.
