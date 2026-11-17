@@ -12,7 +12,8 @@ from where_to_go.db import Database
 from where_to_go.extraction import PostExtractor
 from where_to_go.feed import Feed
 from where_to_go.images import ImageStore
-from where_to_go.linking import EventCards, EventLinker, PostMentions
+from where_to_go.linking import DetailsLinks, EventCards, EventLinker, PostMentions
+from where_to_go.linked_posts import LinkedPosts
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.originals import OriginalPosts
@@ -113,7 +114,7 @@ class Container:
         matching_llm = matching_llm or ClaudeJsonLlm(lambda: settings.load().matching_model)
         extraction_llm = extraction_llm or ClaudeJsonLlm(lambda: settings.load().extraction_model)
         photo_llm = photo_llm or ClaudeJsonLlm(lambda: settings.load().photo_model)
-        linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards)
+        linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards, DetailsLinks(mentions, events))
         photo_texts = PhotoTextRepository(db)
         sitemaps = SitemapReader(http)
         types = SourceTypes(
@@ -154,6 +155,7 @@ class Container:
             post_reader=post_reader,
             post_mentions=post_mentions,
             linker=linker,
+            linked_posts=LinkedPosts(posts, reader, images),
         )
         feed = Feed(events, sources)
         originals = OriginalPosts(photo_texts)

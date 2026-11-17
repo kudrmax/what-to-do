@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import TypeVar
 
-from where_to_go.models import Conflict, ConflictField, Event, EventFacts, Mention, UpdateKind
+from where_to_go.models import Conflict, ConflictField, Event, EventFacts, EventKind, Mention, UpdateKind
 
 T = TypeVar("T")
 
@@ -47,8 +47,12 @@ class EventResolver:
 
     @staticmethod
     def _schedule(newest: list[Mention]) -> list[Mention]:
+        """A reschedule supersedes what came before it; one date of a recurring event does not replace its schedule."""
         reschedules = [m.published_at for m in newest if m.data.update_kind is UpdateKind.RESCHEDULE]
-        return [m for m in newest if m.published_at >= max(reschedules)] if reschedules else newest
+        current = [m for m in newest if m.published_at >= max(reschedules)] if reschedules else newest
+        rules = [m.data for m in current if m.data.kind is EventKind.RECURRING]
+        dates = [m for m in current if m.data.kind is not EventKind.RECURRING and any(r.happens_on(m.data.start_date) for r in rules)]
+        return [m for m in current if m not in dates] or current
 
     @staticmethod
     def _is_cancelled(mentions: list[Mention]) -> bool:

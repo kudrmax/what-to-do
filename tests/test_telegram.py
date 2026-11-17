@@ -80,3 +80,13 @@ async def test_raising_the_depth_reaches_older_unread_posts_of_a_channel_already
         assert [p.external_id for p in await reader.new_posts("bg", {5, 6}, recent=2)] == []
         assert [p.external_id for p in await reader.new_posts("bg", {5, 6}, recent=5)] == [2, 3, 4]
         assert [p.external_id for p in await reader.new_posts("bg", {4}, recent=1)] == [5, 6]
+
+
+@respx.mock
+async def test_reader_fetches_given_posts_a_page_per_run_of_nearby_ones():
+    at = "2026-11-05T10:00:00+00:00"
+    respx.get("https://t.me/s/bg", params={"before": "51"}).respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (47, 48, 50)]))
+    respx.get("https://t.me/s/bg", params={"before": "6"}).respond(200, text=channel_page("bg", [(i, at, f"пост {i}") for i in (4, 5)]))
+    async with httpx.AsyncClient() as client:
+        posts = await TelegramChannelReader(client).posts("bg", {5, 48, 49, 50})
+    assert [p.external_id for p in posts] == [5, 48, 50]  # 49 was deleted

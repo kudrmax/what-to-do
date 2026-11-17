@@ -18,6 +18,7 @@ from where_to_go.models import (
     EventFacts,
     ExtractedEvent,
     ExtractedPlace,
+    ForeignPost,
     Mark,
     Mention,
     PhotoText,
@@ -31,6 +32,7 @@ from where_to_go.models import (
     SourceKind,
     Tag,
     PageFacts,
+    TelegramPostLink,
     TelegramUrls,
     WebPage,
     WebSite,
@@ -247,14 +249,33 @@ class PostRepository:
     def __init__(self, db: Database) -> None:
         self._db = db
 
-    def add_new(self, source_id: int, post: CollectedPost, image_paths: list[str]) -> bool:
+    def add_new(self, source_id: int, post: CollectedPost, image_paths: list[str], linked: bool = False) -> bool:
         with self._db.session() as s:
             if s.exec(select(Post.id).where(Post.source_id == source_id, Post.external_id == post.external_id)).first():
                 return False
             fields = post.model_dump(exclude={"image_urls"})
-            s.add(Post(source_id=source_id, image_paths=image_paths, **fields))
+            s.add(Post(source_id=source_id, image_paths=image_paths, linked=linked, **fields))
             s.commit()
             return True
+
+    def add_foreign(self, source_id: int, post: CollectedPost, image_paths: list[str]) -> bool:
+        """A post of a channel that is no source, kept under the source that links to it."""
+        with self._db.transaction(), self._db.session() as s:
+            if s.exec(select(ForeignPost.id).where(ForeignPost.url == post.url)).first():
+                return False
+            foreign = ForeignPost(url=post.url)
+            s.add(foreign)
+            s.flush()
+            fields = post.model_dump(exclude={"image_urls", "external_id"})
+            s.add(Post(source_id=source_id, external_id=-foreign.id, image_paths=image_paths, linked=True, **fields))
+            s.commit()
+            return True
+
+    def stored(self, links: Iterable[TelegramPostLink]) -> set[str]:
+        """Keys of the linked posts that are kept already, under any source."""
+        keys = [link.key for link in links]
+        with self._db.session() as s:
+            return {url.lower() for url in s.exec(select(Post.url).where(func.lower(Post.url).in_(keys)))}
 
     def replace_text(self, post_id: int, text: str) -> None:
         """New facts of the same post, read again at the next refresh; a post the user merged or split by hand stays."""
@@ -470,6 +491,19 @@ class MentionRepository:
     def of_post(self, post_id: int) -> list[Mention]:
         with self._db.session() as s:
             return list(s.exec(select(Mention).where(Mention.post_id == post_id).order_by(Mention.item_index)).unique())
+
+    def with_details_link(self) -> list[Mention]:
+        """Carded mentions that link to a post about their event, except those the user placed by hand."""
+        with self._db.session() as s:
+            query = select(Mention).where(
+                func.json_extract(Mention.data, "$.details_url").is_not(None), col(Mention.event_id).is_not(None), Mention.locked == False  # noqa: E712
+            )
+            return list(s.exec(query).unique())
+
+    def of_linked_post(self, link: TelegramPostLink) -> list[Mention]:
+        with self._db.session() as s:
+            query = select(Mention).join(Post, Post.id == Mention.post_id).where(func.lower(Post.url) == link.key)
+            return list(s.exec(query.order_by(Mention.item_index)).unique())
 
     def of_posts_with_photoless(self) -> list[list[Mention]]:
         """The mentions of every post where some event has no photo, post by post."""
