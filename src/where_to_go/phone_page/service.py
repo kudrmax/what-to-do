@@ -97,6 +97,7 @@ class PhonePageService:
         self._lock = asyncio.Lock()
         self._ciphers: dict[tuple[str, str], Cipher] = {}
         self._task: asyncio.Task | None = None
+        self._failed_at: datetime | None = None
 
     def state(self) -> PhonePageState:
         config = self._config.load()
@@ -112,18 +113,8 @@ class PhonePageService:
         )
 
     async def turn_on(self, repository: str, token: str | None, password: str | None) -> PhonePageState:
-        stored = self._config.load()
-        candidate = stored.model_copy(update={"repository": repository.strip(), "token": token or stored.token})
-        if password and password != stored.password:
-            candidate.password = password
-            candidate.salt = ""
-        if not candidate.salt:
-            candidate.salt = base64.b64encode(SnapshotCipher.new_salt()).decode("ascii")
-        if not candidate.token:
-            raise PublishError(MISSING_TOKEN)
-        if not candidate.password:
-            raise PublishError(MISSING_PASSWORD)
         async with self._lock:
+            candidate = self._candidate(repository, token, password)
             await self._publisher.check(candidate.repository, candidate.token)
             await self._publisher.ensure_empty_or_ours(candidate.repository, candidate.token)
             published = await self._publish(candidate)
@@ -138,6 +129,21 @@ class PhonePageService:
                 **published,
             )
         return self.state()
+
+    def _candidate(self, repository: str, token: str | None, password: str | None) -> PhonePageConfig:
+        """The stored config with the new values; `None` keeps the stored secret, a new password gets a new salt."""
+        stored = self._config.load()
+        candidate = stored.model_copy(update={"repository": repository.strip(), "token": token or stored.token})
+        if password and password != stored.password:
+            candidate.password = password
+            candidate.salt = ""
+        if not candidate.salt:
+            candidate.salt = base64.b64encode(SnapshotCipher.new_salt()).decode("ascii")
+        if not candidate.token:
+            raise PublishError(MISSING_TOKEN)
+        if not candidate.password:
+            raise PublishError(MISSING_PASSWORD)
+        return candidate
 
     async def turn_off(self) -> PhonePageState:
         async with self._lock:
@@ -182,22 +188,30 @@ class PhonePageService:
 
     async def _loop(self) -> None:
         while True:
-            await self.tick()
+            try:
+                await self.tick()
+            except Exception:
+                log.exception("The phone page tick failed")
             await asyncio.sleep(self._interval)
 
     def _too_soon(self, config: PhonePageConfig) -> bool:
-        return config.published_at is not None and self._clock() - config.published_at < self.CAP
+        attempts = [moment for moment in (config.published_at, self._failed_at) if moment is not None]
+        return bool(attempts) and self._clock() - max(attempts) < self.CAP
 
     async def _publish_safely(self, config: PhonePageConfig, forced: bool = True) -> None:
+        attempted_at = self._clock()
         try:
             published = await self._publish(config, forced)
         except PublishError as error:
+            self._failed_at = attempted_at
             self._config.update(last_error=str(error))
         except Exception:
+            self._failed_at = attempted_at
             log.exception("Publishing the phone page failed")
             self._config.update(last_error=UNEXPECTED)
         else:
             if published:
+                self._failed_at = None
                 self._config.update(**published)
 
     async def _publish(self, config: PhonePageConfig, forced: bool = True) -> dict[str, object]:

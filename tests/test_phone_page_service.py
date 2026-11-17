@@ -310,10 +310,41 @@ async def test_failed_publish_is_kept_in_state_and_retried(service, publisher, b
     assert state.last_error == "Could not reach GitHub. Check the internet connection."
     assert state.published_at == START
     del publisher.failing["replace"]
-    clock.advance(1)
+    clock.advance(10)
     await service.tick()
     assert publisher.publishes == 3
     assert service.state().last_error is None
+
+
+async def test_failed_publish_waits_ten_minutes_before_the_next_attempt(service, publisher, builder, clock):
+    await service.turn_on(REPOSITORY, TOKEN, PASSWORD)
+    builder.titles.append("Lecture")
+    clock.advance(30)
+    publisher.failing["replace"] = "The token expired or was revoked"
+    await service.tick()
+    attempts = publisher.calls.count("replace")
+
+    clock.advance(9)
+    await service.tick()
+    assert publisher.calls.count("replace") == attempts
+
+    clock.advance(1)
+    await service.tick()
+    assert publisher.calls.count("replace") == attempts + 1
+
+
+async def test_publish_now_ignores_the_wait_after_a_failure(service, publisher, builder, clock):
+    await service.turn_on(REPOSITORY, TOKEN, PASSWORD)
+    builder.titles.append("Lecture")
+    clock.advance(30)
+    publisher.failing["replace"] = "Could not reach GitHub. Check the internet connection."
+    await service.tick()
+    del publisher.failing["replace"]
+    clock.advance(1)
+
+    state = await service.publish_now()
+
+    assert state.last_error is None and state.published_at == clock.now
 
 
 async def test_missing_bundle_publishes_data_and_says_so(config, builder, publisher, clock, tmp_path):
@@ -350,3 +381,24 @@ async def test_new_page_bundle_is_published(service, publisher, bundle, clock):
 
     assert publisher.publishes == 2
     assert publisher.published[-1]["assets/phone.js"] == b"console.log(2)"
+
+
+async def test_a_failing_tick_does_not_end_the_loop(config, builder, publisher, bundle, clock, monkeypatch):
+    service = PhonePageService(config, builder, publisher, FakeCipher, bundle, clock, interval=0.01)
+    ticks = 0
+
+    async def broken_tick() -> None:
+        nonlocal ticks
+        ticks += 1
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(service, "tick", broken_tick)
+    service.start()
+    for _ in range(100):
+        if ticks >= 3:
+            break
+        await asyncio.sleep(0.01)
+
+    await service.stop()
+
+    assert ticks >= 3
