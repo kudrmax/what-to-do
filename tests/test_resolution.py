@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime, time
 
 from tests.helpers import mention
-from where_to_go.models import Event, UpdateKind
+from where_to_go.models import Event, EventKind, UpdateKind
 from where_to_go.resolution import EventResolver
 
 resolver = EventResolver(lambda: "не распознано")
@@ -71,3 +71,20 @@ def test_a_card_is_a_priority_when_any_of_its_posts_says_so():
     flagged.data.is_priority = True
     assert resolve([mention(1, published=LATE), flagged]).is_priority
     assert not resolve([mention(1)]).is_priority
+
+
+def weekly(mention_id, published=EARLY):
+    found = mention(mention_id, day=date(2026, 11, 7), published=published)
+    found.data = found.data.model_copy(update={"kind": EventKind.RECURRING, "rrule": "FREQ=WEEKLY;BYDAY=SA"})
+    return found
+
+
+def test_one_date_of_a_recurring_event_keeps_its_schedule():
+    event = resolve([weekly(1), mention(2, day=date(2026, 11, 21), at=time(13, 0), published=LATE)])
+    assert (event.kind, event.start_date, event.rrule) == (EventKind.RECURRING, date(2026, 11, 7), "FREQ=WEEKLY;BYDAY=SA")
+    assert event.conflicts == []
+
+
+def test_a_date_off_the_schedule_still_wins_as_the_newer_one():
+    event = resolve([weekly(1), mention(2, day=date(2026, 11, 20), published=LATE)])
+    assert (event.kind, event.start_date) == (EventKind.SINGLE, date(2026, 11, 20))

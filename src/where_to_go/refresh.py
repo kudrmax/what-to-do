@@ -13,6 +13,7 @@ from sqlmodel import Field, SQLModel
 from where_to_go.models import City, ExtractedEvent, Post, Public, Source, SourceKind
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
+from where_to_go.linked_posts import LinkedPosts
 from where_to_go.linking import Atomically, EventLinker, PostMentions
 from where_to_go.llm import ClaudeSignedOutError, LlmError
 from where_to_go.photos import PhotoTranscriber
@@ -194,7 +195,9 @@ class RefreshService:
         post_reader: PostReader,
         post_mentions: PostMentions,
         linker: EventLinker,
+        linked_posts: LinkedPosts,
     ) -> None:
+        self._linked_posts = linked_posts
         self._post_mentions = post_mentions
         self._photos = photos
         self._settings = settings
@@ -260,7 +263,12 @@ class RefreshService:
 
         context = self._post_reader.context(city)
         today = datetime.now(ZoneInfo(city.timezone)).date()
-        posts = self._posts.to_read(sources, context.rules, self._settings.load().recent_posts, today)
+        recent = self._settings.load().recent_posts
+        posts = self._posts.to_read(sources, context.rules, recent, today)
+        linked = await self._linked_posts.collect(posts, self._sources.in_city(city.id))
+        if linked:
+            self.progress.new_posts += linked
+            posts = self._posts.to_read(sources, context.rules, recent, today)
 
         self.progress.enter(Stage.PHOTOS)
         with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text

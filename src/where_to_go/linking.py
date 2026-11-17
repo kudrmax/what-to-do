@@ -4,7 +4,7 @@ from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import date
 
-from where_to_go.models import Event, ExtractedEvent, Mark, Mention
+from where_to_go.models import Event, ExtractedEvent, Mark, Mention, TelegramPostLink
 from where_to_go.matching import CandidateFinder, DuplicateJudge, MatchDecision, TitleSimilarity
 from where_to_go.repositories import EventRepository, MentionRepository
 from where_to_go.resolution import EventResolver
@@ -90,6 +90,44 @@ class EventCards:
         self._events.save(self._resolver.resolve(self._events.get(event_id), mentions))
 
 
+class DetailsLinks:
+    """A digest line that links to a post about its event joins that post's card when the card happens on the line's
+    date: the link says they are one event, so Claude is not asked to guess it from two different titles."""
+
+    def __init__(self, mentions: MentionRepository, events: EventRepository) -> None:
+        self._mentions = mentions
+        self._events = events
+
+    @staticmethod
+    def link_of(mention: Mention) -> TelegramPostLink | None:
+        return TelegramPostLink.parse(mention.data.details_url) if mention.data.start_date is not None else None
+
+    def card_for(self, mention: Mention) -> int | None:
+        link = self.link_of(mention)
+        if link is None:
+            return None
+        cards = {m.event_id for m in self._mentions.of_linked_post(link) if m.event_id is not None}
+        return next((card for card in sorted(cards) if self._events.get(card).happens_on(mention.data.start_date)), None)
+
+    def strays(self) -> list[tuple[Mention, int]]:
+        """Lines carded on their own before their post was read, with the post's card to join. A card the user
+        rated or planned keeps its line: their mark stays where they put it."""
+        moves = []
+        for mention in self._mentions.with_details_link():
+            card = self.card_for(mention)
+            if card is None or card == mention.event_id:
+                continue
+            own = self._events.get(mention.event_id)
+            if own.interest is None and own.plan is None and len(self._mentions.of_event(own.id)) == 1:
+                moves.append((mention, card))
+        return moves
+
+    def waits(self, mention: Mention, unassigned: list[Mention]) -> bool:
+        """Its linked post is linked in this same run: the line follows once that post has its card."""
+        link = self.link_of(mention)
+        return link is not None and any(m.post_url.lower() == link.key and m.id != mention.id for m in unassigned)
+
+
 class EventLinker:
     """Attaches newly extracted mentions to existing cards or opens new ones.
 
@@ -99,21 +137,59 @@ class EventLinker:
 
     CHUNK = 15
 
-    def __init__(self, finder: CandidateFinder, judge: DuplicateJudge, cards: EventCards) -> None:
+    def __init__(self, finder: CandidateFinder, judge: DuplicateJudge, cards: EventCards, details: DetailsLinks) -> None:
         self._finder = finder
         self._judge = judge
         self._cards = cards
+        self._details = details
 
     async def link(self, city_id: int, mentions: list[Mention], on_linked: Callable[[int], None] = lambda _: None) -> set[int]:
-        """`on_linked` hears how many announcements each finished chunk placed."""
-        touched: set[int] = set()
+        """`on_linked` hears how many announcements each finished chunk placed. A digest line whose linked post is
+        linked in this run waits for that post's card first."""
+        waiting = [m for m in mentions if self._details.waits(m, mentions)]
+        touched = await self._link_all(city_id, [m for m in mentions if m not in waiting], on_linked)
+        touched |= await self._link_all(city_id, waiting, on_linked)
+        return touched | self._gather_strays()
+
+    def _gather_strays(self) -> set[int]:
+        """Their own cards held only them, so they go once their line has moved."""
+        joined: set[int] = set()
+        with self._cards.atomically():
+            for mention, card in self._details.strays():
+                if self._cards.accepts(card, mention):
+                    self._cards.assign(mention, card)
+                    self._cards.refresh(mention.event_id)
+                    joined.add(card)
+            for card in joined:
+                self._cards.refresh(card)
+        return joined
+
+    async def _link_all(self, city_id: int, mentions: list[Mention], on_linked: Callable[[int], None]) -> set[int]:
+        followed = self._follow_links(mentions)
+        if followed:
+            on_linked(len(followed))
+        touched = set(followed.values())
         # Dateless follow-ups go last, when the cards they are about already exist.
-        ordered = sorted(mentions, key=lambda m: (m.data.start_date or date.max, m.published_at))
+        rest = [m for m in mentions if m.id not in followed]
+        ordered = sorted(rest, key=lambda m: (m.data.start_date or date.max, m.published_at))
         for start in range(0, len(ordered), self.CHUNK):
             chunk = ordered[start : start + self.CHUNK]
             touched |= await self._link_chunk(city_id, chunk)
             on_linked(len(chunk))
         return touched
+
+    def _follow_links(self, mentions: list[Mention]) -> dict[int, int]:
+        """The card each digest line joins by its link, by the line's id."""
+        followed: dict[int, int] = {}
+        with self._cards.atomically():
+            for mention in mentions:
+                card = self._details.card_for(mention)
+                if card is not None and self._cards.accepts(card, mention):
+                    self._cards.assign(mention, card)
+                    followed[mention.id] = card
+            for card in set(followed.values()):
+                self._cards.refresh(card)
+        return followed
 
     async def _link_chunk(self, city_id: int, chunk: list[Mention]) -> set[int]:
         candidates = {e.id: e for m in chunk for e in self._finder.find(city_id, m)}
