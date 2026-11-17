@@ -4,8 +4,8 @@
 import AppKit
 
 let size = NSSize(width: 640, height: 400)
-let appCenter = NSPoint(x: 170, y: 180)
-let applicationsCenter = NSPoint(x: 470, y: 180)
+let appCenter = NSPoint(x: 170, y: 150)
+let applicationsCenter = NSPoint(x: 470, y: 150)
 let arrowInset: CGFloat = 92
 let arrowHead: CGFloat = 16
 
@@ -58,9 +58,9 @@ head.close()
 accent.setFill()
 head.fill()
 
-draw("Drag What To Do to Applications", size: 17, weight: .semibold, color: ink, centerY: 56)
-draw("The first time, macOS may say it can’t check the app for malware:", size: 12, weight: .regular, color: muted, centerY: 318)
-draw("open System Settings, then Privacy & Security, and press Open Anyway.", size: 12, weight: .regular, color: muted, centerY: 338)
+draw("Drag What To Do to Applications", size: 17, weight: .semibold, color: ink, centerY: 40)
+draw("The first time, macOS may say it can’t check the app for malware:", size: 12, weight: .regular, color: muted, centerY: 262)
+draw("open System Settings, then Privacy & Security, and press Open Anyway.", size: 12, weight: .regular, color: muted, centerY: 281)
 
 NSGraphicsContext.restoreGraphicsState()
 try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output))

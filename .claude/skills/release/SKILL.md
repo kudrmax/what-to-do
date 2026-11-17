@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cuts a release of What To Do - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes and creates the GitHub Release. Use right after every merge to master (a merge always ships as a release, see CLAUDE.md), and when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release".
+description: Cuts a release of What To Do - picks the version, writes the CHANGELOG.md entry with annotated screenshots, bumps the version, tags, pushes, creates the GitHub Release and checks that its macOS disk images are attached. Use right after every merge to master (a merge always ships as a release, see CLAUDE.md), and when Max says "выпускай релиз", "сделай релиз", "release" or "cut a release".
 ---
 
 # Release
@@ -129,9 +129,21 @@ sed -E "s#\]\((docs/images/[^)]+)\)#](https://raw.githubusercontent.com/$GITHUB_
 gh release create vX.Y.Z --repo "$GITHUB_REPO" --title X.Y.Z --notes-file "$WORK/notes.md"
 ```
 
-## 6. Afterwards
+## 6. The macOS disk images
 
-Tell Max the release URL (`gh release view vX.Y.Z --repo "$GITHUB_REPO" --json url -q .url`).
+Publishing the release starts the **macOS disk images** workflow (`.github/workflows/release-dmg.yml`). It builds `What-To-Do-X.Y.Z-Apple-Silicon.dmg` and `What-To-Do-X.Y.Z-Intel.dmg`, smoke-tests both and attaches them to the release, in 10 to 20 minutes. The macOS app updates only from these images: until they are attached, it does not see the release at all. Wait for the run and check the assets:
+
+```bash
+RUN=$(gh run list --repo "$GITHUB_REPO" --workflow release-dmg.yml --event release --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$RUN" --repo "$GITHUB_REPO" --exit-status
+gh release view vX.Y.Z --repo "$GITHUB_REPO" --json assets -q '.assets[].name'   # both .dmg files
+```
+
+If the run fails, read its log (`gh run view "$RUN" --log-failed`), fix the cause in a branch and ship a patch release; to retry a build without code changes, run the workflow by hand: `gh workflow run release-dmg.yml --repo "$GITHUB_REPO" -f tag=vX.Y.Z`. The release is not done until both images are attached.
+
+## 7. Afterwards
+
+Tell Max the release URL (`gh release view vX.Y.Z --repo "$GITHUB_REPO" --json url -q .url`) and the links of both disk images.
 
 Prod is not updated by merging or by this skill. It updates with **Update to X.Y.Z** in the app or with `make update` in the prod copy (`~/projects/what-to-do-prod`).
 

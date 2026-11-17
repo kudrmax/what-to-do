@@ -81,6 +81,8 @@ class DiskImageInstaller:
         finally:
             if self._run(["hdiutil", "detach", str(mount)]) != 0:
                 self._run(["hdiutil", "detach", "-force", str(mount)])
+            if mount.is_dir() and not any(mount.iterdir()):
+                mount.rmdir()
         disk_image.unlink(missing_ok=True)
         self._check(staged, installed.arch, version)
         return staged
