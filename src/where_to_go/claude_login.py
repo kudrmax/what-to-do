@@ -169,6 +169,10 @@ class ClaudeSignInFlow:
             if not running and self._process is not None and self._process.returncode not in (0, None):
                 lines = [reply for line in output.splitlines() if (reply := line.rpartition(self.CODE_PROMPT)[2].strip())]
                 error = error or (lines[-1] if lines else "Signing in didn't finish.")
+            elif running:
+                # A code it could not use: the CLI says why after its prompt and waits for another one.
+                replies = [reply.strip().split("\n")[0].strip() for reply in output.split(self.CODE_PROMPT)[1:]]
+                error = next((reply for reply in reversed(replies) if reply), None)
             match = self.PAGE_URL.search(output)
             return SignInProgress(running=running, page_url=match.group(0) if running and match else None, error=error)
 

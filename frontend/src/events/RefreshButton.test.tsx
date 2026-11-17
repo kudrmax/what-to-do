@@ -79,6 +79,13 @@ describe("refresh errors", () => {
     await waitFor(() => expect(submit).toHaveBeenCalledWith("abc#def"));
   });
 
+  it("says why the pasted code didn't work", async () => {
+    setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
+
+    expect(await screen.findByText("Invalid code. Please make sure the full code was copied.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open the sign-in page" })).toBeTruthy();
+  });
+
   it("says when the sign-in is done", async () => {
     setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, state: "signed_in" });
 

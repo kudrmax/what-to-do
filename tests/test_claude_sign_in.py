@@ -118,6 +118,9 @@ print("Opening browser to sign in…", flush=True)
 print("If the browser didn't open, visit: {SIGN_IN_PAGE}", flush=True)
 print("Paste code here if prompted > ", end="", flush=True)
 code = sys.stdin.readline().strip()
+while "#" not in code and code != "good":
+    print("Invalid code. Please make sure the full code was copied.", flush=True)
+    code = sys.stdin.readline().strip()
 if code == "good":
     print("Login successful.")
     sys.exit(0)
@@ -170,11 +173,25 @@ def test_a_wrong_code_says_what_the_cli_said(tmp_path) -> None:
     flow.start()
     wait_until(lambda: flow.progress().page_url is not None)
 
-    flow.submit_code("bad")
+    flow.submit_code("bad#state")
     wait_until(lambda: not flow.progress().running)
 
     assert flow.progress().error == "OAuth error: Invalid code"
     assert not flow.submit_code("good")
+
+
+def test_a_code_the_cli_cannot_use_says_why_while_it_waits_for_another(tmp_path) -> None:
+    flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flow.start()
+    wait_until(lambda: flow.progress().page_url is not None)
+
+    flow.submit_code("half-a-code")
+    wait_until(lambda: flow.progress().error is not None)
+
+    assert flow.progress() == SignInProgress(running=True, page_url=SIGN_IN_PAGE, error="Invalid code. Please make sure the full code was copied.")
+    flow.submit_code("good")
+    wait_until(lambda: not flow.progress().running)
+    assert flow.progress().error is None
 
 
 def test_a_second_press_does_not_start_a_second_sign_in(tmp_path) -> None:

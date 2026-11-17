@@ -29,7 +29,9 @@ export function ClaudeSignIn() {
           Finish signing in in your browser
         </strong>
         <span>Come back here once the page says you’re signed in.</span>
-        {status.page_url && <CodeFallback pageUrl={status.page_url} onSubmit={signIn.submitCode} submitting={signIn.submitting} error={signIn.codeError} />}
+        {status.page_url && (
+          <CodeFallback pageUrl={status.page_url} onSubmit={signIn.submitCode} submitting={signIn.submitting} error={signIn.codeError} cliError={status.error ?? null} />
+        )}
       </div>
     );
   }
@@ -46,14 +48,26 @@ export function ClaudeSignIn() {
   );
 }
 
-function CodeFallback({ pageUrl, onSubmit, submitting, error }: { pageUrl: string; onSubmit: (code: string) => void; submitting: boolean; error: unknown }) {
+function CodeFallback({
+  pageUrl,
+  onSubmit,
+  submitting,
+  error,
+  cliError,
+}: {
+  pageUrl: string;
+  onSubmit: (code: string) => void;
+  submitting: boolean;
+  error: unknown;
+  cliError: string | null;
+}) {
   const [code, setCode] = useState("");
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (code.trim()) onSubmit(code.trim());
   };
   return (
-    <details className="claude-sign-in__fallback">
+    <details className="claude-sign-in__fallback" open={cliError ? true : undefined}>
       <summary>The browser didn’t open?</summary>
       <ol className="claude-sign-in__steps">
         <li>
@@ -72,6 +86,7 @@ function CodeFallback({ pageUrl, onSubmit, submitting, error }: { pageUrl: strin
         </li>
       </ol>
       {error != null && <span className="claude-sign-in__error">{errorText(error)}</span>}
+      {error == null && cliError && <span className="claude-sign-in__error">{cliError}</span>}
     </details>
   );
 }
