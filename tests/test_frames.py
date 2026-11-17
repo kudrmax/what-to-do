@@ -9,7 +9,7 @@ from PIL import Image
 
 from where_to_go.frames import MAX_FRAMES, VideoFrames
 
-RED, BLUE = (255, 0, 0), (0, 0, 255)
+RED, BLUE, GREEN = (255, 0, 0), (0, 0, 255), (0, 255, 0)
 
 
 def make_video(colors: list[tuple[int, int, int]], seconds_each: int) -> bytes:
@@ -133,3 +133,30 @@ async def test_a_failed_write_leaves_no_frames_behind(frames, tmp_path, monkeypa
 
     assert await frames.save("https://cdn.test/a.mp4") == []
     assert list(tmp_path.iterdir()) == []
+
+
+def cover(tmp_path, color) -> object:
+    path = tmp_path / "cover.png"
+    Image.new("RGB", (640, 640), color).save(path)
+    return path
+
+
+@respx.mock
+async def test_the_opening_frames_that_repeat_the_cover_are_left_out(frames, tmp_path):
+    respx.get("https://cdn.test/a.mp4").respond(200, content=make_video([RED, BLUE, RED], 5))
+
+    names = await frames.save("https://cdn.test/a.mp4", cover=cover(tmp_path, RED))
+
+    assert len(names) == 2
+    assert is_close(pixel(tmp_path / names[0]), BLUE) and is_close(pixel(tmp_path / names[1]), RED)
+    assert names == [names[0].rsplit("-f", 1)[0] + "-f0.jpg", names[0].rsplit("-f", 1)[0] + "-f1.jpg"]
+
+
+@respx.mock
+async def test_a_cover_unlike_the_video_or_unreadable_leaves_every_frame(frames, tmp_path):
+    respx.get(url__startswith="https://cdn.test/").respond(200, content=make_video([RED, BLUE], 5))
+    broken = tmp_path / "broken.jpg"
+    broken.write_bytes(b"not an image")
+
+    assert len(await frames.save("https://cdn.test/a.mp4", cover=cover(tmp_path, GREEN))) == 2
+    assert len(await frames.save("https://cdn.test/b.mp4", cover=broken)) == 2

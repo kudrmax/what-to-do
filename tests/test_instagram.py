@@ -39,8 +39,10 @@ def test_post_page_gives_time_carousel_and_place():
 
 
 def test_reel_page_gives_video():
-    [url] = InstagramPage(read("reel.html")).post().video_urls
+    reel = InstagramPage(read("reel.html")).post()
+    [url] = reel.video_urls
     assert url.startswith("https://instagram.fbeg7-2.fna.fbcdn.net/o1/v/t2/f2/m86/AQOsPNstOQjjOryh")
+    assert reel.video_covers == {url: reel.image_urls[0]}
 
 
 def _signed(name: str, meta: object) -> str:

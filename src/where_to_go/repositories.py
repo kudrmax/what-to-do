@@ -286,7 +286,7 @@ class PostRepository:
         with self._db.session() as s:
             if s.exec(select(Post.id).where(Post.source_id == source_id, Post.external_id == post.external_id)).first():
                 return False
-            fields = post.model_dump(exclude={"image_urls", "video_urls", "read"})
+            fields = post.model_dump(exclude={"image_urls", "video_urls", "video_covers", "read"})
             if not post.read:
                 fields |= {"processed_at": _now(), "read_with": self.SKIPPED}
             s.add(Post(source_id=source_id, image_paths=image_paths, **fields))

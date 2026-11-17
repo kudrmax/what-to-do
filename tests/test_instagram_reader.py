@@ -149,6 +149,7 @@ async def test_post_page_gives_time_images_video_and_place(instagram, client):
     assert len(carousel.image_urls) == 3 and carousel.video_urls == []
     reel = next(p for p in collected if p.external_id == 4031839923051400724)
     assert len(reel.video_urls) == 1
+    assert reel.video_covers == {reel.video_urls[0]: reel.image_urls[0]}
 
 
 async def test_post_page_without_data_ends_the_reading_and_keeps_what_came_before(instagram, client):
@@ -227,6 +228,13 @@ async def test_deleted_highlight_is_skipped_and_reading_goes_on(instagram, clien
     assert instagram.highlight.call_count == len(PROFILE.highlights)
     assert {p.external_id for p in collected} == {s.pk for s in InstagramPage(read("highlight_timetable.html")).stories()}
     assert "refused" not in caplog.text
+
+
+async def test_a_video_story_opens_with_its_cover(instagram, client):
+    collected = await reader(client, instagram.clock).collect(NAME, ALL_POSTS, InstagramReading(), NOW)
+
+    [video] = [p for p in collected if p.video_urls]
+    assert video.video_covers == {video.video_urls[0]: video.image_urls[0]}
 
 
 async def test_post_page_is_requested_only_for_unknown_posts(instagram, client):

@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 from pathlib import Path
 from datetime import UTC, date, datetime, timedelta
@@ -6,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 import httpx
 import pytest
 import respx
+from PIL import Image
 
 from tests.test_frames import make_video
 from tests.helpers import BELGRADE, add_city, photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
@@ -764,6 +766,53 @@ async def test_a_post_keeps_its_images_and_then_the_frames_of_its_video(tmp_path
     cover, *frames = stored.image_paths
     assert cover.endswith(".jpg") and "-f" not in cover
     assert [name.rsplit("-f", 1)[1] for name in frames] == ["0.jpg", "1.jpg"]
+
+
+def serve_image(url: str, color: tuple[int, int, int]) -> None:
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 64), color).save(buffer, "PNG")
+    respx.get(url).respond(200, content=buffer.getvalue(), headers={"content-type": "image/png"})
+
+
+CDN = "https://scontent.cdninstagram.com"
+
+
+@respx.mock
+async def test_a_video_follows_its_cover_and_leaves_out_the_frames_that_repeat_it(tmp_path, monkeypatch):
+    for name, color in [("a", (0, 255, 0)), ("cover", (255, 0, 0)), ("b", (255, 255, 0))]:
+        serve_image(f"{CDN}/{name}.png", color)
+    respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(255, 0, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=[f"{CDN}/a.png", f"{CDN}/cover.png", f"{CDN}/b.png"], video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": f"{CDN}/cover.png"})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert ["-f" in name for name in stored.image_paths] == [False, False, True, False]
+
+
+@respx.mock
+async def test_a_post_with_ten_images_gets_no_video_frames(tmp_path, monkeypatch):
+    images = [f"{CDN}/{i}.png" for i in range(10)]
+    for i, url in enumerate(images):
+        serve_image(url, (i * 20, 0, 0))
+    video = respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(255, 0, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": images[-1]})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 10 and not video.called
+
+
+@respx.mock
+async def test_frames_fill_only_the_room_a_post_has_left(tmp_path, monkeypatch):
+    images = [f"{CDN}/{i}.png" for i in range(9)]
+    for i, url in enumerate(images):
+        serve_image(url, (i * 20, 0, 0))
+    respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(0, 255, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"])
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 10 and stored.image_paths[-1].endswith("-f0.jpg")
 
 
 @respx.mock

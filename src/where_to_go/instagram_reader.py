@@ -158,6 +158,7 @@ class InstagramReader:
             text=details.caption + place,
             image_urls=details.image_urls,
             video_urls=details.video_urls,
+            video_covers=details.video_covers,
         )
 
     async def _unless_gone(self, url: str, has_data: Callable[[InstagramPage], bool]) -> InstagramPage | None:
@@ -182,5 +183,6 @@ class InstagramReader:
                     text=f"Pinned story from the highlight «{highlight.title}»",
                     image_urls=[story.image_url] if story.image_url else [],
                     video_urls=[story.video_url] if story.video_url else [],
+                    video_covers={story.video_url: story.image_url} if story.video_url and story.image_url else {},
                     read=now - story.published_at <= self.STORIES_READ_WITHIN,
                 )

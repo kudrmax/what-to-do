@@ -334,11 +334,25 @@ class RefreshService:
                 self.progress.new_posts += 1
 
     async def _media(self, post: CollectedPost) -> list[str]:
-        """The images of a post, then the frames of each of its videos."""
-        paths = [p for p in [await self._images.save(u) for u in post.image_urls] if p]
-        for url in post.video_urls:
-            paths += await self._frames.save(url)
+        """The images of a post, the frames of each video right after its cover; frames only while the post has room for them."""
+        by_cover: dict[str | None, list[str]] = {}
+        for video in post.video_urls:
+            by_cover.setdefault(post.video_covers.get(video), []).append(video)
+        paths: list[str] = []
+        for url in post.image_urls:
+            saved = await self._images.save(url)
+            paths += [saved] if saved else []
+            for video in by_cover.pop(url, []):
+                paths += await self._video_frames(video, saved, PhotoTranscriber.PER_POST - len(paths))
+        for video in [video for videos in by_cover.values() for video in videos]:
+            paths += await self._video_frames(video, None, PhotoTranscriber.PER_POST - len(paths))
         return paths
+
+    async def _video_frames(self, url: str, cover: str | None, room: int) -> list[str]:
+        if room <= 0:
+            return []
+        frames = await self._frames.save(url, self._images.path(cover) if cover else None)
+        return frames[:room]
 
     def _failed(self, source: Source, message: str) -> None:
         self._sources.record_error(source.id, message)

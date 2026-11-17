@@ -820,6 +820,7 @@ class CollectedPost(SQLModel):
     text: str
     image_urls: list[str] = []
     video_urls: list[str] = []
+    video_covers: dict[str, str] = Field(default={}, description="The image each video opens with, by the video's URL")
     read: bool = Field(default=True, description="False: the post is only remembered as seen and never read")
 
 

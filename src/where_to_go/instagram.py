@@ -79,6 +79,7 @@ class PostDetails:
     caption: str
     image_urls: list[str]
     video_urls: list[str]
+    video_covers: dict[str, str]
     place: str | None
 
 
@@ -169,14 +170,15 @@ class InstagramPage:
     @classmethod
     def _details(cls, media: dict) -> PostDetails:
         parts = media.get("carousel_media") or [media]
-        videos = [cls._video_url(part["video_versions"]) for part in parts if part.get("video_versions")]
+        videos = [(cls._video_url(part["video_versions"]), part.get("display_uri")) for part in parts if part.get("video_versions")]
         return PostDetails(
             pk=int(media["pk"]),
             code=media["code"],
             published_at=datetime.fromtimestamp(media["taken_at"], UTC),
             caption=(media.get("caption") or {}).get("text") or "",
             image_urls=[part["display_uri"] for part in parts if part.get("display_uri")],
-            video_urls=[url for url in videos if url],
+            video_urls=[url for url, _ in videos if url],
+            video_covers={url: cover for url, cover in videos if url and cover},
             place=(media.get("location") or {}).get("name"),
         )
 
