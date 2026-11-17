@@ -13,6 +13,7 @@ import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { UpdatesSection } from "../updates/UpdatesSection";
 import { CollapsibleSection, Screen, Section, Subsection } from "../ui/Screen";
 import { CitiesSection } from "./CitiesSection";
+import { COLLECTIONS_ANCHOR, CollectionsSubsection } from "./CollectionsSettings";
 import { PhonePageSection } from "./PhonePageSection";
 import "./SettingsScreen.css";
 
@@ -85,7 +86,12 @@ function PriorityWish({ wish }: { wish: string }) {
 
 function AdvancedSection({ settings }: { settings: Settings }) {
   return (
-    <CollapsibleSection title="Advanced" hint="Safe to leave as they are. Change them only if cards come out wrong, or a refresh takes too long or uses too much of your Claude plan.">
+    <CollapsibleSection
+      title="Advanced"
+      hint="Safe to leave as they are. Change them only if cards come out wrong, or a refresh takes too long or uses too much of your Claude plan."
+      openFor={COLLECTIONS_ANCHOR}
+    >
+      <CollectionsSubsection enabled={settings.collections_enabled} />
       <SettingRow
         name="recent_posts"
         value={settings.recent_posts}

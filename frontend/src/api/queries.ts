@@ -18,6 +18,7 @@ const keys = {
   sources: ["sources"],
   potentialSources: ["potential-sources"],
   tags: ["tags"],
+  collections: ["collections"],
   feed: ["feed"],
   event: ["event"],
   refresh: ["refresh"],
@@ -34,6 +35,7 @@ const STALE = {
   potentialSources: [keys.potentialSources],
   tags: [keys.tags, keys.feed, keys.event],
   settings: [keys.settings],
+  collections: [keys.collections, keys.feed, keys.event],
   city: [[]] as QueryKey[],
 };
 
@@ -88,6 +90,13 @@ export function usePrefetchMentions() {
 }
 
 export const useSetMark = () => useApiMutation((api, { id, mark }: { id: number; mark: Mark }) => api.mark(id, mark), STALE.cards);
+export const useSetCollections = () =>
+  useApiMutation((api, { id, collectionIds }: { id: number; collectionIds: number[] }) => api.setCollections(id, collectionIds), STALE.collections);
+export const useCollections = (enabled = true) => useApiQuery(keys.collections, (api) => api.collections(), enabled);
+export const useAddCollection = () => useApiMutation((api, name: string) => api.addCollection(name), STALE.collections);
+export const useRenameCollection = () =>
+  useApiMutation((api, { id, name }: { id: number; name: string }) => api.renameCollection(id, name), STALE.collections);
+export const useDeleteCollection = () => useApiMutation((api, id: number) => api.deleteCollection(id), STALE.collections);
 export const useAddDevNote = () => useApiMutation((api, { id, text }: { id: number; text: string }) => api.addDevNote(id, text), []);
 export const useMerge = () => useApiMutation((api, { id, otherId }: { id: number; otherId: number }) => api.merge(id, otherId), STALE.cards);
 export const useSplit = () => useApiMutation((api, { id, mentionId }: { id: number; mentionId: number }) => api.split(id, mentionId), STALE.cards);

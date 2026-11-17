@@ -68,7 +68,7 @@ In **Settings**, describe in your own words what you look for, for example "even
 
 ### Calendar and plans
 
-**Calendar** shows the whole week at a glance, with your plans and **For you** events tinted. **Want to go** collects everything you marked as going or maybe.
+**Calendar** shows the whole week at a glance, with your plans and **For you** events tinted. **Want to go** collects everything you marked as going or maybe. To keep events for memory, the funniest or the most unusual ones, turn on **Settings → Advanced → Collections** and add a collection: a heart on every card puts its event there, and **Collections** in the menu shows each one as a feed.
 
 ![Calendar: a week of events in seven columns](docs/images/readme/calendar.png)
 

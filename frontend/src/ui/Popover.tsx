@@ -4,7 +4,17 @@ import { useAnimatedClose } from "./useAnimatedClose";
 import { useDismiss } from "./useDismiss";
 
 /** A trigger and the menu it opens under itself. */
-export function Popover({ trigger, children, className = "" }: { trigger: (open: boolean, toggle: () => void) => ReactNode; children: (close: () => void) => ReactNode; className?: string }) {
+export function Popover({
+  trigger,
+  children,
+  className = "",
+  align = "start",
+}: {
+  trigger: (open: boolean, toggle: () => void) => ReactNode;
+  children: (close: () => void) => ReactNode;
+  className?: string;
+  align?: "start" | "end";
+}) {
   const [open, setOpen] = useState(false);
   const { closing, startClose, onAnimationEnd } = useAnimatedClose(useCallback(() => setOpen(false), []));
   const shown = open && !closing;
@@ -20,7 +30,7 @@ export function Popover({ trigger, children, className = "" }: { trigger: (open:
     <div className={`popover-anchor ${className}`} ref={ref} style={{ position: "relative" }}>
       {trigger(shown, () => (shown ? startClose() : setOpen(true)))}
       {open && (
-        <div ref={menu} className={`popover${atEnd ? " popover--end" : ""}${closing ? " popover--closing" : ""}`} onAnimationEnd={onAnimationEnd}>
+        <div ref={menu} className={`popover${atEnd || align === "end" ? " popover--end" : ""}${closing ? " popover--closing" : ""}`} onAnimationEnd={onAnimationEnd}>
           {children(startClose)}
         </div>
       )}

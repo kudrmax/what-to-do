@@ -13,6 +13,8 @@ from where_to_go.models import (
     City,
     CityContents,
     CollectedPost,
+    Collection,
+    CollectionPublic,
     DevNote,
     Event,
     EventFacts,
@@ -679,6 +681,71 @@ class EventRepository:
         event.sqlmodel_update(mark.model_dump(include=set(Mark.model_fields)))
         event.marked_at = _now()
         return self.save(event)
+
+    def set_collections(self, event_id: int, collection_ids: Iterable[int]) -> Event:
+        event = self.get(event_id)
+        event.collection_ids = sorted(set(collection_ids))
+        return self.save(event)
+
+
+class CollectionRepository:
+    """The user's collections; an event lists the ones it is in."""
+
+    def __init__(self, db: Database) -> None:
+        self._db = db
+
+    def listed(self) -> list[CollectionPublic]:
+        with self._db.session() as s:
+            collections = list(s.exec(select(Collection).order_by(Collection.position, Collection.id)))
+            sizes = {c.id: 0 for c in collections}
+            for ids in s.exec(select(Event.collection_ids)):
+                for collection_id in ids or []:
+                    if collection_id in sizes:
+                        sizes[collection_id] += 1
+        return [CollectionPublic(id=c.id, name=c.name, size=sizes[c.id]) for c in collections]
+
+    def ids(self) -> set[int]:
+        with self._db.session() as s:
+            return set(s.exec(select(Collection.id)))
+
+    def add(self, name: str) -> CollectionPublic:
+        with self._db.session() as s:
+            present = list(s.exec(select(Collection)))
+            self._check_free(present, name)
+            collection = Collection(name=name, position=max((c.position for c in present), default=-1) + 1)
+            s.add(collection)
+            s.commit()
+            s.refresh(collection)
+            return CollectionPublic(id=collection.id, name=collection.name, size=0)
+
+    def rename(self, collection_id: int, name: str) -> CollectionPublic:
+        with self._db.session() as s:
+            collection = s.get(Collection, collection_id)
+            if collection is None:
+                raise KeyError(collection_id)
+            self._check_free([c for c in s.exec(select(Collection)) if c.id != collection_id], name)
+            collection.name = name
+            s.add(collection)
+            s.commit()
+        return next(c for c in self.listed() if c.id == collection_id)
+
+    def delete(self, collection_id: int) -> None:
+        """Takes the collection out of every event that is in it; the events themselves stay."""
+        with self._db.session() as s:
+            collection = s.get(Collection, collection_id)
+            if collection is None:
+                raise KeyError(collection_id)
+            for event in s.exec(select(Event)):
+                if collection_id in event.collection_ids:
+                    event.collection_ids = [i for i in event.collection_ids if i != collection_id]
+                    s.add(event)
+            s.delete(collection)
+            s.commit()
+
+    @staticmethod
+    def _check_free(present: list[Collection], name: str) -> None:
+        if any(c.name.casefold() == name.casefold() for c in present):
+            raise ValueError(f"There is a collection \"{name}\" already")
 
 
 class DevNoteRepository:

@@ -59,6 +59,7 @@ class EventCards:
         for mention in self._mentions.of_event(target_id):
             self._mentions.assign(mention.id, target_id, locked=True)
         self._events.set_mark(target_id, Mark(interest=target.interest or other.interest, plan=target.plan or other.plan))
+        self._events.set_collections(target_id, [*target.collection_ids, *other.collection_ids])
         self._events.delete(other_id)
         self.refresh(target_id)
 
@@ -111,14 +112,14 @@ class DetailsLinks:
 
     def strays(self) -> list[tuple[Mention, int]]:
         """Lines carded on their own before their post was read, with the post's card to join. A card the user
-        rated or planned keeps its line: their mark stays where they put it."""
+        rated, planned or collected keeps its line: their mark stays where they put it."""
         moves = []
         for mention in self._mentions.with_details_link():
             card = self.card_for(mention)
             if card is None or card == mention.event_id:
                 continue
             own = self._events.get(mention.event_id)
-            if own.interest is None and own.plan is None and len(self._mentions.of_event(own.id)) == 1:
+            if not own.is_kept and len(self._mentions.of_event(own.id)) == 1:
                 moves.append((mention, card))
         return moves
 

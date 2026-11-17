@@ -8,6 +8,7 @@ import { EVENT_PATH, SECTIONS } from "./app/routes";
 import { EventWindow } from "./events/EventWindow";
 import { useScreenLocation } from "./events/navigation";
 import { CalendarScreen } from "./screens/CalendarScreen";
+import { CollectionsScreen } from "./screens/CollectionsScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { PlansScreen } from "./screens/PlansScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
@@ -28,6 +29,7 @@ function Screens() {
           <Route path={SECTIONS.feed.path} element={<FeedScreen />} />
           <Route path={SECTIONS.calendar.path} element={<CalendarScreen />} />
           <Route path={SECTIONS.plans.path} element={<PlansScreen />} />
+          <Route path={SECTIONS.collections.path} element={<CollectionsScreen />} />
           <Route path={SECTIONS.sources.path} element={<SourcesScreen />} />
           <Route path={SECTIONS.stats.path} element={<StatsScreen />} />
           <Route path={SECTIONS.settings.path} element={<SettingsScreen />} />

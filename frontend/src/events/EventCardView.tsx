@@ -9,6 +9,8 @@ import { orderTags } from "../domain/tags";
 import { EventPhoto } from "./EventPhoto";
 import { EventTime } from "./EventTime";
 import { PriorityBadge } from "./PriorityBadge";
+import { CollectionButton } from "./CollectionButton";
+import { useCollectionsOn } from "./useCollectionsOn";
 import { DevNoteButton } from "./DevNoteButton";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
 import { useOpenEvent } from "./navigation";
@@ -31,7 +33,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
 
   return (
     <article
-      className={`card${readOnly ? " card--read-only" : ""}${event.is_cancelled ? " card--cancelled" : ""}${event.is_priority ? " card--priority" : ""}`}
+      className={`card${readOnly ? " card--read-only" : ""}${event.image_url ? " card--with-photo" : ""}${event.is_cancelled ? " card--cancelled" : ""}${event.is_priority ? " card--priority" : ""}`}
       role="link"
       tabIndex={0}
       aria-label={event.title}
@@ -40,6 +42,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       onFocus={() => prefetch(event.id)}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && show()}
     >
+      {!readOnly && <CardCollectionButton event={event} keep={keepToMarks} />}
       <div className="card__layout">
       <EventPhoto path={event.image_url} className="card__photo" />
       <div className="card__body">
@@ -56,6 +59,17 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       </div>
       </div>
     </article>
+  );
+}
+
+/** The heart in the card's corner; the card under it leaves the corner free while it is shown. */
+function CardCollectionButton({ event, keep }: { event: EventCard; keep: (e: MouseEvent | KeyboardEvent) => void }) {
+  const on = useCollectionsOn();
+  if (!on) return null;
+  return (
+    <div className="card__collect" onClick={keep} onKeyDown={keep}>
+      <CollectionButton event={event} place="card" />
+    </div>
   );
 }
 

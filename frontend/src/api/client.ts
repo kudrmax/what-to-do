@@ -17,6 +17,7 @@ export type SourceStatus = Schemas["SourceStatus"];
 export type PotentialSource = Schemas["PotentialSourcePublic"];
 export type PotentialSourceOrigin = Schemas["PotentialSourceOrigin"];
 export type Tag = Schemas["TagPublic"];
+export type Collection = Schemas["CollectionPublic"];
 export type EventCard = Schemas["EventPublic"];
 export type Mention = Schemas["MentionPublic"];
 export type Occurrence = Schemas["Occurrence"];
@@ -97,10 +98,18 @@ export function createApi(baseUrl: string) {
     hideTag: (id: number, hidden: boolean) => answer(client.PUT("/tags/{tag_id}/hidden", { params: { path: { tag_id: id } }, body: { hidden } })),
     reorderTags: (ids: number[]) => answer(client.PUT("/tags/order", { body: { ids } })),
 
+    collections: () => answer(client.GET("/collections")),
+    addCollection: (name: string) => answer(client.POST("/collections", { body: { name } })),
+    renameCollection: (id: number, name: string) =>
+      answer(client.PATCH("/collections/{collection_id}", { params: { path: { collection_id: id } }, body: { name } })),
+    deleteCollection: (id: number) => answer(client.DELETE("/collections/{collection_id}", { params: { path: { collection_id: id } } })),
+
     feed: (query: FeedQuery) => answer(client.GET("/events", { params: { query } })),
     event: (id: number) => answer(client.GET("/events/{event_id}", event(id))),
     mentions: (id: number) => answer(client.GET("/events/{event_id}/mentions", event(id))),
     mark: (id: number, body: Mark) => answer(client.PUT("/events/{event_id}/mark", { ...event(id), body })),
+    setCollections: (id: number, collectionIds: number[]) =>
+      answer(client.PUT("/events/{event_id}/collections", { ...event(id), body: { collection_ids: collectionIds } })),
     addDevNote: (id: number, text: string) => answer(client.POST("/events/{event_id}/dev-notes", { ...event(id), body: { text } })),
     merge: (id: number, otherId: number) => answer(client.POST("/events/{event_id}/merge", { ...event(id), body: { other_event_id: otherId } })),
     split: (id: number, mentionId: number) => answer(client.POST("/events/{event_id}/split", { ...event(id), body: { mention_id: mentionId } })),
