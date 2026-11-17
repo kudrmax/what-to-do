@@ -222,6 +222,8 @@ class PhonePageService:
             raise PublishError(NO_CITY)
         snapshot, posters = built
         bundle = await asyncio.to_thread(self._bundle)
+        if not bundle:
+            raise PublishError(BUNDLE_MISSING)
         version = snapshot.content_hash() + _digest(bundle) + config.salt
         if not forced and version == config.published_hash:
             return {}
@@ -231,7 +233,7 @@ class PhonePageService:
         return {
             "published_hash": version,
             "published_at": now,
-            "last_error": None if bundle else BUNDLE_MISSING,
+            "last_error": None,
         }
 
     @staticmethod

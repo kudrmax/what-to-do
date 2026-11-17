@@ -347,13 +347,26 @@ async def test_publish_now_ignores_the_wait_after_a_failure(service, publisher, 
     assert state.last_error is None and state.published_at == clock.now
 
 
-async def test_missing_bundle_publishes_data_and_says_so(config, builder, publisher, clock, tmp_path):
+async def test_turn_on_without_a_bundle_fails_and_publishes_nothing(config, builder, publisher, clock, tmp_path):
     service = PhonePageService(config, builder, publisher, FakeCipher, tmp_path / "absent", clock)
 
-    state = await service.turn_on(REPOSITORY, TOKEN, PASSWORD)
+    with pytest.raises(PublishError, match=BUNDLE_MISSING):
+        await service.turn_on(REPOSITORY, TOKEN, PASSWORD)
 
-    assert set(publisher.published[0]) == {"data.bin", ".nojekyll", MARKER}
-    assert state.enabled and state.last_error == BUNDLE_MISSING
+    assert publisher.publishes == 0
+    assert not service.state().enabled
+
+
+async def test_tick_without_a_bundle_publishes_nothing_and_says_so(service, publisher, builder, bundle, clock):
+    await service.turn_on(REPOSITORY, TOKEN, PASSWORD)
+    bundle.rename(bundle.with_name("gone"))
+    builder.titles.append("Lecture")
+    clock.advance(10)
+
+    await service.tick()
+
+    assert publisher.publishes == 1
+    assert service.state().last_error == BUNDLE_MISSING
 
 
 async def test_loop_ticks_and_stops(config, builder, publisher, bundle, clock):

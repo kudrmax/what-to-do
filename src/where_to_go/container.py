@@ -93,6 +93,7 @@ class Container:
         project: ProjectPaths | None = None,
         release_source: ReleaseSource | None = None,
         phone_publisher: PagesPublisher | None = None,
+        phone_bundle: Path | None = None,
     ) -> Container:
         project = project or ProjectPaths.here()
         db = Database(data_dir / "where-to-go.sqlite3")
@@ -161,7 +162,7 @@ class Container:
             builder=SnapshotBuilder(feed, cities, tags, mentions, images),
             publisher=phone_publisher or GitHubPagesPublisher(http),
             cipher_factory=SnapshotCipher,
-            bundle_dir=project.dist / "phone",
+            bundle_dir=phone_bundle or project.dist / "phone",
             clock=lambda: datetime.now(UTC),
         )
         return cls(
