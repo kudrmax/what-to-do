@@ -7,10 +7,11 @@ import httpx
 import pytest
 import respx
 
+from tests.test_frames import make_video
 from tests.helpers import BELGRADE, add_city, photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.container import Container
 from where_to_go.instagram import InstagramPage
-from where_to_go.models import Booking, BookingKind, InstagramReading, Mark, Mention, Plan, Post, Source, SourceKind, WebSite
+from where_to_go.models import Booking, CollectedPost, BookingKind, InstagramReading, Mark, Mention, Plan, Post, Source, SourceKind, WebSite
 from where_to_go.llm import LlmError
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.refresh import Stage
@@ -721,3 +722,49 @@ async def test_paused_source_is_not_read_and_keeps_its_cards(app):
     assert progress.stage is Stage.DONE, progress.errors
     assert kafana_channel.call_count == calls_before
     assert {e.original_title for e in container.events.in_city(1)} == {"Кафаны"}
+
+
+async def refresh_instagram_posts(tmp_path, monkeypatch, posts: list[CollectedPost]):
+    container = Container.build(
+        tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient(), instagram_pause=0
+    )
+    city = add_city(container, "Белград", "Europe/Belgrade")
+    source = container.sources.add(Source(city_id=city.id, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="EJE"))
+
+    async def collect(*args, **kwargs):
+        return posts
+
+    monkeypatch.setattr(container.refresh._types.of(SourceKind.INSTAGRAM), "collect", collect)
+    container.refresh.start()
+    await container.refresh.wait()
+    with container.db.session() as s:
+        stored = s.exec(select(Post).where(Post.source_id == source.id)).all()
+    await container.close()
+    return stored
+
+
+def collected(**fields) -> CollectedPost:
+    return CollectedPost(external_id=1, url="https://www.instagram.com/p/a/", published_at=datetime.now(UTC), text="Квиз", **fields)
+
+
+@respx.mock
+async def test_a_post_keeps_its_images_and_then_the_frames_of_its_video(tmp_path, monkeypatch):
+    respx.get("https://scontent.cdninstagram.com/cover.jpg").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://scontent.cdninstagram.com/clip.mp4").respond(200, content=make_video([(255, 0, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=["https://scontent.cdninstagram.com/cover.jpg"], video_urls=["https://scontent.cdninstagram.com/clip.mp4"])
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    cover, *frames = stored.image_paths
+    assert cover.endswith(".jpg") and "-f" not in cover
+    assert [name.rsplit("-f", 1)[1] for name in frames] == ["0.jpg", "1.jpg"]
+
+
+@respx.mock
+async def test_a_skipped_post_downloads_no_media(tmp_path, monkeypatch):
+    media = respx.get(url__regex=r"^https://scontent\.cdninstagram\.com/").respond(200, content=b"x")
+    post = collected(image_urls=["https://scontent.cdninstagram.com/cover.jpg"], video_urls=["https://scontent.cdninstagram.com/clip.mp4"], read=False)
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert stored.image_paths == [] and not media.called

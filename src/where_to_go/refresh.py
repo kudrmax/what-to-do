@@ -12,6 +12,7 @@ from sqlmodel import Field, SQLModel
 
 from where_to_go.models import City, CollectedPost, ExtractedEvent, Post, Public, Source, SourceKind
 from where_to_go.extraction import ExtractionContext, PostExtractor
+from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
 from where_to_go.llm import ClaudeSignedOutError, LlmError
@@ -191,6 +192,7 @@ class RefreshService:
         events: EventRepository,
         types: SourceTypes,
         images: ImageStore,
+        frames: VideoFrames,
         photos: PhotoTranscriber,
         post_reader: PostReader,
         post_mentions: PostMentions,
@@ -206,6 +208,7 @@ class RefreshService:
         self._events = events
         self._types = types
         self._images = images
+        self._frames = frames
         self._post_reader = post_reader
         self._linker = linker
         self.progress = RefreshProgress()
@@ -314,9 +317,16 @@ class RefreshService:
 
     async def _store(self, source: Source, found: list[CollectedPost]) -> None:
         for post in found:
-            paths = [p for p in [await self._images.save(u) for u in post.image_urls] if p]
+            paths = await self._media(post) if post.read else []
             if self._posts.add_new(source.id, post, paths):
                 self.progress.new_posts += 1
+
+    async def _media(self, post: CollectedPost) -> list[str]:
+        """The images of a post, then the frames of each of its videos."""
+        paths = [p for p in [await self._images.save(u) for u in post.image_urls] if p]
+        for url in post.video_urls:
+            paths += await self._frames.save(url)
+        return paths
 
     def _failed(self, source: Source, message: str) -> None:
         self._sources.record_error(source.id, message)

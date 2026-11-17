@@ -11,6 +11,7 @@ from where_to_go.cities import CityCatalog
 from where_to_go.db import Database
 from where_to_go.extraction import PostExtractor
 from where_to_go.feed import Feed
+from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linking import EventCards, EventLinker, PostMentions
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm
@@ -115,6 +116,7 @@ class Container:
         tags = TagRepository(db)
         events = EventRepository(db)
         images = ImageStore(data_dir / "images", http)
+        frames = VideoFrames(data_dir / "images", http)
         reader = TelegramChannelReader(http)
         cards = EventCards(events, mentions, EventResolver(tags.fallback), db.transaction)
         matching_llm = matching_llm or ClaudeJsonLlm(lambda: settings.load().matching_model)
@@ -158,6 +160,7 @@ class Container:
             events=events,
             types=types,
             images=images,
+            frames=frames,
             photos=photos,
             post_reader=post_reader,
             post_mentions=post_mentions,
