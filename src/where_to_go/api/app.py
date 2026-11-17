@@ -446,7 +446,10 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         hide_multiday: Annotated[bool, Query(description="Hide exhibitions, festivals and other multiday events")] = False,
         only_priority: Annotated[bool, Query(description="Only events Claude flagged as fitting the priority wish from settings")] = False,
         collection: Annotated[
-            int | None, Query(description="Only events of this collection, whatever their tags; without start it begins at the earliest event")
+            int | None, Query(
+                description="Only events of this collection, whatever their tags, each once (a regular one on its next date); "
+                "without start it begins at the earliest event"
+            )
         ] = None,
         search: Annotated[
             str,
@@ -459,7 +462,8 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     ):
         """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.
         Unmarked cards with a blacklisted tag are left out."""
-        first = start or (c.feed.earliest(city.id) if end or collection is not None else None) or datetime.now(ZoneInfo(city.timezone)).date()
+        today = datetime.now(ZoneInfo(city.timezone)).date()
+        first = start or (c.feed.earliest(city.id) if end or collection is not None else None) or today
         criteria = FeedFilter(
             start=first,
             end=end,
@@ -471,6 +475,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             only_priority=only_priority,
             plans=frozenset(plans),
             collection=collection,
+            today=today,
             search=SearchQuery(search),
         )
         return c.feed.occurrences(city, criteria)

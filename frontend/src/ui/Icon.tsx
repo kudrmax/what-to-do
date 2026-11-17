@@ -64,6 +64,7 @@ const PATHS = {
   ),
   chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   bookmark: <path d="M6 3h12v18l-6-4-6 4z" />,
+  heart: <path d="M12 20s-7.5-4.6-9.2-9.4C1.6 7.2 4 4 7.3 4c2 0 3.6 1.1 4.7 2.8C13.1 5.1 14.7 4 16.7 4 20 4 22.4 7.2 21.2 10.6 19.5 15.4 12 20 12 20z" />,
   sparkle: (
     <>
       <path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z" />
@@ -213,19 +214,20 @@ export type IconName = keyof typeof PATHS;
 
 interface IconProps {
   name: IconName;
+  filled?: boolean;
   size?: number;
   strokeWidth?: number;
   className?: string;
 }
 
-export function Icon({ name, size = 18, strokeWidth = 2, className }: IconProps) {
+export function Icon({ name, size = 18, strokeWidth = 2, className, filled = false }: IconProps) {
   return (
     <svg
       className={className}
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth={strokeWidth}
       strokeLinecap="round"

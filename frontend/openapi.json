@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.21.3"
+  "version": "1.23.0"
  },
  "paths": {
   "/settings": {
@@ -920,6 +920,159 @@
     }
    }
   },
+  "/collections": {
+   "get": {
+    "tags": [
+     "collections"
+    ],
+    "summary": "Collections",
+    "description": "Every collection in the order it was added.",
+    "operationId": "collections_collections_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/CollectionPublic"
+         },
+         "type": "array",
+         "title": "Response Collections Collections Get"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "collections"
+    ],
+    "summary": "Add Collection",
+    "description": "Adds an empty collection. 409: one with this name exists.",
+    "operationId": "add_collection_collections_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CollectionBase"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CollectionPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/collections/{collection_id}": {
+   "patch": {
+    "tags": [
+     "collections"
+    ],
+    "summary": "Rename Collection",
+    "description": "Renames a collection. 409: another one has this name.",
+    "operationId": "rename_collection_collections__collection_id__patch",
+    "parameters": [
+     {
+      "name": "collection_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Collection Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CollectionBase"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CollectionPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "collections"
+    ],
+    "summary": "Delete Collection",
+    "description": "Deletes a collection; its events stay in the feed.",
+    "operationId": "delete_collection_collections__collection_id__delete",
+    "parameters": [
+     {
+      "name": "collection_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Collection Id"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/events": {
    "get": {
     "tags": [
@@ -1047,6 +1200,24 @@
        "title": "Only Priority"
       },
       "description": "Only events Claude flagged as fitting the priority wish from settings"
+     },
+     {
+      "name": "collection",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Only events of this collection, whatever their tags, each once (a regular one on its next date); without start it begins at the earliest event",
+       "title": "Collection"
+      },
+      "description": "Only events of this collection, whatever their tags, each once (a regular one on its next date); without start it begins at the earliest event"
      },
      {
       "name": "search",
@@ -1243,6 +1414,59 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/Mark"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EventPublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/events/{event_id}/collections": {
+   "put": {
+    "tags": [
+     "events"
+    ],
+    "summary": "Set Collections",
+    "description": "Sets the collections a card is in. 422: a collection that does not exist.",
+    "operationId": "set_collections_events__event_id__collections_put",
+    "parameters": [
+     {
+      "name": "event_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Event Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EventCollections"
        }
       }
      }
@@ -2021,6 +2245,12 @@
       "description": "What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged",
       "default": ""
      },
+     "collections_enabled": {
+      "type": "boolean",
+      "title": "Collections Enabled",
+      "description": "Shows the collection button on cards and the Collections screen; off only hides them",
+      "default": false
+     },
      "extraction_prompt": {
       "type": "string",
       "minLength": 1,
@@ -2063,6 +2293,7 @@
      "active_city_id",
      "recent_posts",
      "priority_wish",
+     "collections_enabled",
      "extraction_prompt",
      "matching_prompt",
      "photo_prompt",
@@ -2472,6 +2703,53 @@
     ],
     "title": "ClaudeSignInView"
    },
+   "CollectionBase": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Name",
+      "examples": [
+       "Unusual"
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "CollectionBase"
+   },
+   "CollectionPublic": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Name",
+      "examples": [
+       "Unusual"
+      ]
+     },
+     "id": {
+      "type": "integer",
+      "title": "Id"
+     },
+     "size": {
+      "type": "integer",
+      "title": "Size",
+      "description": "Events in it, in every city"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "id",
+     "size"
+    ],
+    "title": "CollectionPublic"
+   },
    "Conflict": {
     "properties": {
      "field": {
@@ -2567,6 +2845,23 @@
      "detail"
     ],
     "title": "ErrorDetail"
+   },
+   "EventCollections": {
+    "properties": {
+     "collection_ids": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Collection Ids",
+      "description": "Every collection the event is in; an empty list takes it out of all"
+     }
+    },
+    "type": "object",
+    "required": [
+     "collection_ids"
+    ],
+    "title": "EventCollections"
    },
    "EventKind": {
     "type": "string",
@@ -2759,6 +3054,14 @@
       "type": "array",
       "title": "Source Ids"
      },
+     "collection_ids": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Collection Ids",
+      "description": "The user's collections it is in"
+     },
      "id": {
       "type": "integer",
       "title": "Id"
@@ -2829,6 +3132,7 @@
      "is_cancelled",
      "conflicts",
      "source_ids",
+     "collection_ids",
      "id",
      "is_going",
      "image_url",
@@ -3038,6 +3342,18 @@
       "type": "array",
       "title": "Post Lines",
       "description": "The lines of the post text that are about this event, copied exactly. Empty when the whole post is about this one event"
+     },
+     "details_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Details Url",
+      "description": "The link to a Telegram post (t.me/<channel>/<number>) the post gives for this event's details, such as the link on its line in a digest; null when the post gives none or the post itself is that announcement"
      }
     },
     "type": "object",
@@ -3794,6 +4110,18 @@
       "title": "Priority Wish",
       "description": "What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged"
      },
+     "collections_enabled": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Collections Enabled",
+      "description": "Shows the collection button on cards and the Collections screen; off only hides them"
+     },
      "extraction_prompt": {
       "anyOf": [
        {
@@ -4529,6 +4857,10 @@
   {
    "name": "tags",
    "description": "The fixed list of tags Claude may put on cards"
+  },
+  {
+   "name": "collections",
+   "description": "The user's own collections of events, shared by all cities"
   },
   {
    "name": "events",

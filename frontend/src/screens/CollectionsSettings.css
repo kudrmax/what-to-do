@@ -1,0 +1,45 @@
+.collection-row {
+  gap: 8px;
+  scroll-margin-top: 16px;
+  padding: 0 4px 0 12px;
+}
+
+.collection-row__icon {
+  flex: none;
+  color: var(--accent);
+}
+
+.collection-row__size {
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--text-2);
+}
+
+/* The question takes a line of its own under the name, the buttons at its end. */
+.collection-row__confirm {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 8px 24px;
+}
+
+.collection-row__question {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.collection-add__input {
+  width: 180px;
+}
+
+#collections {
+  scroll-margin-top: 16px;
+}

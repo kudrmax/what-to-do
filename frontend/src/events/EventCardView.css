@@ -152,3 +152,18 @@
 .card--read-only .card__body {
   padding-bottom: 16px;
 }
+
+/* The heart takes the top-right corner: the meta row leaves it free unless a photo above holds it. */
+.card:has(.card__collect) .card__meta {
+  padding-right: 34px;
+}
+
+.card--with-photo:has(.card__collect) .card__meta {
+  padding-right: 0;
+}
+
+@container (min-width: 560px) {
+  .card--with-photo:has(.card__collect) .card__meta {
+    padding-right: 34px;
+  }
+}

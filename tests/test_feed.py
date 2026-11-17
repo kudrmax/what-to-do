@@ -146,3 +146,13 @@ def test_collected_event_stays_when_only_paused_sources_announce_it():
     feed = Feed(Events(collected, forgotten), Sources(7))
     assert [o.event.id for o in feed.occurrences(CITY, WEEK)] == [1]
     assert [o.event.id for o in feed.occurrences(CITY, replace(WEEK, collection=4))] == []
+
+
+def test_collection_shows_a_regular_event_once_on_its_next_date():
+    weekly = event(kind=EventKind.RECURRING, rrule="FREQ=WEEKLY;BYDAY=TU", start_date=date(2026, 10, 6), collection_ids=[3])
+    feed = Feed(Events(weekly), Sources())
+    collection = replace(WEEK, collection=3, today=date(2026, 11, 12))
+    assert [o.date for o in feed.occurrences(CITY, collection)] == [date(2026, 11, 17)]
+    passed = replace(collection, today=date(2026, 12, 1))
+    assert [o.date for o in feed.occurrences(CITY, passed)] == [date(2026, 11, 17)]
+    assert [o.date for o in feed.occurrences(CITY, replace(collection, today=date(2026, 11, 1)))] == [date(2026, 11, 10)]

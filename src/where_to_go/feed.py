@@ -38,6 +38,7 @@ class FeedFilter:
     only_priority: bool = False
     plans: frozenset[PlanFilter] = field(default_factory=frozenset)
     collection: int | None = None
+    today: date | None = None
     search: SearchQuery = field(default_factory=lambda: SearchQuery(""))
 
     def accepts(self, event: Event) -> bool:
@@ -92,7 +93,10 @@ class Feed:
         for event in self._events.near(city.id, criteria.start, end):
             if not event.is_dropped_with(paused) and criteria.accepts(event):
                 public = EventPublic.of(event, city)
-                result.extend(Occurrence(date=day, event=public) for day in self._days(event, criteria.start, end))
+                days = self._days(event, criteria.start, end)
+                if criteria.collection is not None:
+                    days = self._kept_day(days, criteria.today)
+                result.extend(Occurrence(date=day, event=public) for day in days)
         return sorted(result, key=self._order)
 
     def _reach(self, city_id: int, start: date) -> date:
@@ -109,6 +113,14 @@ class Feed:
             last = event.end_date or event.start_date
             return [max(start, event.start_date)] if event.start_date <= end and last >= start else []
         return [event.start_date] if start <= event.start_date <= end else []
+
+    @staticmethod
+    def _kept_day(days: list[date], today: date | None) -> list[date]:
+        """A collection keeps an event once: a regular one on its next date, or on its last one when all have passed."""
+        if len(days) < 2:
+            return days
+        ahead = [d for d in days if today is not None and d >= today]
+        return [ahead[0] if ahead else days[-1]]
 
     @staticmethod
     def _order(occurrence: Occurrence) -> tuple:
