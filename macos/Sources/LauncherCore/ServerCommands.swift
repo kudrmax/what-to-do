@@ -6,6 +6,8 @@ import Foundation
 public struct ServerCommands: Sendable, Equatable {
     public let up: String
     public let down: String
+    /// Prints the port the copy starts on, moving off one another program holds.
+    public let port: String
 
     public init(home: ServerHome, port: Int) {
         let cli: String
@@ -17,6 +19,7 @@ public struct ServerCommands: Sendable, Equatable {
         }
         up = "\(cli) up --port \(port)"
         down = "\(cli) down"
+        self.port = "\(cli) port"
     }
 
     static func quoted(_ text: String) -> String {

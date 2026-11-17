@@ -226,3 +226,34 @@ def test_status_of_a_stopped_copy_says_how_to_start_it(tmp_path: Path) -> None:
     assert Cli(paths, config, out=said.append).run(["status"]) == NOT_RUNNING_EXIT
     assert said[0] == "What To Do is not running."
     assert any("where-to-go up" in line for line in said)
+
+
+def test_the_app_from_the_disk_image_starts_on_a_rarely_used_port(tmp_path: Path) -> None:
+    from where_to_go.launcher.bundle import AppBundle
+    from where_to_go.launcher.config import BUNDLE_DEFAULT_PORT
+
+    bundle = AppBundle(app=tmp_path / "What To Do.app", arch="arm64")
+    paths = ProjectPaths(bundle.project, state=tmp_path / "state", bundle=bundle)
+
+    config = InstanceConfig.load(paths, environ={})
+
+    assert config.port == BUNDLE_DEFAULT_PORT == 48765
+    assert not config.port_fixed
+
+
+def test_the_port_command_prints_only_the_port_and_moves_off_a_taken_one(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    import socket
+
+    paths = copy_at(tmp_path)
+    with socket.socket() as holder:
+        holder.bind(("127.0.0.1", 0))
+        holder.listen()
+        taken = holder.getsockname()[1]
+        config = InstanceConfig(port=taken, data_dir=tmp_path / "data", instance="prod", menu_bar_icon=False, port_fixed=False)
+        printed: list[str] = []
+
+        assert Cli(paths, config, out=printed.append).run(["port"]) == 0
+
+    [port] = printed
+    assert int(port) != taken
+    assert f"Port {taken} is taken by another program" in capsys.readouterr().err

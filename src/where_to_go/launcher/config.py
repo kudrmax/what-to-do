@@ -10,6 +10,9 @@ from platformdirs import user_data_dir
 from where_to_go.launcher.paths import ProjectPaths
 
 DEFAULT_PORT = 18765
+# The app installed from the disk image is meant for people who run other local tools too: a port few
+# programs pick, so it rarely has to move.
+BUNDLE_DEFAULT_PORT = 48765
 DEFAULT_INSTANCE = "prod"
 WORKTREE_INSTANCE = "dev"
 APP_DATA_NAME = "where-to-go"
@@ -48,8 +51,10 @@ class DotEnv:
 class InstanceConfig:
     """How this copy runs when nothing else is said.
 
-    Everyone gets the same defaults: port 18765, the data in the user's data folder of the platform, the
-    "prod" instance. `.env` in the copy overrides them, and `WHERE_TO_GO_*` variables override `.env`.
+    Everyone gets the same defaults: port 18765 (48765 for the app from the disk image), the data in the
+    user's data folder of the platform, the "prod" instance. `.env` in the copy overrides them, and
+    `WHERE_TO_GO_*` variables override `.env`. A port set there is fixed; otherwise the copy keeps to the
+    port it moved to when another program held its own (`paths.chosen_port`).
     A linked git worktree keeps its data in its own `data` folder, so work in progress never opens the
     real data by accident."""
 
@@ -57,6 +62,7 @@ class InstanceConfig:
     data_dir: Path
     instance: str
     menu_bar_icon: bool
+    port_fixed: bool = True
 
     ENV_PORT = "WHERE_TO_GO_PORT"
     ENV_DATA_DIR = "WHERE_TO_GO_DATA_DIR"
@@ -65,7 +71,9 @@ class InstanceConfig:
     @classmethod
     def load(cls, paths: ProjectPaths, environ: Mapping[str, str] = os.environ) -> InstanceConfig:
         dotenv = DotEnv.read(paths.env_file)
-        port_text = environ.get(cls.ENV_PORT) or dotenv.get("PORT") or str(DEFAULT_PORT)
+        set_port = environ.get(cls.ENV_PORT) or dotenv.get("PORT")
+        default_port = BUNDLE_DEFAULT_PORT if paths.bundle is not None else DEFAULT_PORT
+        port_text = set_port or cls._remembered_port(paths) or str(default_port)
         data_text = environ.get(cls.ENV_DATA_DIR) or dotenv.get("DATA_DIR") or ""
         instance = environ.get(cls.ENV_INSTANCE) or dotenv.get("INSTANCE_ENV_NAME") or cls._default_instance(paths)
         return cls(
@@ -73,7 +81,16 @@ class InstanceConfig:
             data_dir=cls._data_dir(paths, data_text),
             instance=instance,
             menu_bar_icon=dotenv.get("MENU_BAR_ICON", "0").strip() == "1",
+            port_fixed=bool(set_port),
         )
+
+    @staticmethod
+    def _remembered_port(paths: ProjectPaths) -> str | None:
+        try:
+            text = paths.chosen_port.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        return text if text.isdigit() and 1 <= int(text) <= 65535 else None
 
     @staticmethod
     def default_data_dir() -> Path:

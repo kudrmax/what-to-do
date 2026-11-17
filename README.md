@@ -151,7 +151,7 @@ cd what-to-do
 uv run where-to-go up
 ```
 
-`up` installs everything the first time, builds the interface, starts the app in the background and prints its address: open **http://127.0.0.1:18765** in your browser. Closing the terminal does not stop the app.
+`up` installs everything the first time, builds the interface, starts the app in the background and prints its address, usually **http://127.0.0.1:18765**: open it in your browser. Closing the terminal does not stop the app.
 
 #### Everyday commands
 
@@ -237,8 +237,8 @@ Click a card for the full details and the original posts. With a long feed, try 
 **Refresh says to sign in to Claude.**
 Press **Sign in to Claude** under **Refresh**. The sign-in page opens in your browser; sign in with the account of your Claude subscription, come back and press **Refresh** again. If the browser didn't open, the note has a link to the page and a field for the code the page shows. The app keeps this login in Claude Code's place in your keychain, so Claude Code on the same Mac is signed in too, and the other way round.
 
-**The port is busy.**
-Another program uses port 18765. In the macOS app, create the file `~/Library/Application Support/What To Do/.env` with the line `PORT=18766` (or another free number) and open the app again. In a copy run from the code, copy `.env.example` to `.env`, set `PORT` to another number and run `uv run where-to-go up` again.
+**Another program uses the app's port.**
+What To Do moves to a free port next to its own by itself and stays there: the macOS app opens on it, and `uv run where-to-go up` prints the new address. A port you set yourself is kept as it is: `PORT` in `.env` of a copy run from the code, or in `~/Library/Application Support/What To Do/.env` for the macOS app. If that one is busy, the app says which program holds it; change the number or remove the line.
 
 **Where is my data?**
 In one folder: the SQLite database `where-to-go.sqlite3` and the downloaded images.

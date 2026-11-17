@@ -66,6 +66,11 @@ class ProjectPaths:
         """Written by the shell updater of releases before 1.16."""
         return self.pids / "update_status.pid"
 
+    @property
+    def chosen_port(self) -> Path:
+        """The port the copy moved to when another program held its own; it stays there."""
+        return self.pids / "port"
+
     def server_record(self, port: int) -> Path:
         return self.pids / f"server-{port}.json"
 

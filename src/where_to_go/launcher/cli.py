@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 APP_NAME = "What To Do"
 PROG = "where-to-go"
-COMMANDS = ("serve", "up", "down", "restart", "status", "logs", "build", "update", "uninstall")
+COMMANDS = ("serve", "up", "down", "restart", "status", "port", "logs", "build", "update", "uninstall")
 NOT_RUNNING_EXIT = 3
 BANNER_PROD = "\033[1;32m"
 BANNER_OTHER = "\033[1;33m"
@@ -63,6 +63,9 @@ class Cli:
         status.add_argument("--json", action="store_true", help="answer in JSON")
         status.set_defaults(handler=self.status)
 
+        port = commands.add_parser("port", help="the port the app starts on; moves to a free one when another program holds it")
+        port.set_defaults(handler=self.port)
+
         logs = commands.add_parser("logs", help="the logs of the app and of its updates")
         logs.add_argument("--lines", type=int, default=50, help="how many last lines to show first (default 50)")
         logs.add_argument("--no-follow", action="store_true", help="show the last lines and quit")
@@ -101,7 +104,17 @@ class Cli:
         serve(self._paths, self._spec(arguments))
         return 0
 
+    def port(self, _: argparse.Namespace) -> int:
+        """Prints only the number on standard output, for the macOS app; notes go to standard error."""
+        from where_to_go.launcher.control import ServerControl
+
+        control = ServerControl(self._paths, self._config, say=lambda text: print(text, file=sys.stderr, flush=True))
+        self._out(str(control.choose_port()))
+        return 0
+
     def up(self, arguments: argparse.Namespace) -> int:
+        if arguments.port is None:
+            arguments.port = self._control().choose_port()
         spec = self._spec(arguments)
         self._control().up(spec, build=not arguments.no_build)
         self._banner(spec)
@@ -213,7 +226,7 @@ class Cli:
     def _spec(self, arguments: argparse.Namespace) -> ServerSpec:
         ui = None if arguments.no_ui else arguments.ui
         return ServerSpec(
-            port=arguments.port,
+            port=arguments.port if arguments.port is not None else self._config.port,
             data_dir=arguments.data.expanduser().resolve(),
             ui=ui.expanduser().resolve() if ui else None,
             instance=arguments.instance,
@@ -221,7 +234,7 @@ class Cli:
 
     def _server_options(self, parser: argparse.ArgumentParser, ui_default: Path | None) -> None:
         config = self._config
-        parser.add_argument("--port", type=int, default=config.port, help=f"the port of http://127.0.0.1:<port> (default: {config.port})")
+        parser.add_argument("--port", type=int, default=None, help=f"the port of http://127.0.0.1:<port> (default: {config.port}, or a free one nearby when another program holds it)")
         parser.add_argument("--data", type=Path, default=config.data_dir, help=f"folder for the database and images (default: {config.data_dir})")
         parser.add_argument("--ui", type=Path, default=ui_default, help="a built web interface to serve at the root; the API moves to /api")
         parser.add_argument("--no-ui", action="store_true", help="serve the API alone")
