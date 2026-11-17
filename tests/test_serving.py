@@ -29,6 +29,12 @@ def test_api_lives_under_api(client):
     assert client.get("/api/docs").status_code == 200
 
 
+def test_the_served_interface_may_use_the_api_and_other_sites_may_not(client):
+    assert client.patch("/api/settings", json={"recent_posts": 30}, headers={"Origin": "http://testserver"}).status_code == 200
+    assert client.patch("/api/settings", json={"recent_posts": 40}, headers={"Origin": "https://evil.example"}).status_code == 403
+    assert client.get("/api/settings").json()["recent_posts"] == 30
+
+
 def test_interface_routes_get_the_index_and_files_are_served(client):
     assert client.get("/").text == "<html>interface</html>"
     assert client.get("/calendar").text == "<html>interface</html>"
