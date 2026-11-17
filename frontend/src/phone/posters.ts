@@ -7,6 +7,8 @@ import type { PageFiles } from "./snapshot";
 export class Posters {
   private readonly urls = new Map<string, Promise<string | null>>();
   private readonly made: string[] = [];
+  /** Counts releases, so a poster that finishes after one is revoked at once instead of leaking. */
+  private generation = 0;
   private readonly files: PageFiles;
   private readonly key: CryptoKey;
 
@@ -25,15 +27,21 @@ export class Posters {
   }
 
   release(): void {
+    this.generation += 1;
     this.made.forEach((url) => URL.revokeObjectURL(url));
     this.made.length = 0;
     this.urls.clear();
   }
 
   private async load(path: string): Promise<string | null> {
+    const generation = this.generation;
     try {
       const image = await decrypt(await this.files.file(path), this.key);
       const url = URL.createObjectURL(new Blob([image]));
+      if (generation !== this.generation) {
+        URL.revokeObjectURL(url);
+        return null;
+      }
       this.made.push(url);
       return url;
     } catch {

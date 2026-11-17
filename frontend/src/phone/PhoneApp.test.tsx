@@ -55,11 +55,15 @@ function freshSalt(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(16));
 }
 
-async function seal(content: PhoneSnapshot, salt: Uint8Array, password = PASSWORD): Promise<ArrayBuffer> {
+function seal(content: PhoneSnapshot, salt: Uint8Array, password = PASSWORD): Promise<ArrayBuffer> {
+  return sealText(JSON.stringify(content), salt, password);
+}
+
+async function sealText(text: string, salt: Uint8Array, password = PASSWORD): Promise<ArrayBuffer> {
   const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
   const key = await crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 600_000 }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(JSON.stringify(content))));
+  const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(text)));
   const blob = new Uint8Array(32 + sealed.length);
   blob.set(new TextEncoder().encode("WTD1"), 0);
   blob.set(salt, 4);
@@ -166,4 +170,62 @@ test("a_missing_snapshot_says_so", async () => {
   const failing: PageFiles = { snapshot: async () => Promise.reject(new Error("404")), file: async () => new ArrayBuffer(0) };
   render(<PhoneApp files={failing} now={() => NOW} />);
   expect(await screen.findByText("Couldn’t load the plans")).toBeInTheDocument();
+});
+
+test("a_broken_snapshot_is_not_a_wrong_password", async () => {
+  render(<PhoneApp files={files(await sealText("{not json", freshSalt()))} now={() => NOW} />);
+  await openWith(PASSWORD);
+  expect(await screen.findByText("Couldn’t load the plans")).toBeInTheDocument();
+  expect(screen.queryByText("Wrong password")).not.toBeInTheDocument();
+});
+
+function comeBack() {
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+  fireEvent(document, new Event("visibilitychange"));
+}
+
+test("coming_back_to_the_page_shows_the_new_snapshot", async () => {
+  const salt = freshSalt();
+  await rememberKey(await deriveKey(PASSWORD, salt), salt);
+  let blob = await seal(PLANS, salt);
+  const changing: PageFiles = { snapshot: async () => blob, file: async () => new ArrayBuffer(0) };
+  render(<PhoneApp files={changing} now={() => NOW} />);
+  expect(await screen.findByText("Jazz at Dorćol")).toBeInTheDocument();
+
+  blob = await seal(snapshot([{ date: "2026-11-19", event: event(3, "Late film", "sure"), post_url: null }]), salt);
+  comeBack();
+
+  expect(await screen.findByText("Late film")).toBeInTheDocument();
+  expect(screen.queryByText("Jazz at Dorćol")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+});
+
+test("coming_back_after_a_password_change_asks_again", async () => {
+  const salt = freshSalt();
+  await rememberKey(await deriveKey(PASSWORD, salt), salt);
+  let blob = await seal(PLANS, salt);
+  const changing: PageFiles = { snapshot: async () => blob, file: async () => new ArrayBuffer(0) };
+  render(<PhoneApp files={changing} now={() => NOW} />);
+  expect(await screen.findByText("Jazz at Dorćol")).toBeInTheDocument();
+
+  blob = await seal(PLANS, freshSalt(), "new password");
+  comeBack();
+
+  expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+});
+
+test("coming_back_offline_keeps_the_list", async () => {
+  const salt = freshSalt();
+  await rememberKey(await deriveKey(PASSWORD, salt), salt);
+  const blob = await seal(PLANS, salt);
+  let online = true;
+  const flaky: PageFiles = { snapshot: async () => (online ? blob : Promise.reject(new Error("offline"))), file: async () => new ArrayBuffer(0) };
+  render(<PhoneApp files={flaky} now={() => NOW} />);
+  expect(await screen.findByText("Jazz at Dorćol")).toBeInTheDocument();
+
+  online = false;
+  comeBack();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  expect(screen.getByText("Jazz at Dorćol")).toBeInTheDocument();
 });

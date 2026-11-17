@@ -6,15 +6,36 @@ import { PlanList } from "./PlanList";
 import { Posters, PostersContext } from "./posters";
 import { readSnapshot, type PageFiles, type PhoneSnapshot } from "./snapshot";
 
-type State =
-  | { step: "loading" }
-  | { step: "failed" }
-  | { step: "locked"; blob: ArrayBuffer; wrong: boolean; busy: boolean }
-  | { step: "open"; blob: ArrayBuffer; snapshot: PhoneSnapshot; posters: Posters };
+type Open = { step: "open"; blob: ArrayBuffer; key: CryptoKey; snapshot: PhoneSnapshot; posters: Posters };
+type State = { step: "loading" } | { step: "failed" } | { step: "locked"; blob: ArrayBuffer; wrong: boolean; busy: boolean } | Open;
 
-async function open(files: PageFiles, blob: ArrayBuffer, key: CryptoKey): Promise<State> {
-  const snapshot = readSnapshot(await decrypt(blob, key));
-  return { step: "open", blob, snapshot, posters: new Posters(files, key) };
+const FAILED: State = { step: "failed" };
+
+function locked(blob: ArrayBuffer, wrong = false): State {
+  return { step: "locked", blob, wrong, busy: false };
+}
+
+/** Null when the key does not open the file: a wrong password or a changed salt. */
+async function opened(blob: ArrayBuffer, key: CryptoKey): Promise<PhoneSnapshot | null> {
+  let plain: ArrayBuffer;
+  try {
+    plain = await decrypt(blob, key);
+  } catch {
+    return null;
+  }
+  return readSnapshot(plain);
+}
+
+/** Opens the file with the key remembered for its salt, or asks for the password. */
+async function reopen(files: PageFiles, blob: ArrayBuffer): Promise<State> {
+  const key = await rememberedKey(saltOf(blob));
+  if (!key) return locked(blob);
+  const snapshot = await opened(blob, key);
+  if (!snapshot) {
+    forgetKey();
+    return locked(blob);
+  }
+  return { step: "open", blob, key, snapshot, posters: new Posters(files, key) };
 }
 
 /** Asks for the password once, then shows the decrypted plans; the derived key stays on the phone until Lock. */
@@ -25,16 +46,7 @@ export function PhoneApp({ files, now = () => new Date() }: { files: PageFiles; 
     let current = true;
     const load = async (): Promise<State> => {
       const blob = await files.snapshot().catch(() => null);
-      if (!blob) return { step: "failed" };
-      const key = await rememberedKey(saltOf(blob));
-      if (key) {
-        try {
-          return await open(files, blob, key);
-        } catch {
-          forgetKey();
-        }
-      }
-      return { step: "locked", blob, wrong: false, busy: false };
+      return blob ? reopen(files, blob).catch(() => FAILED) : FAILED;
     };
     void load().then((next) => current && setState(next));
     return () => {
@@ -42,19 +54,45 @@ export function PhoneApp({ files, now = () => new Date() }: { files: PageFiles; 
     };
   }, [files]);
 
-  useEffect(() => () => (state.step === "open" ? state.posters.release() : undefined), [state]);
+  const posters = state.step === "open" ? state.posters : null;
+  useEffect(() => () => posters?.release(), [posters]);
+
+  useEffect(() => {
+    if (state.step !== "open") return;
+    const shown = state;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const blob = await files.snapshot().catch(() => null);
+      if (!blob) return;
+      let next: State;
+      try {
+        const snapshot = await opened(blob, shown.key);
+        next = snapshot ? { ...shown, blob, snapshot } : await reopen(files, blob);
+      } catch {
+        next = FAILED;
+      }
+      setState((previous) => (previous === shown ? next : previous));
+    };
+    const onVisibility = () => void refresh();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [state, files]);
 
   const unlock = useCallback(
     async (blob: ArrayBuffer, password: string) => {
       setState({ step: "locked", blob, wrong: false, busy: true });
       const salt = saltOf(blob);
-      const key = await deriveKey(password, salt);
       try {
-        const opened = await open(files, blob, key);
+        const key = await deriveKey(password, salt);
+        const snapshot = await opened(blob, key);
+        if (!snapshot) {
+          setState(locked(blob, true));
+          return;
+        }
         await rememberKey(key, salt);
-        setState(opened);
+        setState({ step: "open", blob, key, snapshot, posters: new Posters(files, key) });
       } catch {
-        setState({ step: "locked", blob, wrong: true, busy: false });
+        setState(FAILED);
       }
     },
     [files],
@@ -62,7 +100,7 @@ export function PhoneApp({ files, now = () => new Date() }: { files: PageFiles; 
 
   const lock = useCallback((blob: ArrayBuffer) => {
     forgetKey();
-    setState({ step: "locked", blob, wrong: false, busy: false });
+    setState(locked(blob));
   }, []);
 
   switch (state.step) {

@@ -121,7 +121,11 @@ function usePullToClose(onClose: () => void) {
       origin.current = (ref.current?.scrollTop ?? 0) <= 0 ? e.touches[0].clientY : null;
     },
     move: (e: TouchEvent) => {
-      if (origin.current === null) return;
+      if ((ref.current?.scrollTop ?? 0) > 0) origin.current = null;
+      if (origin.current === null) {
+        setOffset(0);
+        return;
+      }
       setOffset(Math.max(0, e.touches[0].clientY - origin.current));
     },
     end: () => {
