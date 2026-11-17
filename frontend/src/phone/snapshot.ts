@@ -1,15 +1,17 @@
-import type { Occurrence } from "../api/client";
+import type { City, Mention, Occurrence, Settings, Source, Tag } from "../api/client";
 
-export type PhoneOccurrence = Occurrence & { post_url: string | null };
-
-/** What the app publishes: its upcoming plans for one city, as the Plans screen listed them when it was made. */
+/** What the app publishes: its own API answers for the upcoming plans of the active city, as they were when it was made. */
 export interface PhoneSnapshot {
   made_at: string;
-  city: string;
   timezone: string;
-  today: string;
-  tags: string[];
-  occurrences: PhoneOccurrence[];
+  settings: Settings;
+  cities: City[];
+  sources: Source[];
+  tags: Tag[];
+  occurrences: Occurrence[];
+  mentions: Record<string, Mention[]>;
+  /** The encrypted file published for each image URL the answers name. */
+  images: Record<string, string>;
 }
 
 const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
