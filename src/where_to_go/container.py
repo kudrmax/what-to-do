@@ -38,6 +38,7 @@ from where_to_go.repositories import (
     SettingsRepository,
     SourceRepository,
     TagRepository,
+    InstagramRepository,
     WebRepository,
 )
 from where_to_go.resolution import EventResolver
@@ -60,6 +61,7 @@ class Container:
     city_catalog: CityCatalog
     sources: SourceRepository
     web: WebRepository
+    instagram: InstagramRepository
     catalog: SourceCatalog
     potential_sources: PotentialSources
     posts: PostRepository
@@ -102,6 +104,7 @@ class Container:
         cities = CityRepository(db, settings)
         sources = SourceRepository(db)
         web = WebRepository(db)
+        instagram = InstagramRepository(db)
         posts = PostRepository(db)
         mentions = MentionRepository(db)
         places = PlaceRepository(db)
@@ -183,6 +186,7 @@ class Container:
             city_catalog=CityCatalog(cities, tags, lambda: refresh.progress.running),
             sources=sources,
             web=web,
+            instagram=instagram,
             catalog=catalog,
             potential_sources=potential_sources,
             posts=posts,

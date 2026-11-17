@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlparse
 
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 
+from where_to_go.models import InstagramUrls
 from where_to_go.telegram import SourceError
 
 _NAME = re.compile(r"^[A-Za-z0-9_.]{1,30}$")
@@ -19,26 +20,6 @@ _NOT_PROFILES = {"p", "reel", "reels", "stories", "explore", "tv", "accounts", "
 _POST_DAY = re.compile(r" on ([A-Z][a-z]+ \d{1,2}, \d{4})")
 _TAG_QUALITY = re.compile(r"\.(\d{3,4})\.")
 _MIN_VIDEO_WIDTH = 480
-
-
-class InstagramUrls:
-    BASE = "https://www.instagram.com"
-
-    @classmethod
-    def profile(cls, name: str) -> str:
-        return f"{cls.BASE}/{name}/"
-
-    @classmethod
-    def post(cls, code: str) -> str:
-        return f"{cls.BASE}/p/{code}/"
-
-    @classmethod
-    def highlight(cls, highlight_id: str) -> str:
-        return f"{cls.BASE}/stories/highlights/{highlight_id}/"
-
-    @classmethod
-    def is_story(cls, url: str) -> bool:
-        return url.startswith(f"{cls.BASE}/stories/")
 
 
 class InstagramName:

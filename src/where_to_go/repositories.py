@@ -10,6 +10,8 @@ from sqlmodel import col, select
 
 from where_to_go.db import Database
 from where_to_go.models import (
+    InstagramProfile,
+    InstagramReading,
     City,
     CityContents,
     CollectedPost,
@@ -189,6 +191,36 @@ class SourceRepository:
             s.commit()
 
 
+class InstagramRepository:
+    """What is read from each Instagram source."""
+
+    def __init__(self, db: Database) -> None:
+        self._db = db
+
+    def add(self, source_id: int, reading: InstagramReading) -> None:
+        with self._db.session() as s:
+            s.add(InstagramProfile(source_id=source_id, **reading.model_dump()))
+            s.commit()
+
+    def reading(self, source_id: int) -> InstagramReading:
+        return self.readings([source_id])[source_id]
+
+    def change(self, source_id: int, reading: InstagramReading) -> InstagramReading:
+        with self._db.session() as s:
+            profile = s.get(InstagramProfile, source_id)
+            if profile is None:
+                raise KeyError(source_id)
+            profile.posts, profile.stories = reading.posts, reading.stories
+            s.add(profile)
+            s.commit()
+        return reading
+
+    def readings(self, source_ids: Iterable[int]) -> dict[int, InstagramReading]:
+        with self._db.session() as s:
+            rows = s.exec(select(InstagramProfile).where(col(InstagramProfile.source_id).in_(list(source_ids))))
+            return {p.source_id: InstagramReading(posts=p.posts, stories=p.stories) for p in rows}
+
+
 class WebRepository:
     """Website sources: how each is read, and every page of it seen so far."""
 
@@ -247,11 +279,15 @@ class PostRepository:
     def __init__(self, db: Database) -> None:
         self._db = db
 
+    SKIPPED = "skipped"
+
     def add_new(self, source_id: int, post: CollectedPost, image_paths: list[str]) -> bool:
         with self._db.session() as s:
             if s.exec(select(Post.id).where(Post.source_id == source_id, Post.external_id == post.external_id)).first():
                 return False
-            fields = post.model_dump(exclude={"image_urls"})
+            fields = post.model_dump(exclude={"image_urls", "video_urls", "read"})
+            if not post.read:
+                fields |= {"processed_at": _now(), "read_with": self.SKIPPED}
             s.add(Post(source_id=source_id, image_paths=image_paths, **fields))
             s.commit()
             return True
