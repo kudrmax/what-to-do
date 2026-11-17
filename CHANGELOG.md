@@ -2,6 +2,14 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.21.0 — 2026-11-17
+
+What To Do starts even when another program already uses its port.
+
+### Improvements
+- When another program holds the app's port, What To Do moves to a free port next to it and keeps using it, instead of stopping with "Couldn't Start". A port you set yourself with `PORT` in `.env` stays as it is.
+- The Mac app from the disk image now starts on port 48765, which other programs rarely use. After the update it opens on the new port once, so the window's own preferences, such as the theme, start from their defaults again.
+
 ## 1.20.0 — 2026-11-17
 
 Filters tell the truth and stay where you put them.
