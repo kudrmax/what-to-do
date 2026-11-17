@@ -53,7 +53,7 @@ Changing the password republishes with the new one; the phone then asks for it a
 
 **Turn on refuses a repository that holds anything else.** Every publish replaces the whole `main` branch, so the app only publishes to a repository that is empty, holds nothing but what GitHub's "Add a README / .gitignore / license" boxes create, or carries the app's marker file `.what-to-do-phone-page` from an earlier publish. Anything else gets the error "This repository already has other files. Create a new empty one." (builder's call, settled in review)
 
-**Turn off** stops publishing and replaces the repository contents with a single commit holding only a plain "This page is turned off" `index.html` and the marker file, so no encrypted plans stay on the site. GitHub Pages stays on, the repository is not deleted, and the token and password stay stored so turning it back on is one click; clearing the fields forgets them. (builder's call, settled in review)
+**Turn off** stops publishing and replaces the repository contents with a single commit holding only a plain "This page is turned off" `index.html` and the marker file, so no encrypted plans stay on the site. GitHub Pages stays on, the repository is not deleted, and the token and password stay stored so turning it back on is one click; typing new ones replaces them. Forgetting them without replacing is not built (a follow-up if needed). (builder's call, settled in review)
 
 ### On the phone
 
@@ -84,11 +84,11 @@ Sketch:
 
 ## When the app publishes
 
-- After any change of a mark (plan or interest) on an event, after a refresh finishes, after the active city changes, at app start, and on **Publish now**.
-- Changes are coalesced: the app waits 30 seconds after the last change before publishing, and publishes at most once every 10 minutes (a later change during that time is published when the 10 minutes are over). GitHub documents a soft limit of 10 Pages builds an hour for branch-built sites, so 6 publishes an hour leaves room. **Publish now** ignores both.
-- The app compares the new snapshot with the last published one (a hash of the plaintext data plus the password version) and skips publishing when nothing changed. Since "today" moves, the start-of-app publish naturally drops yesterday's events.
+- Once a minute, while the page is on, the app rebuilds the snapshot (one feed query) and publishes when it differs from the last published one. This catches every change: marks, refreshes, manual merges, reschedules, a new active city and the date rolling over at midnight. (builder's call, replaces the trigger list and the 30-second wait of the first draft)
+- The app publishes at most once every 10 minutes. GitHub documents a soft limit of 10 Pages builds an hour for branch-built sites, so 6 publishes an hour leaves room. **Publish now** and **Turn on** ignore the cap.
+- "Differs" means a hash of the plaintext data, the page bundle and the salt: a new password or a new app release also republishes.
 - If the laptop is asleep or the app is closed, nothing is published; the page keeps showing the last snapshot with its time.
-- A failed publish is retried on the next trigger and shown in Settings; it never interrupts the app.
+- A failed publish is shown in Settings and retried automatically 10 minutes later; it never interrupts the app.
 
 ## What is published
 
