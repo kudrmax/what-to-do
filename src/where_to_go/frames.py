@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-from collections.abc import Iterator
 from pathlib import Path
 
 import anyio.to_thread
@@ -26,22 +25,30 @@ class VideoFrames:
         folder.mkdir(parents=True, exist_ok=True)
 
     async def save(self, url: str) -> list[str]:
+        """Never raises: a video that cannot be read leaves just the cover of its post."""
         stem = hashlib.sha1(url.split("?")[0].encode()).hexdigest()
         known = sorted(self._folder.glob(stem + "-f*.jpg"), key=lambda path: int(path.stem.rsplit("-f", 1)[1]))
         if known:
             return [path.name for path in known]
-        video = await self._download(url)
-        if video is None:
-            return []
         try:
-            frames = await anyio.to_thread.run_sync(self._extract, video)
-        except Exception:  # a broken or unsupported video leaves just the cover of its post
+            video = await self._download(url)
+            frames = await anyio.to_thread.run_sync(self._extract, video) if video else []
+            return self._write(stem, frames)
+        except Exception:
             return []
-        names = []
-        for index, jpeg in enumerate(frames):
-            name = f"{stem}-f{index}.jpg"
-            (self._folder / name).write_bytes(jpeg)
-            names.append(name)
+
+    def _write(self, stem: str, frames: list[bytes]) -> list[str]:
+        """Written under temporary names first, so a crash never leaves a part of the set that looks complete."""
+        names = [f"{stem}-f{index}.jpg" for index in range(len(frames))]
+        temporary = [self._folder / (name + ".tmp") for name in names]
+        try:
+            for path, jpeg in zip(temporary, frames):
+                path.write_bytes(jpeg)
+            for path, name in zip(temporary, names):
+                path.replace(self._folder / name)
+        finally:
+            for path in temporary:
+                path.unlink(missing_ok=True)
         return names
 
     async def _download(self, url: str) -> bytes | None:
@@ -60,27 +67,29 @@ class VideoFrames:
 
     @classmethod
     def _extract(cls, video: bytes) -> list[bytes]:
-        kept: list[tuple[Image.Image, tuple[int, ...]]] = []
-        for image in cls._sampled(video):
-            thumbnail = tuple(image.convert("L").resize(THUMBNAIL).tobytes())
-            if not kept or cls._difference(kept[-1][1], thumbnail) >= SAME_FRAME_DIFFERENCE:
-                kept.append((image, thumbnail))
+        kept = cls._scan(video)
         chosen = [kept[round(i * (len(kept) - 1) / (MAX_FRAMES - 1))] for i in range(MAX_FRAMES)] if len(kept) > MAX_FRAMES else kept
-        return [cls._jpeg(image) for image, _ in chosen]
+        return [jpeg for jpeg, _ in chosen]
 
-    @staticmethod
-    def _sampled(video: bytes) -> Iterator[Image.Image]:
-        """The first frame and then the first frame at or after every STEP_SECONDS."""
+    @classmethod
+    def _scan(cls, video: bytes) -> list[tuple[bytes, bytes]]:
+        """JPEG and thumbnail of every sampled frame that differs from the one before it; no full-size image outlives its turn."""
+        kept: list[tuple[bytes, bytes]] = []
         with av.open(io.BytesIO(video)) as container:
             stream = container.streams.video[0]
             next_at = 0.0
             for frame in container.decode(stream):
-                if frame.time is None or frame.time >= next_at:
-                    yield frame.to_image()
-                    next_at = (frame.time or 0.0) + STEP_SECONDS
+                if frame.time is not None and frame.time < next_at:
+                    continue
+                next_at = (frame.time or 0.0) + STEP_SECONDS
+                image = frame.to_image()
+                thumbnail = image.convert("L").resize(THUMBNAIL).tobytes()
+                if not kept or cls._difference(kept[-1][1], thumbnail) >= SAME_FRAME_DIFFERENCE:
+                    kept.append((cls._jpeg(image), thumbnail))
+        return kept
 
     @staticmethod
-    def _difference(first: tuple[int, ...], second: tuple[int, ...]) -> float:
+    def _difference(first: bytes, second: bytes) -> float:
         return sum(abs(a - b) for a, b in zip(first, second)) / len(first)
 
     @staticmethod

@@ -736,9 +736,10 @@ async def refresh_instagram_posts(tmp_path, monkeypatch, posts: list[CollectedPo
 
     monkeypatch.setattr(container.refresh._types.of(SourceKind.INSTAGRAM), "collect", collect)
     container.refresh.start()
-    await container.refresh.wait()
+    progress = await container.refresh.wait()
     with container.db.session() as s:
         stored = s.exec(select(Post).where(Post.source_id == source.id)).all()
+    assert container.sources.get(source.id).last_error is None and progress.errors == []
     await container.close()
     return stored
 
@@ -768,3 +769,14 @@ async def test_a_skipped_post_downloads_no_media(tmp_path, monkeypatch):
     [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
 
     assert stored.image_paths == [] and not media.called
+
+
+@respx.mock
+async def test_a_video_that_cannot_be_downloaded_costs_the_post_only_its_frames(tmp_path, monkeypatch):
+    respx.get("https://scontent.cdninstagram.com/cover.jpg").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://scontent.cdninstagram.com/clip.mp4").mock(side_effect=OSError("reset"))
+    post = collected(image_urls=["https://scontent.cdninstagram.com/cover.jpg"], video_urls=["https://scontent.cdninstagram.com/clip.mp4"])
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 1 and "-f" not in stored.image_paths[0]

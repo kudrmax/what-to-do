@@ -99,3 +99,37 @@ async def test_a_video_over_the_size_limit_is_not_read(frames, monkeypatch):
     respx.get("https://cdn.test/a.mp4").respond(200, content=make_video([RED, BLUE], 5))
 
     assert await frames.save("https://cdn.test/a.mp4") == []
+
+
+def test_the_scan_keeps_compressed_frames_not_full_size_images():
+    colors = [tuple(int(c * 255) for c in colorsys.hsv_to_rgb(i / 30, 1, 1)) for i in range(30)]
+
+    kept = VideoFrames._scan(make_video(colors, 1))
+
+    assert len(kept) == 15 and all(isinstance(jpeg, bytes) and isinstance(thumbnail, bytes) for jpeg, thumbnail in kept)
+
+
+@pytest.mark.parametrize("failure", [OSError("disk"), httpx.InvalidURL("odd url"), RuntimeError("odd")])
+@respx.mock
+async def test_any_failure_gives_no_frames(frames, failure):
+    respx.get("https://cdn.test/a.mp4").mock(side_effect=failure)
+
+    assert await frames.save("https://cdn.test/a.mp4") == []
+
+
+@respx.mock
+async def test_a_failed_write_leaves_no_frames_behind(frames, tmp_path, monkeypatch):
+    respx.get("https://cdn.test/a.mp4").respond(200, content=make_video([RED, BLUE], 5))
+    original = type(tmp_path).write_bytes
+    calls = []
+
+    def failing(path, data):
+        calls.append(path)
+        if len(calls) == 2:
+            raise OSError("disk full")
+        return original(path, data)
+
+    monkeypatch.setattr(type(tmp_path), "write_bytes", failing)
+
+    assert await frames.save("https://cdn.test/a.mp4") == []
+    assert list(tmp_path.iterdir()) == []
