@@ -41,7 +41,7 @@ def test_add_source_refresh_and_mark(client):
     source = client.post("/sources", json={"link": "https://t.me/quizbg"})
     assert source.status_code == 201, source.text
     assert source.json()["title"] == "Канал quizbg"
-    assert client.post("/sources", json={"link": "@quizbg"}).status_code == 409
+    assert client.post("/sources", json={"link": "@quizbg", "kind": "telegram"}).status_code == 409
 
     assert client.post("/refresh").status_code == 202
     status = client.get("/refresh").json()
@@ -307,7 +307,7 @@ def test_dev_note_is_saved_for_a_card(client):
 def test_a_source_starts_new_and_can_become_favorite(client):
     respx.route(host="testserver").pass_through()
     client.post("/cities", json=BELGRADE)
-    source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы"}).json()
+    source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы", "kind": "telegram"}).json()
     assert source["status"] == "new"
 
     marked = client.put(f"/sources/{source['id']}/status", json={"status": "favorite"})
@@ -322,7 +322,7 @@ def test_a_source_starts_new_and_can_become_favorite(client):
 def test_a_source_can_be_paused_and_resumed(client):
     respx.route(host="testserver").pass_through()
     client.post("/cities", json=BELGRADE)
-    source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы"}).json()
+    source = client.post("/sources", json={"link": "@quizbg", "title": "Квизы", "kind": "telegram"}).json()
     assert source["paused"] is False
 
     assert client.put(f"/sources/{source['id']}/paused", json={"paused": True}).json()["paused"] is True

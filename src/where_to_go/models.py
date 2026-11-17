@@ -77,6 +77,7 @@ class BookingKind(StrEnum):
 class SourceKind(StrEnum):
     TELEGRAM = "telegram"
     WEB = "web"
+    INSTAGRAM = "instagram"
 
 
 class SourceStatus(StrEnum):

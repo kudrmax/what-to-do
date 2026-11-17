@@ -41,6 +41,7 @@ from where_to_go.models import (
     PotentialSourceMark,
     PotentialSourcePublic,
     Source,
+    SourceKind,
     SourcePublic,
     SourcePause,
     SourceStatusChange,
@@ -123,6 +124,7 @@ class SourceRequest(SQLModel):
         schema_extra={"examples": ["t.me/londonevents"]},
     )
     title: str | None = Field(default=None, description="Empty: the channel's own title is used")
+    kind: SourceKind | None = Field(default=None, description="Only for a bare name valid for both Telegram and Instagram")
 
 
 class SourceRename(SQLModel):
@@ -279,7 +281,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         422: not a channel or event page link, the channel is closed, or the site cannot be read. 409: already added.
         """
         try:
-            return await c.catalog.add(city, body.link, body.title)
+            return await c.catalog.add(city, body.link, body.title, body.kind)
         except DuplicateSourceError as error:
             raise HTTPException(409, str(error)) from None
         except SourceError as error:
@@ -292,7 +294,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         422: the link is not a channel, or the site has no list of pages or no event markup.
         """
         try:
-            return await c.catalog.preview(city, body.link)
+            return await c.catalog.preview(city, body.link, kind=body.kind)
         except DuplicateSourceError as error:
             raise HTTPException(409, str(error)) from None
         except SourceError as error:

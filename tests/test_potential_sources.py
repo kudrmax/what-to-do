@@ -182,7 +182,7 @@ def test_potential_sources_are_listed_and_marked_through_the_api(tmp_path):
         respx.get("https://t.me/s/kafana").respond(200, text=channel_page("kafana", [(1, RECENT, "ссылка")]))
         respx.get(url__startswith="https://cdn.test/").respond(200, content=b"x", headers={"content-type": "image/jpeg"})
         client.post("/cities", json=BELGRADE)
-        client.post("/sources", json={"link": "kafana"})
+        client.post("/sources", json={"link": "kafana", "kind": "telegram"})
         client.post("/refresh")
         while client.get("/refresh").json()["running"]:
             pass

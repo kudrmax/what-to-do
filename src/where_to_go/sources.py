@@ -31,21 +31,21 @@ class SourceCatalog:
         self._cards = cards
         self._types = types
 
-    async def preview(self, city: City, link: str, title: str | None = None) -> SitePreview:
+    async def preview(self, city: City, link: str, title: str | None = None, kind: SourceKind | None = None) -> SitePreview:
         """What adding the link would add, without adding it."""
-        kind = self._types.for_link(link)
-        known = kind.handle_of(link)
+        source_type = self._types.for_link(link, kind)
+        known = source_type.handle_of(link)
         if known is not None:
-            self._refuse_duplicate(city, kind, known)
-        preview = await kind.preview(city, link, (title or "").strip() or None)
-        self._refuse_duplicate(city, kind, preview.handle)
+            self._refuse_duplicate(city, source_type, known)
+        preview = await source_type.preview(city, link, (title or "").strip() or None)
+        self._refuse_duplicate(city, source_type, preview.handle)
         return preview
 
-    async def add(self, city: City, link: str, title: str | None) -> Source:
-        preview = await self.preview(city, link, title)
-        kind = self._types.for_link(link)
-        source = self._sources.add(Source(city_id=city.id, kind=kind.kind, handle=preview.handle, title=preview.title))
-        await kind.attach(source, city, link)
+    async def add(self, city: City, link: str, title: str | None, kind: SourceKind | None = None) -> Source:
+        preview = await self.preview(city, link, title, kind)
+        source_type = self._types.for_link(link, kind)
+        source = self._sources.add(Source(city_id=city.id, kind=source_type.kind, handle=preview.handle, title=preview.title))
+        await source_type.attach(source, city, link)
         return source
 
     def _refuse_duplicate(self, city: City, kind: SourceType, handle: str) -> None:
@@ -109,7 +109,7 @@ class PotentialSources:
         if found.city_id != city.id:
             raise KeyError(potential_id)
         try:
-            source = await self._catalog.add(city, found.handle, None)
+            source = await self._catalog.add(city, found.handle, None, SourceKind.TELEGRAM)
         except DuplicateSourceError:
             source = next(s for s in self._sources.in_city(city.id) if s.handle.lower() == found.handle.lower())
         self._potential.mark(found.id, True)
