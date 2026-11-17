@@ -48,8 +48,8 @@ echo "==> The app's packages for $arch"
 uv build --wheel --out-dir "$work/wheel" "$repo" >/dev/null
 uv export --project "$repo" --frozen --no-dev --no-emit-project --no-hashes --format requirements-txt --output-file "$work/requirements.txt" >/dev/null
 if [[ $arch == x86_64 ]]; then
-    # cryptography stopped publishing Intel Mac wheels with 49.0. Only claude-agent-sdk's MCP OAuth
-    # pulls it in, which the app doesn't use; 48.0.1 is the last release with them.
+    # cryptography stopped publishing Intel Mac wheels with 49.0; 48.0.1 is the last release with them.
+    # The phone page's encryption needs only AES-GCM, PBKDF2 and HMAC, which 48.0.1 has.
     sed -i '' -E 's/^cryptography==.+$/cryptography==48.0.1/' "$work/requirements.txt"
 fi
 uv pip install --quiet --target "$site_packages" --python-platform "$python_triple" --python-version 3.13 --only-binary :all: \
