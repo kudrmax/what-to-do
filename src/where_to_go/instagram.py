@@ -189,7 +189,7 @@ class InstagramPage:
         return Story(
             pk=int(item["pk"]),
             published_at=datetime.fromtimestamp(int(item["taken_at"]), UTC),
-            image_url=candidates[0]["url"] if candidates else None,
+            image_url=max(candidates, key=lambda candidate: candidate.get("width") or 0)["url"] if candidates else None,
             video_url=cls._video_url(item.get("video_versions") or []),
         )
 
@@ -209,10 +209,10 @@ class InstagramPage:
             return int(rendition["width"])
         encoded = parse_qs(urlparse(rendition["url"]).query).get("efg", [""])[0]
         try:
-            tag = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))).get("vencode_tag", "")
+            meta = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
         except ValueError:
             return 0
-        match = _TAG_QUALITY.search(tag)
+        match = _TAG_QUALITY.search(str(meta.get("vencode_tag", ""))) if isinstance(meta, dict) else None
         return int(match.group(1)) if match else 0
 
     def _values(self, key: str) -> Iterator[Any]:

@@ -1,3 +1,5 @@
+import base64
+import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -37,7 +39,36 @@ def test_post_page_gives_time_carousel_and_place():
 
 
 def test_reel_page_gives_video():
-    assert len(InstagramPage(read("reel.html")).post().video_urls) == 1
+    [url] = InstagramPage(read("reel.html")).post().video_urls
+    assert url.startswith("https://instagram.fbeg7-2.fna.fbcdn.net/o1/v/t2/f2/m86/AQOsPNstOQjjOryh")
+
+
+def _signed(name: str, meta: object) -> str:
+    efg = base64.urlsafe_b64encode(json.dumps(meta).encode()).decode().rstrip("=")
+    return f"https://v/{name}.mp4?efg={efg}"
+
+
+def test_video_width_is_read_from_the_encoding_named_in_the_url():
+    page = _page_with_renditions(
+        [
+            {"type": 101, "url": _signed("small", {"vencode_tag": "xpv_progressive.INSTAGRAM.CLIPS.C3.360.dash_baseline"})},
+            {"type": 102, "url": _signed("big", {"vencode_tag": "xpv_progressive.INSTAGRAM.CLIPS.C3.720.dash_baseline"})},
+        ]
+    )
+    assert page.post().video_urls == [_signed("big", {"vencode_tag": "xpv_progressive.INSTAGRAM.CLIPS.C3.720.dash_baseline"})]
+
+
+@pytest.mark.parametrize("meta", [["not", "a", "dict"], "text", {"vencode_tag": None}, {}])
+def test_unreadable_encoding_in_the_url_does_not_break_parsing(meta):
+    assert len(_page_with_renditions([{"type": 101, "url": _signed("a", meta)}]).post().video_urls) == 1
+
+
+def test_story_cover_is_the_widest_candidate():
+    candidates = [{"url": "https://i/small", "width": 320}, {"url": "https://i/big", "width": 1080}]
+    item = {"pk": 1, "taken_at": 1, "image_versions2": {"candidates": candidates}}
+    data = {"items": [item]}
+    [story] = InstagramPage(f'<script type="application/json">{json.dumps(data)}</script>').stories()
+    assert story.image_url == "https://i/big"
 
 
 def test_page_without_data_is_not_a_post():
@@ -59,8 +90,6 @@ def test_anonymous_visitor_is_recognised():
 
 
 def _page_with_renditions(renditions: list[dict]) -> InstagramPage:
-    import json
-
     post = {"taken_at": 1, "pk": 1, "code": "X", "caption": None, "video_versions": renditions, "display_uri": "https://i/x"}
     data = {"x": {"if_not_gated_logged_out": post}}
     return InstagramPage(f'<script type="application/json">{json.dumps(data)}</script>')
