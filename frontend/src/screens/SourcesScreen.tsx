@@ -212,10 +212,13 @@ function InstagramReadingToggles({ source, reading }: { source: Source; reading:
   const shown = set.isPending ? set.variables.reading : reading;
   const toggle = (change: Partial<InstagramReading>) => set.mutate({ id: source.id, reading: { ...shown, ...change } });
   return (
-    <div className="reading-toggles" role="group" aria-label="What to read">
-      <ReadingToggle name="Posts" on={shown.posts} last={shown.posts && !shown.stories} onChange={(posts) => toggle({ posts })} />
-      <ReadingToggle name="Pinned stories" on={shown.stories} last={shown.stories && !shown.posts} onChange={(stories) => toggle({ stories })} />
-    </div>
+    <>
+      <div className="reading-toggles" role="group" aria-label="What to read">
+        <ReadingToggle name="Posts" on={shown.posts} last={shown.posts && !shown.stories} onChange={(posts) => toggle({ posts })} />
+        <ReadingToggle name="Pinned stories" on={shown.stories} last={shown.stories && !shown.posts} onChange={(stories) => toggle({ stories })} />
+      </div>
+      {set.error && <p className="error-text">{errorText(set.error)}</p>}
+    </>
   );
 }
 

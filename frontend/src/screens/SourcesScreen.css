@@ -1,7 +1,8 @@
+/* Link, Name and Add keep their places; the network choice, when asked, gets its own row under Link. */
 .add-source {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
   gap: 12px;
   padding: 18px;
   border-radius: var(--radius-card);
@@ -9,18 +10,35 @@
 }
 
 .add-source__field {
-  flex: 1 1 200px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
-.add-source__field--wide {
-  flex: 2 1 280px;
+.add-source__network {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 .add-source__error {
-  flex-basis: 100%;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .add-source {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .add-source__field--wide,
+  .add-source__network {
+    grid-column: 1 / -1;
+  }
+
+  .add-source__network {
+    grid-row: 2;
+  }
 }
 
 .sources-table {
@@ -257,10 +275,6 @@
   color: var(--text-muted);
 }
 
-.add-source__network {
-  flex: none;
-}
-
 .add-source__network .segmented {
   height: 38px;
   align-items: center;
@@ -318,6 +332,12 @@
   color: var(--text);
 }
 
+.instagram-reading__count {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
 .instagram-reading__hint {
   font-size: 13px;
   color: var(--text-muted);
@@ -335,20 +355,21 @@
   align-items: center;
   gap: 6px;
   height: 24px;
-  padding: 0 10px 0 8px;
-  border-radius: 999px;
-  background: var(--bg-muted);
+  margin-left: -6px;
+  padding: 0 8px 0 6px;
+  border-radius: var(--radius-control);
   color: var(--text-muted);
   font-size: var(--caption-size);
   font-weight: 500;
   cursor: pointer;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
+}
+
+.reading-toggle + .reading-toggle {
+  margin-left: 0;
 }
 
 .reading-toggle:hover:not(:has(input:disabled)) {
-  background: var(--bg-hover);
+  background: var(--bg-muted);
   color: var(--text);
 }
 

@@ -8,9 +8,9 @@ function instagramProfileUrl(handle: string): string {
   return `https://www.instagram.com/${handle}/`;
 }
 
-function storiesHint(highlights: number): string {
-  if (highlights === 0) return "No highlights yet; new ones will be read";
-  return `${highlights} ${plural(highlights, "highlight", "highlights")}; stories up to 30 days old, then every new one`;
+function storiesFacts(highlights: number): { count: string; hint: string } {
+  if (highlights === 0) return { count: "No highlights yet", hint: "New ones will be read" };
+  return { count: `${highlights} ${plural(highlights, "highlight", "highlights")}`, hint: "Stories up to 30 days old, then every new one" };
 }
 
 export function InstagramPreviewCard({
@@ -27,6 +27,7 @@ export function InstagramPreviewCard({
   const titleId = useId();
   const [reading, setReading] = useState<InstagramReading>({ posts: true, stories: true });
   const nothing = !reading.posts && !reading.stories;
+  const stories = storiesFacts(profile.highlights);
   return (
     <section className="site-preview" aria-labelledby={titleId}>
       <header className="site-preview__header">
@@ -45,7 +46,7 @@ export function InstagramPreviewCard({
       <fieldset className="instagram-reading">
         <legend className="label">What to read</legend>
         <ReadingOption name="Posts" hint="12 latest, then every new one" checked={reading.posts} onChange={(posts) => setReading({ ...reading, posts })} />
-        <ReadingOption name="Pinned stories" hint={storiesHint(profile.highlights)} checked={reading.stories} onChange={(stories) => setReading({ ...reading, stories })} />
+        <ReadingOption name="Pinned stories" count={stories.count} hint={stories.hint} checked={reading.stories} onChange={(stories) => setReading({ ...reading, stories })} />
       </fieldset>
       <footer className="site-preview__actions">
         <button type="button" className="button button--quiet" onClick={onCancel}>
@@ -59,16 +60,22 @@ export function InstagramPreviewCard({
   );
 }
 
-function ReadingOption({ name, hint, checked, onChange }: { name: string; hint: string; checked: boolean; onChange: (checked: boolean) => void }) {
+function ReadingOption({ name, count, hint, checked, onChange }: { name: string; count?: string; hint: string; checked: boolean; onChange: (checked: boolean) => void }) {
   const nameId = useId();
+  const countId = useId();
   const hintId = useId();
   return (
     <label className="instagram-reading__option">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-labelledby={nameId} aria-describedby={hintId} />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-labelledby={nameId} aria-describedby={count ? `${countId} ${hintId}` : hintId} />
       <span className="instagram-reading__text">
         <span id={nameId} className="instagram-reading__name">
           {name}
         </span>
+        {count && (
+          <span id={countId} className="instagram-reading__count">
+            {count}
+          </span>
+        )}
         <span id={hintId} className="instagram-reading__hint">
           {hint}
         </span>

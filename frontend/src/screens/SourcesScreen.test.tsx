@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createApi, type SitePreview, type Source } from "../api/client";
+import { ApiError, createApi, type SitePreview, type Source } from "../api/client";
 import { ApiContext } from "../api/queries";
 import { AddSourceForm, SourceList } from "./SourcesScreen";
 
@@ -209,7 +209,8 @@ describe("adding an Instagram profile", () => {
     expect(within(reading).getByRole("checkbox", { name: "Posts" })).toHaveProperty("checked", true);
     expect(within(reading).getByRole("checkbox", { name: "Pinned stories" })).toHaveProperty("checked", true);
     expect(within(reading).getByText("12 latest, then every new one")).toBeTruthy();
-    expect(within(reading).getByText("4 highlights; stories up to 30 days old, then every new one")).toBeTruthy();
+    expect(within(reading).getByText("4 highlights")).toBeTruthy();
+    expect(within(reading).getByText("Stories up to 30 days old, then every new one")).toBeTruthy();
     expect(addSource).not.toHaveBeenCalled();
   });
 
@@ -237,14 +238,15 @@ describe("adding an Instagram profile", () => {
     const { submit } = setupForm({ ...INSTAGRAM_PREVIEW, highlights: 0 });
     submit("@eje.belgrade");
     const card = await screen.findByRole("region", { name: "EJE Belgrade" });
-    expect(within(card).getByText("No highlights yet; new ones will be read")).toBeTruthy();
+    expect(within(card).getByText("No highlights yet")).toBeTruthy();
+    expect(within(card).getByText("New ones will be read")).toBeTruthy();
   });
 
   it("names one highlight in the singular", async () => {
     const { submit } = setupForm({ ...INSTAGRAM_PREVIEW, highlights: 1 });
     submit("@eje.belgrade");
     const card = await screen.findByRole("region", { name: "EJE Belgrade" });
-    expect(within(card).getByText("1 highlight; stories up to 30 days old, then every new one")).toBeTruthy();
+    expect(within(card).getByText("1 highlight")).toBeTruthy();
   });
 });
 
@@ -253,10 +255,12 @@ describe("Instagram source row", () => {
     return { ...source(1, "EJE Belgrade", "new"), kind: "instagram", handle: "eje.belgrade", url: "https://www.instagram.com/eje.belgrade/", instagram: reading };
   }
 
-  function setupInstagram(reading: { posts: boolean; stories: boolean }) {
+  function setupInstagram(reading: { posts: boolean; stories: boolean }, failure?: Error) {
     const api = createApi("");
     vi.spyOn(api, "sources").mockResolvedValue([instagramSource(reading)]);
-    const setReading = vi.spyOn(api, "setInstagramReading").mockResolvedValue(instagramSource(reading));
+    const setReading = vi.spyOn(api, "setInstagramReading");
+    if (failure) setReading.mockRejectedValue(failure);
+    else setReading.mockResolvedValue(instagramSource(reading));
     render(
       <ApiContext.Provider value={api}>
         <QueryClientProvider client={new QueryClient()}>
@@ -290,6 +294,14 @@ describe("Instagram source row", () => {
     expect(stories.closest("label")!.getAttribute("title")).toBe("A profile reads at least one of them");
     fireEvent.click(within(row).getByRole("checkbox", { name: "Posts" }));
     await waitFor(() => expect(setReading).toHaveBeenCalledWith(1, { posts: true, stories: true }));
+  });
+
+  it("says why a change of what is read failed and shows what is still read", async () => {
+    setupInstagram({ posts: true, stories: true }, new ApiError(422, "Choose posts, pinned stories or both"));
+    const [row] = await screen.findAllByRole("row");
+    fireEvent.click(within(row).getByRole("checkbox", { name: "Pinned stories" }));
+    expect(await within(row).findByText("Choose posts, pinned stories or both")).toBeTruthy();
+    expect(within(row).getByRole("checkbox", { name: "Pinned stories" })).toHaveProperty("checked", true);
   });
 
   it("telegram rows have no reading toggles", async () => {
