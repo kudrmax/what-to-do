@@ -31,6 +31,8 @@ export type UpdateStep = Schemas["UpdateStep"];
 export type ChangelogEntry = Schemas["ChangelogEntryView"];
 export type CityStats = Schemas["CityStats"];
 export type ClaudeSignIn = Schemas["ClaudeSignInView"];
+export type PhonePage = Schemas["PhonePageState"];
+export type PhonePageRequest = Schemas["PhonePageRequest"];
 export type FeedQuery = NonNullable<paths["/events"]["get"]["parameters"]["query"]>;
 
 export class ApiError extends Error {
@@ -110,6 +112,11 @@ export function createApi(baseUrl: string) {
     submitClaudeSignInCode: (code: string) => answer(client.POST("/claude/sign-in/code", { body: { code } })),
 
     stats: () => answer(client.GET("/stats")),
+
+    phonePage: () => answer(client.GET("/phone-page")),
+    turnPhonePageOn: (body: PhonePageRequest) => answer(client.PUT("/phone-page", { body })),
+    turnPhonePageOff: () => answer(client.DELETE("/phone-page")),
+    publishPhonePage: () => answer(client.POST("/phone-page/publish")),
 
     version: () => answer(client.GET("/version")),
     updates: (force: boolean) => answer(client.GET("/updates", { params: { query: { force } } })),

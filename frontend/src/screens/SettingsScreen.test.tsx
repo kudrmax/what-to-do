@@ -27,6 +27,7 @@ function setup() {
   vi.spyOn(api, "defaultSettings").mockResolvedValue(SETTINGS);
   vi.spyOn(api, "cities").mockResolvedValue([]);
   vi.spyOn(api, "tags").mockResolvedValue([]);
+  vi.spyOn(api, "phonePage").mockResolvedValue({ enabled: false, repository: "", has_token: false, has_password: false, page_url: null, published_at: null, last_error: null, publishing: false });
   render(
     <ApiContext.Provider value={api}>
       <QueryClientProvider client={new QueryClient()}>
@@ -44,7 +45,7 @@ describe("settings", () => {
     await screen.findByRole("button", { name: /Advanced/ });
 
     const groups = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
-    expect(groups).toEqual(["Cities", "Appearance", "Your feed", "App", "Advanced"]);
+    expect(groups).toEqual(["Cities", "Appearance", "Your feed", "Phone page", "App", "Advanced"]);
   });
 
   it("keeps the advanced settings closed until asked for", async () => {

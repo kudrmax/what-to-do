@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, CityChange, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, SettingsChange, SourceStatus, Tag } from "./client";
+import type { Api, CityChange, EventCard, FeedQuery, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceStatus, Tag } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -23,6 +23,7 @@ const keys = {
   refresh: ["refresh"],
   claudeSignIn: ["claude-sign-in"],
   stats: ["stats"],
+  phonePage: ["phone-page"],
 } satisfies Record<string, QueryKey>;
 
 /** What a change makes stale: the cards, or everything that depends on the active city. */
@@ -160,3 +161,28 @@ export function useClaudeSignIn() {
     codeError: submit.error,
   };
 }
+
+/** The phone page's state; polls while a publish runs. */
+export function usePhonePage() {
+  const api = useApi();
+  return useQuery({
+    queryKey: keys.phonePage,
+    queryFn: () => api.phonePage(),
+    refetchInterval: (query) => (query.state.data?.publishing ? 1500 : false),
+  });
+}
+
+/** A phone page change answers with the new state, which replaces the loaded one; a failure reloads it. */
+function usePhonePageMutation<A>(run: (api: Api, args: A) => Promise<PhonePage>) {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (args: A) => run(api, args),
+    onSuccess: (state) => client.setQueryData(keys.phonePage, state),
+    onError: () => client.invalidateQueries({ queryKey: keys.phonePage }),
+  });
+}
+
+export const useTurnPhonePageOn = () => usePhonePageMutation((api, request: PhonePageRequest) => api.turnPhonePageOn(request));
+export const useTurnPhonePageOff = () => usePhonePageMutation<void>((api) => api.turnPhonePageOff());
+export const usePublishPhonePage = () => usePhonePageMutation<void>((api) => api.publishPhonePage());
