@@ -57,7 +57,7 @@
 .chip:active:not([aria-pressed="true"]),
 .marks button:active:not([aria-pressed="true"]),
 .dev-note__button:active,
-.segmented button:active:not([aria-pressed="true"], [aria-selected="true"]) {
+.segmented button:active:not([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]) {
   background: var(--bg-pressed);
 }
 
@@ -78,7 +78,7 @@
 /* A pressed control that is already on keeps its colour and only darkens. */
 .marks button[aria-pressed="true"]:active,
 .icon-button[aria-pressed="true"]:active,
-.segmented button:is([aria-pressed="true"], [aria-selected="true"]):active {
+.segmented button:is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]):active {
   filter: brightness(0.94);
 }
 

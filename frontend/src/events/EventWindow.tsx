@@ -150,7 +150,7 @@ function Description({ event, day, mentions, load, onView }: { event: EventCard;
   ];
   return (
     <section className="description">
-      <Segmented label="Description" options={tabs} value={tab} onChange={setTab} tabs />
+      <Segmented label="Description" options={tabs} value={tab} onChange={setTab} role="tabs" />
       {tab === "summary" ? <Summary event={event} mentions={mentions} onView={onView} /> : <Originals event={event} day={day} mentions={mentions} load={load} onView={onView} />}
     </section>
   );

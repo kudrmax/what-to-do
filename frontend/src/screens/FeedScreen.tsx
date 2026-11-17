@@ -57,7 +57,7 @@ export function FeedScreen() {
   const actions = city && (
     <div className="screen__actions">
       <Segmented
-        tabs
+        role="tabs"
         label="View"
         options={[
           { id: "list", label: "List" },

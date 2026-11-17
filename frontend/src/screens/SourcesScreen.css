@@ -256,3 +256,113 @@
   flex: none;
   color: var(--text-muted);
 }
+
+.add-source__network {
+  flex: none;
+}
+
+.add-source__network .segmented {
+  height: 38px;
+  align-items: center;
+}
+
+.add-source__network .segmented button {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.instagram-reading {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.instagram-reading legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.instagram-reading__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.instagram-reading__option + .instagram-reading__option {
+  border-top: 1px solid var(--line);
+}
+
+.instagram-reading__option input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.instagram-reading__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.instagram-reading__name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.instagram-reading__hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.reading-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.reading-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  font-size: var(--caption-size);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.reading-toggle:hover:not(:has(input:disabled)) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.reading-toggle--on {
+  color: var(--text-2);
+}
+
+.reading-toggle:has(input:disabled) {
+  cursor: default;
+}
+
+.reading-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent);
+}

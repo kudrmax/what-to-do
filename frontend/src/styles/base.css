@@ -531,12 +531,12 @@ a.button:hover {
   font-weight: 500;
 }
 
-.segmented button:is([aria-pressed="false"], [aria-selected="false"]):hover {
+.segmented button:is([aria-pressed="false"], [aria-selected="false"], [aria-checked="false"]):hover {
   background: var(--bg-hover);
   color: var(--text);
 }
 
-.segmented button:is([aria-pressed="true"], [aria-selected="true"]) {
+.segmented button:is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]) {
   background: var(--bg-thumb);
   color: var(--text);
   box-shadow: var(--shadow-thumb);
