@@ -10,7 +10,7 @@ import anyio
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import City, ExtractedEvent, Post, Public, Source, SourceKind
+from where_to_go.models import City, CollectedPost, ExtractedEvent, Post, Public, Source, SourceKind
 from where_to_go.extraction import ExtractionContext, PostExtractor
 from where_to_go.images import ImageStore
 from where_to_go.linking import Atomically, EventLinker, PostMentions
@@ -29,6 +29,7 @@ from where_to_go.repositories import (
     TagRepository,
     WebRepository,
 )
+from where_to_go.instagram_reader import InstagramRefused
 from where_to_go.source_types import SourceTypes
 from where_to_go.telegram import SourceError
 
@@ -297,21 +298,29 @@ class RefreshService:
     async def _collect_one(self, source: Source, city: City) -> None:
         try:
             found = await self._types.of(source.kind).collect(source, city, self.progress)
+        except InstagramRefused as error:
+            await self._store(source, error.collected)
+            self._failed(source, str(error))
+            return
         except SourceError as error:
-            self._sources.record_error(source.id, str(error))
-            self.progress.errors.append(f"{source.title}: {error}")
+            self._failed(source, str(error))
             return
         except Exception as error:  # one broken source must not stop the others
             log.exception("collecting %s failed", source.title)
-            message = f"couldn't read it: {error.__class__.__name__}"
-            self._sources.record_error(source.id, message)
-            self.progress.errors.append(f"{source.title}: {message}")
+            self._failed(source, f"couldn't read it: {error.__class__.__name__}")
             return
+        await self._store(source, found)
+        self._sources.record_success(source.id)
+
+    async def _store(self, source: Source, found: list[CollectedPost]) -> None:
         for post in found:
             paths = [p for p in [await self._images.save(u) for u in post.image_urls] if p]
             if self._posts.add_new(source.id, post, paths):
                 self.progress.new_posts += 1
-        self._sources.record_success(source.id)
+
+    def _failed(self, source: Source, message: str) -> None:
+        self._sources.record_error(source.id, message)
+        self.progress.errors.append(f"{source.title}: {message}")
 
     async def _transcribe(self, batch: list[str]) -> None:
         """A post waits for its photos: read without them it would lose what its poster says."""

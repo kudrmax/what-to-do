@@ -98,6 +98,7 @@ class Container:
         release_source: ReleaseSource | None = None,
         phone_publisher: PagesPublisher | None = None,
         phone_bundle: Path | None = None,
+        instagram_pause: float = 1.0,
     ) -> Container:
         project = project or ProjectPaths.here()
         db = Database(data_dir / "where-to-go.sqlite3")
@@ -129,7 +130,7 @@ class Container:
                 WebSiteReader(http, sitemaps, web, posts, LocalityJudge(matching_llm, LocalityRepository(db))),
                 web,
             ),
-            InstagramSourceType(InstagramReader(InstagramRequests(instagram_http)), posts, instagram),
+            InstagramSourceType(InstagramReader(InstagramRequests(instagram_http, instagram_pause)), posts, instagram),
         )
         catalog = SourceCatalog(sources, events, cards, types)
         potential_sources = PotentialSources(PotentialSourceRepository(db), sources, posts, catalog)

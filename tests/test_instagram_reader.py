@@ -1,6 +1,7 @@
 import asyncio
+import json
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -21,10 +22,27 @@ NAME = "eje.belgrade"
 POST_PAGES = {"DfmlSc4DQL_": "post_carousel.html", "Dfz-Qxkt44U": "reel.html"}
 HIGHLIGHT_PAGES = {"18107063872994570": "highlight_timetable.html", "17944160280052446": "highlight_food.html"}
 PROFILE_POSTS = 12
+BROWSER = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "sec-ch-ua": '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"macOS"',
+}
 
 
 def read(name: str) -> str:
     return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+def noon(day: date) -> datetime:
+    return datetime(day.year, day.month, day.day, 12, tzinfo=UTC)
 
 
 PROFILE = InstagramPage(read("profile.html")).profile()
@@ -58,11 +76,20 @@ class FakeInstagram:
             side_effect=self._answer(lambda _: httpx.Response(200, text=read("profile.html"), headers={"set-cookie": "csrftoken=abc; Path=/"}))
         )
         self.post = mock.get(url__regex=r"^https://www\.instagram\.com/p/[^/]+/$", name="post").mock(
-            side_effect=self._answer(lambda request: httpx.Response(200, text=read(POST_PAGES.get(self._part(request), "login_wall.html"))))
+            side_effect=self._answer(lambda request: httpx.Response(200, text=self.post_page(self._part(request))))
         )
         self.highlight = mock.get(url__regex=r"^https://www\.instagram\.com/stories/highlights/\d+/$", name="highlight").mock(
-            side_effect=self._answer(lambda request: httpx.Response(200, text=read(self.highlights.get(self._part(request), "stories_active.html"))))
+            side_effect=self._answer(lambda request: httpx.Response(200, text=read(self.highlights.get(self._part(request), "highlight_timetable.html"))))
         )
+
+    @staticmethod
+    def post_page(code: str) -> str:
+        """The saved page of the post, or a minimal one built from what the profile shows of it."""
+        if code in POST_PAGES:
+            return read(POST_PAGES[code])
+        summary = next(p for p in PROFILE.posts if p.code == code)
+        media = {"pk": str(summary.pk), "code": code, "taken_at": int(noon(summary.day).timestamp()), "display_uri": summary.image_url}
+        return f'<script type="application/json">{json.dumps({"if_not_gated_logged_out": media})}</script>'
 
     def _answer(self, respond):
         def answer(request: httpx.Request) -> httpx.Response:
@@ -118,14 +145,31 @@ async def test_post_page_gives_time_images_video_and_place(instagram, client):
     assert len(reel.video_urls) == 1
 
 
-async def test_post_without_its_own_page_falls_back_to_the_profile_summary(instagram, client):
-    collected = await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(stories=False), NOW)
+async def test_post_page_without_data_ends_the_reading_and_keeps_what_came_before(instagram, client):
+    refused_code = PROFILE.posts[3].code
+    instagram.post.side_effect = instagram._answer(
+        lambda request: httpx.Response(200, text=read("login_wall.html") if instagram._part(request) == refused_code else instagram.post_page(instagram._part(request)))
+    )
 
-    summary = next(p for p in PROFILE.posts if p.code == "DfXPH9KN62V")
-    post = next(p for p in collected if p.external_id == summary.pk)
-    assert post.published_at == datetime(2026, 11, 5, 12, 0, tzinfo=UTC)
-    assert post.text == summary.caption
-    assert post.image_urls == [summary.image_url] and post.video_urls == []
+    with pytest.raises(InstagramRefused) as raised:
+        await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(), NOW)
+
+    assert {p.external_id for p in raised.value.collected} == {p.pk for p in PROFILE.posts[:3]}
+    assert instagram.post.call_count == 4 and instagram.highlight.call_count == 0
+
+
+async def test_refused_highlight_ends_the_reading_and_keeps_what_came_before(instagram, client):
+    refused_id = PROFILE.highlights[2].id
+    instagram.highlight.side_effect = instagram._answer(
+        lambda request: httpx.Response(429) if instagram._part(request) == refused_id else httpx.Response(200, text=read(HIGHLIGHT_PAGES.get(instagram._part(request), "highlight_timetable.html")))
+    )
+
+    with pytest.raises(InstagramRefused, match="will try again on the next refresh") as raised:
+        await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(), NOW)
+
+    assert {p.external_id for p in raised.value.collected} == ALL_POSTS | set(STORIES)
+    assert instagram.highlight.call_count == 3
+    assert [p.published_at for p in raised.value.collected] == sorted(p.published_at for p in raised.value.collected)
 
 
 async def test_post_page_is_requested_only_for_unknown_posts(instagram, client):
@@ -190,26 +234,43 @@ async def test_network_error_is_a_refusal(instagram, client):
     instagram.profile.side_effect = httpx.ConnectError("down")
 
     with pytest.raises(InstagramRefused):
-        await reader(client, instagram.clock).title(NAME)
+        await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(), NOW)
 
 
-async def test_refusal_is_logged_with_status_headers_and_the_start_of_the_body(instagram, client, caplog):
+@pytest.mark.parametrize("status", [429, 200])
+async def test_refusal_is_logged_with_status_headers_and_the_start_of_the_body(instagram, client, caplog, status):
     instagram.profile.side_effect = None
-    instagram.profile.return_value = httpx.Response(429, text="x" * 5000, headers={"retry-after": "60"})
+    instagram.profile.return_value = httpx.Response(status, text="x" * 5000, headers={"retry-after": "60"})
 
     with caplog.at_level(logging.WARNING), pytest.raises(InstagramRefused):
-        await reader(client, instagram.clock).title(NAME)
-    assert "429" in caplog.text and "retry-after" in caplog.text
+        await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(), NOW)
+    assert f"Instagram refused https://www.instagram.com/{NAME}/: {status}" in caplog.text and "retry-after" in caplog.text
     assert "x" * 2048 in caplog.text and "x" * 2049 not in caplog.text
 
 
-async def test_missing_profile_is_said_so(instagram, client):
+async def test_network_error_in_preview_says_instagram_did_not_respond(instagram, client):
+    instagram.profile.side_effect = httpx.ConnectError("down")
+
+    with pytest.raises(SourceError, match="^Instagram didn't respond$"):
+        await reader(client, instagram.clock).title(NAME)
+
+
+async def test_refusal_in_preview_asks_to_try_later(instagram, client):
+    instagram.profile.side_effect = None
+    instagram.profile.return_value = httpx.Response(429)
+
+    with pytest.raises(SourceError, match="^Instagram refused to show the profile; try again later$"):
+        await reader(client, instagram.clock).title(NAME)
+
+
+async def test_missing_profile_is_said_so(instagram, client, caplog):
     instagram.profile.side_effect = None
     instagram.profile.return_value = httpx.Response(404, text="Page not found")
 
-    with pytest.raises(SourceError, match="This Instagram profile doesn't exist") as raised:
+    with caplog.at_level(logging.WARNING), pytest.raises(SourceError, match="This Instagram profile doesn't exist") as raised:
         await reader(client, instagram.clock).title(NAME)
     assert not isinstance(raised.value, InstagramRefused)
+    assert "refused" not in caplog.text
 
 
 async def test_private_profile_is_said_so(instagram, client):
@@ -252,9 +313,7 @@ async def test_requests_look_like_a_browser(instagram, client):
     await reader(client, instagram.clock).title(NAME)
 
     [request] = instagram.requests
-    assert "Chrome" in request.headers["user-agent"]
-    assert request.headers["sec-fetch-mode"] == "navigate"
-    assert "sec-ch-ua" in request.headers
+    assert {name: request.headers[name] for name in BROWSER} == BROWSER
 
 
 @pytest.fixture

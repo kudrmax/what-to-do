@@ -98,9 +98,6 @@ class InstagramPage:
     def private(self) -> bool:
         return any(isinstance(part, dict) and part.get("is_private") is True for part in self._values("xig_user_by_username"))
 
-    def excerpt(self, size: int = 2048) -> str:
-        return self._html[:size]
-
     def profile(self) -> ProfileSummary | None:
         """The profile arrives split over several blocks: the name in one, the posts and highlights in another."""
         user: dict = {}

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from pathlib import Path
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
@@ -8,11 +9,13 @@ import respx
 
 from tests.helpers import BELGRADE, add_city, photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.container import Container
-from where_to_go.models import Booking, BookingKind, Mark, Mention, Plan, Source, SourceKind, WebSite
+from where_to_go.instagram import InstagramPage
+from where_to_go.models import Booking, BookingKind, InstagramReading, Mark, Mention, Plan, Post, Source, SourceKind, WebSite
 from where_to_go.llm import LlmError
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.refresh import Stage
 from where_to_go.repositories import SettingsRepository
+from sqlmodel import select
 
 RECENT = (datetime.now(UTC) - timedelta(days=2)).isoformat()
 LATER = (datetime.now(UTC) - timedelta(days=1)).isoformat()
@@ -86,6 +89,37 @@ async def test_unreachable_channel_is_recorded_on_the_source(app):
     progress = await container.refresh.wait()
     kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
     assert "private" in kafana.last_error
+    assert progress.stage is Stage.DONE
+
+
+INSTAGRAM = Path(__file__).parent / "fixtures" / "instagram"
+
+
+@respx.mock
+async def test_instagram_refusal_keeps_what_was_read_before_it(tmp_path):
+    container = Container.build(
+        tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient(), instagram_pause=0
+    )
+    city = add_city(container, "Белград", "Europe/Belgrade")
+    source = container.sources.add(Source(city_id=city.id, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="EJE"))
+    container.instagram.add(source.id, InstagramReading(posts=False))
+    profile = InstagramPage((INSTAGRAM / "profile.html").read_text(encoding="utf-8")).profile()
+    timetable, food = profile.highlights[:2]
+    respx.get(url__regex=r"^https://[^/]*(cdninstagram\.com|fbcdn\.net)/").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://www.instagram.com/eje.belgrade/").respond(200, text=(INSTAGRAM / "profile.html").read_text(encoding="utf-8"))
+    respx.get(f"https://www.instagram.com/stories/highlights/{timetable.id}/").respond(
+        200, text=(INSTAGRAM / "highlight_timetable.html").read_text(encoding="utf-8")
+    )
+    respx.get(f"https://www.instagram.com/stories/highlights/{food.id}/").respond(429)
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    [story] = InstagramPage((INSTAGRAM / "highlight_timetable.html").read_text(encoding="utf-8")).stories()
+    with container.db.session() as s:
+        [stored] = s.exec(select(Post).where(Post.source_id == source.id)).all()
+    assert stored.external_id == story.pk and len(stored.image_paths) == 1
+    assert container.sources.get(source.id).last_error == "Instagram refused to show the profile; will try again on the next refresh"
     assert progress.stage is Stage.DONE
 
 

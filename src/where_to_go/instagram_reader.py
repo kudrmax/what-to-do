@@ -6,35 +6,40 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 import httpx
 
-from where_to_go.instagram import Highlight, InstagramPage, PostDetails, PostSummary, ProfileSummary
+from where_to_go.instagram import Highlight, InstagramPage, PostSummary, ProfileSummary
 from where_to_go.models import CollectedPost, InstagramReading, InstagramUrls
 from where_to_go.telegram import SourceError
 
 log = logging.getLogger(__name__)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
     "Sec-Fetch-Dest": "document",
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-Site": "none",
     "Sec-Fetch-User": "?1",
-    "sec-ch-ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+    "Upgrade-Insecure-Requests": "1",
+    "sec-ch-ua": '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"macOS"',
-    "Upgrade-Insecure-Requests": "1",
 }
+
+NOT_FOUND = 404
 
 
 class InstagramRefused(SourceError):
-    def __init__(self, status: int | None = None) -> None:
+    """status is None when Instagram didn't answer at all; collected keeps what was read before the refusal."""
+
+    def __init__(self, status: int | None = None, collected: list[CollectedPost] | None = None) -> None:
         super().__init__("Instagram refused to show the profile; will try again on the next refresh")
         self.status = status
+        self.collected = collected or []
 
 
 class InstagramRequests:
@@ -56,16 +61,21 @@ class InstagramRequests:
         self._lock = asyncio.Lock()
         self._last_start: float | None = None
 
-    async def page(self, url: str) -> InstagramPage:
+    async def page(self, url: str, has_data: Callable[[InstagramPage], bool]) -> InstagramPage:
+        """The page when it answers 200 with the data asked for; InstagramRefused otherwise."""
         async with self._lock:
             await self._wait_for_turn()
             response = await self._get(url)
-        if response.status_code != 200:
+        if response.status_code == NOT_FOUND:
+            log.info("Instagram has no page %s", url)
+            raise InstagramRefused(NOT_FOUND)
+        page = InstagramPage(response.text) if response.status_code == 200 else None
+        if page is None or not has_data(page):
             log.warning(
                 "Instagram refused %s: %s %s %s", url, response.status_code, dict(response.headers), response.text[: self.EXCERPT]
             )
             raise InstagramRefused(response.status_code)
-        return InstagramPage(response.text)
+        return page
 
     async def _wait_for_turn(self) -> None:
         if self._last_start is not None:
@@ -86,50 +96,55 @@ class InstagramRequests:
 
 
 class InstagramReader:
+    """The first refusal ends the source's reading for this refresh: no more requests, no retries."""
+
     STORIES_READ_WITHIN = timedelta(days=30)
 
     def __init__(self, requests: InstagramRequests) -> None:
         self._requests = requests
 
     async def title(self, name: str) -> tuple[str, int]:
-        profile = await self._profile(name)
+        try:
+            profile = await self._profile(name)
+        except InstagramRefused as refused:
+            if refused.status is None:
+                raise SourceError("Instagram didn't respond") from refused
+            raise SourceError("Instagram refused to show the profile; try again later") from refused
         return profile.title or name, len(profile.highlights)
 
     async def collect(self, name: str, known: set[int], reading: InstagramReading, now: datetime) -> list[CollectedPost]:
         """Posts and stories not stored yet, oldest first."""
-        profile = await self._profile(name)
-        found: list[CollectedPost] = []
-        if reading.posts:
-            found += [await self._post(summary, now) for summary in profile.posts if summary.pk not in known]
-        if reading.stories:
-            found += await self._stories(profile.highlights, known, now)
-        return sorted(found, key=lambda post: post.published_at)
+        found: dict[int, CollectedPost] = {}
+        try:
+            profile = await self._profile(name)
+            if reading.posts:
+                for summary in profile.posts:
+                    if summary.pk not in known:
+                        found[summary.pk] = await self._post(summary)
+            if reading.stories:
+                await self._stories(profile.highlights, known, now, found)
+        except InstagramRefused as refused:
+            raise InstagramRefused(refused.status, self._oldest_first(found)) from refused
+        return self._oldest_first(found)
+
+    @staticmethod
+    def _oldest_first(found: dict[int, CollectedPost]) -> list[CollectedPost]:
+        return sorted(found.values(), key=lambda post: post.published_at)
 
     async def _profile(self, name: str) -> ProfileSummary:
-        url = InstagramUrls.profile(name)
         try:
-            page = await self._requests.page(url)
+            page = await self._requests.page(InstagramUrls.profile(name), lambda p: p.profile() is not None or p.private())
         except InstagramRefused as refused:
-            if refused.status == 404:
+            if refused.status == NOT_FOUND:
                 raise SourceError("This Instagram profile doesn't exist") from refused
             raise
         profile = page.profile()
-        if profile is not None:
-            return profile
-        if page.private():
+        if profile is None:
             raise SourceError("This Instagram profile is private")
-        log.warning("Instagram refused %s: the page came without the profile: %s", url, page.excerpt())
-        raise InstagramRefused(200)
+        return profile
 
-    async def _post(self, summary: PostSummary, now: datetime) -> CollectedPost:
-        try:
-            details = (await self._requests.page(InstagramUrls.post(summary.code))).post()
-        except InstagramRefused:
-            details = None
-        return self._from_details(details) if details is not None else self._from_summary(summary, now)
-
-    @staticmethod
-    def _from_details(details: PostDetails) -> CollectedPost:
+    async def _post(self, summary: PostSummary) -> CollectedPost:
+        details = (await self._requests.page(InstagramUrls.post(summary.code), lambda p: p.post() is not None)).post()
         place = f"\n\nPlace: {details.place}" if details.place else ""
         return CollectedPost(
             external_id=details.pk,
@@ -140,23 +155,11 @@ class InstagramReader:
             video_urls=details.video_urls,
         )
 
-    @staticmethod
-    def _from_summary(summary: PostSummary, now: datetime) -> CollectedPost:
-        """The profile knows the post's day but not its time."""
-        day = summary.day
-        return CollectedPost(
-            external_id=summary.pk,
-            url=InstagramUrls.post(summary.code),
-            published_at=datetime(day.year, day.month, day.day, 12, tzinfo=UTC) if day else now,
-            text=summary.caption,
-            image_urls=[summary.image_url] if summary.image_url else [],
-        )
-
-    async def _stories(self, highlights: list[Highlight], known: set[int], now: datetime) -> list[CollectedPost]:
+    async def _stories(self, highlights: list[Highlight], known: set[int], now: datetime, found: dict[int, CollectedPost]) -> None:
         """A story pinned to several highlights is one story, told under the first highlight it was found in."""
-        found: dict[int, CollectedPost] = {}
         for highlight in highlights:
-            for story in (await self._requests.page(InstagramUrls.highlight(highlight.id))).stories():
+            page = await self._requests.page(InstagramUrls.highlight(highlight.id), lambda p: bool(p.stories()))
+            for story in page.stories():
                 if story.pk in known or story.pk in found:
                     continue
                 found[story.pk] = CollectedPost(
@@ -168,4 +171,3 @@ class InstagramReader:
                     video_urls=[story.video_url] if story.video_url else [],
                     read=now - story.published_at <= self.STORIES_READ_WITHIN,
                 )
-        return list(found.values())
