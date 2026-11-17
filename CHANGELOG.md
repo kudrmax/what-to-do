@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.22.1 — 2026-11-17
+
+The macOS app with the phone page, for Intel Macs too.
+
+### Fixed
+- The disk image for Intel Macs builds again, so the macOS app gets the phone page from 1.22.0 on both Apple Silicon and Intel.
+
 ## 1.22.0 — 2026-11-17
 
 Your plans on the phone.
