@@ -10,6 +10,7 @@ MARKER = ".what-to-do-phone-page"
 GITHUB_STARTER_FILES = frozenset({"README.md", "LICENSE", ".gitignore"})
 REPOSITORY_PATTERN = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9._-]+")
 COMMIT_MESSAGE = "Publish the phone page"
+RATE_LIMITED = "GitHub is limiting requests. The app will try again later."
 
 
 class PublishError(Exception):
@@ -48,7 +49,15 @@ class _GitHubSession:
         return response.json()
 
 
+def _rate_limited(response: httpx.Response) -> bool:
+    if response.status_code == 429:
+        return True
+    return response.status_code == 403 and (response.headers.get("x-ratelimit-remaining") == "0" or "retry-after" in response.headers)
+
+
 def _unexpected(response: httpx.Response) -> PublishError:
+    if _rate_limited(response):
+        return PublishError(RATE_LIMITED)
     if response.status_code == 403:
         return PublishError("The token has no access to this repository")
     try:

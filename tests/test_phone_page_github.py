@@ -5,7 +5,7 @@ import httpx
 import pytest
 import respx
 
-from where_to_go.phone_page.github import GitHubPagesPublisher, PublishError
+from where_to_go.phone_page.github import RATE_LIMITED, GitHubPagesPublisher, PublishError
 
 API = "https://api.github.com/repos/max/plans"
 REPO = "max/plans"
@@ -41,6 +41,30 @@ async def test_check_maps_errors(publisher, status, payload, message):
     with pytest.raises(PublishError) as error:
         await publisher.check(REPO, TOKEN)
     assert str(error.value) == message
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    ("status", "headers"),
+    [
+        (403, {"x-ratelimit-remaining": "0", "x-ratelimit-reset": "2000000000"}),
+        (403, {"retry-after": "60"}),
+        (429, {"retry-after": "60"}),
+    ],
+)
+async def test_rate_limit_is_not_mistaken_for_missing_access(publisher, status, headers):
+    respx.get(API).respond(status, json={"message": "API rate limit exceeded"}, headers=headers)
+    with pytest.raises(PublishError) as error:
+        await publisher.check(REPO, TOKEN)
+    assert str(error.value) == RATE_LIMITED
+
+
+@respx.mock
+async def test_rate_limit_during_a_publish_is_reported_as_such(publisher):
+    respx.post(f"{API}/git/blobs").respond(403, json={"message": "You have exceeded a secondary rate limit"}, headers={"retry-after": "30"})
+    with pytest.raises(PublishError) as error:
+        await publisher.replace(REPO, TOKEN, {"index.html": b"x"}, {})
+    assert str(error.value) == RATE_LIMITED
 
 
 @respx.mock
