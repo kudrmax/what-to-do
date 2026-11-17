@@ -122,10 +122,15 @@ git push origin vX.Y.Z
 
 If a push is rejected, stop and tell Max. Do not force, and do not move the tag.
 
-Create the GitHub Release with the same text as the entry, without its `## X.Y.Z` heading. Rewrite image links to absolute ones:
+Create the GitHub Release with the same text as the entry, without its `## X.Y.Z` heading, under a fixed warning about the first launch on macOS: people download the disk images from this page, and a blocked first launch looks like a broken app. Rewrite image links to absolute ones:
 
 ```bash
-sed -E "s#\]\((docs/images/[^)]+)\)#](https://raw.githubusercontent.com/$GITHUB_REPO/vX.Y.Z/\1)#g" "$WORK/entry.md" > "$WORK/notes.md"
+cat > "$WORK/notes.md" <<'EOF'
+> [!WARNING]
+> **New on a Mac? The first launch will be blocked by macOS. The app is not broken!** Press **Done**, then open **System Settings → Privacy & Security** and press **Open Anyway** next to "What To Do" was blocked. [Step by step, with a screenshot](https://github.com/kudrmax/what-to-do#macos).
+
+EOF
+sed -E "/^## [0-9]+\.[0-9]+\.[0-9]+/d; s#\]\((docs/images/[^)]+)\)#](https://raw.githubusercontent.com/$GITHUB_REPO/vX.Y.Z/\1)#g" "$WORK/entry.md" >> "$WORK/notes.md"
 gh release create vX.Y.Z --repo "$GITHUB_REPO" --title X.Y.Z --notes-file "$WORK/notes.md"
 ```
 

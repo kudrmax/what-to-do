@@ -6,6 +6,9 @@ Event announcements are scattered across dozens of channels: long digests, poste
 
 It runs on your own computer and uses your existing Claude subscription through Claude Code. No API key, no account, no server.
 
+> [!IMPORTANT]
+> **On a Mac, the first launch is blocked by macOS!** That is expected for an app from outside the App Store. [Here is how to open it](#macos), once.
+
 ![The Upcoming feed: event cards by day with photo, time, tag, price and description](docs/images/readme/feed.png)
 
 ## Contents
@@ -124,14 +127,19 @@ The app needs macOS 14 Sonoma or later.
 2. Open the disk image and drag **What To Do** onto **Applications**.
 3. Open **What To Do** from Applications or Launchpad.
 
-**The first time**, macOS stops the app: it says Apple could not verify that What To Do is free of malware. The app is free and open source, but it isn't notarized by Apple, which needs a paid Apple developer account. To open it:
-
-1. Press **Done** in the message.
-2. Open **System Settings**, then **Privacy & Security**, and scroll down to **Security**.
-3. Next to "What To Do" was blocked to protect your Mac, press **Open Anyway**. The button stays there for about an hour after you tried to open the app.
-4. Enter your Mac's password, then press **Open Anyway** in the message that follows.
-
-![Privacy & Security: "What To Do" was blocked to protect your Mac, with the Open Anyway button](docs/images/readme/macos-open-anyway.png)
+> [!WARNING]
+> **The first launch will almost certainly be blocked. This is expected: the app is not broken!**
+>
+> macOS says Apple could not verify that What To Do is free of malware, and offers only **Done** and **Move to Trash**. Don't move it to the Trash. macOS shows this for every app from outside the App Store that isn't notarized by Apple, which needs a paid Apple developer account. What To Do is free and open source.
+>
+> **To open it, once:**
+>
+> 1. Press **Done** in the message.
+> 2. Open **System Settings**, then **Privacy & Security**, and scroll down to **Security**.
+> 3. Next to "What To Do" was blocked to protect your Mac, press **Open Anyway**. The button stays there for about an hour after you tried to open the app.
+> 4. Enter your Mac's password, then press **Open Anyway** in the message that follows.
+>
+> ![Privacy & Security: "What To Do" was blocked to protect your Mac, with the Open Anyway button](docs/images/readme/macos-open-anyway.png)
 
 macOS remembers this: the app and its updates open without asking again. Control-click and **Open** no longer get past this message since macOS 15 Sequoia.
 
