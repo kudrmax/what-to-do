@@ -13,7 +13,7 @@ from tests.test_frames import make_video
 from tests.helpers import BELGRADE, add_city, photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.container import Container
 from where_to_go.instagram import InstagramPage
-from where_to_go.models import Booking, CollectedPost, BookingKind, InstagramReading, Mark, Mention, Plan, Post, Source, SourceKind, WebSite
+from where_to_go.models import Booking, CollectedPost, BookingKind, EventFacts, EventKind, ExtractedEvent, InstagramReading, Mark, Mention, Plan, Post, Source, SourceKind, WebSite
 from where_to_go.llm import LlmError
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.refresh import Stage
@@ -900,26 +900,31 @@ async def test_a_rules_change_reads_only_the_latest_instagram_posts(shelf):
     assert shelf.to_read(recent=2) == {newer, newest}
 
 
-async def test_stories_turned_off_are_never_chosen_read_or_not(shelf):
+async def test_stories_turned_off_are_never_chosen_read_or_not_and_keep_their_events(shelf):
+    c = shelf.container
     post = shelf.post()
-    shelf.story(3)
+    story = shelf.story(3)
     shelf.story(1, processed=False)
+    facts = EventFacts(title="Квиз", original_title="Квиз", description="", kind=EventKind.SINGLE, start_date=shelf.today, tags=[])
+    event = c.events.create(shelf.source.city_id, facts)
+    c.mentions.assign(c.mentions.add(story, 0, ExtractedEvent(**facts.facts()), None).id, event.id)
+    c.instagram.add(shelf.source.id, InstagramReading())
 
-    assert shelf.to_read(InstagramReading(stories=False)) == {post}
-    with shelf.container.db.session() as s:
-        assert all(p.processed_at is not None for p in s.exec(select(Post)) if "highlights" in p.url and p.read_with == "old rules")
+    c.instagram.change(shelf.source.id, InstagramReading(stories=False))
+
+    assert shelf.to_read(c.instagram.reading(shelf.source.id)) == {post}
+    assert [m.post_id for m in c.mentions.of_event(event.id)] == [story]
 
 
 async def test_posts_turned_off_are_never_chosen(shelf):
     shelf.post()
-    unread_post = shelf.post(processed=False)
+    shelf.post(processed=False)
     story = shelf.story(3)
 
     assert shelf.to_read(InstagramReading(posts=False)) == {story}
-    assert unread_post not in shelf.to_read(InstagramReading(posts=False))
 
 
-async def test_an_unread_fresh_story_is_chosen_and_an_unread_old_one_is_not_needed_twice(shelf):
+async def test_an_unread_fresh_story_is_chosen(shelf):
     story = shelf.story(1, processed=False)
 
     assert shelf.to_read() == {story}
