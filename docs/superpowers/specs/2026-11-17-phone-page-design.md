@@ -103,6 +103,8 @@ The repository holds exactly these files, replaced as a whole on every publish:
 
 **Posters:** each event's main photo as the app already stores it, encrypted, without resizing. Stored posters average about 60 KB (954 files, 56 MB in Max's data on 17.11.2026), small enough for a phone, so no image library (Pillow) is added. An event without a photo is shown like in the app. (builder's call, settled in review)
 
+**Cost on the laptop:** a publish must stay light, a background task that never blocks the app. A poster's encrypted bytes are cached by image name (the IV is derived deterministically from the key and the image name, so the same poster encrypts to the same bytes), and its blob is uploaded only when it is not already in the current tree; a typical publish then uploads one blob for `data.bin` plus a tree, a commit and a ref update, about five small HTTP requests. The key is derived once per password, not per publish. GitHub then rebuilds the site on its side in about a minute.
+
 **History:** every publish is a single commit without a parent, and `main` is moved to it with a forced ref update. The repository therefore always has one commit; old posters and snapshots become unreachable and are collected by GitHub. This uses the Git Data API: create blobs, a tree, a commit with no parents, then `PATCH refs/heads/main` with `force: true`.
 
 ## Encryption
