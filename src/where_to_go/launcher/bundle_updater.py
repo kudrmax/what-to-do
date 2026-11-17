@@ -189,6 +189,6 @@ class BundleUpdater(Updater):
     def _refuse_where_unwritable(self) -> None:
         """An app opened from the disk image or from Downloads runs from a read-only copy macOS made of it."""
         app = self._bundle.app
-        if "/AppTranslocation/" in str(app) or str(app).startswith("/Volumes/") or not os.access(app.parent, os.W_OK):
+        if "AppTranslocation" in app.parts or app.parts[1:2] == ("Volumes",) or not os.access(app.parent, os.W_OK):
             raise UpdateFailedError(f"What To Do can't update itself where it is ({app.parent}). {NOT_MOVED}")
 

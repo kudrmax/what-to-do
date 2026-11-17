@@ -129,6 +129,15 @@ sys.exit(1)
 """
 
 
+@pytest.fixture
+def flows():
+    """Every sign-in a test starts is stopped, even when the test fails."""
+    started: list[ClaudeSignInFlow] = []
+    yield started
+    for flow in started:
+        flow.stop()
+
+
 def login_cli(tmp_path) -> list[str]:
     script = tmp_path / "login.py"
     script.write_text(LOGIN_SCRIPT, encoding="utf-8")
@@ -146,8 +155,9 @@ def wait_until(condition, timeout: float = 15) -> None:
         time.sleep(0.05)
 
 
-def test_signing_in_from_the_app_runs_the_clis_login_and_shows_the_page_to_open_by_hand(tmp_path) -> None:
+def test_signing_in_from_the_app_runs_the_clis_login_and_shows_the_page_to_open_by_hand(tmp_path, flows) -> None:
     flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flows.append(flow)
 
     flow.start()
     wait_until(lambda: flow.progress().page_url is not None)
@@ -157,8 +167,9 @@ def test_signing_in_from_the_app_runs_the_clis_login_and_shows_the_page_to_open_
     flow.stop()
 
 
-def test_the_code_from_the_sign_in_page_finishes_the_sign_in(tmp_path) -> None:
+def test_the_code_from_the_sign_in_page_finishes_the_sign_in(tmp_path, flows) -> None:
     flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flows.append(flow)
     flow.start()
     wait_until(lambda: flow.progress().page_url is not None)
 
@@ -168,8 +179,9 @@ def test_the_code_from_the_sign_in_page_finishes_the_sign_in(tmp_path) -> None:
     assert flow.progress() == SignInProgress(running=False, page_url=None, error=None)
 
 
-def test_a_wrong_code_says_what_the_cli_said(tmp_path) -> None:
+def test_a_wrong_code_says_what_the_cli_said(tmp_path, flows) -> None:
     flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flows.append(flow)
     flow.start()
     wait_until(lambda: flow.progress().page_url is not None)
 
@@ -180,8 +192,9 @@ def test_a_wrong_code_says_what_the_cli_said(tmp_path) -> None:
     assert not flow.submit_code("good")
 
 
-def test_a_code_the_cli_cannot_use_says_why_while_it_waits_for_another(tmp_path) -> None:
+def test_a_code_the_cli_cannot_use_says_why_while_it_waits_for_another(tmp_path, flows) -> None:
     flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flows.append(flow)
     flow.start()
     wait_until(lambda: flow.progress().page_url is not None)
 
@@ -194,8 +207,9 @@ def test_a_code_the_cli_cannot_use_says_why_while_it_waits_for_another(tmp_path)
     assert flow.progress().error is None
 
 
-def test_a_second_press_does_not_start_a_second_sign_in(tmp_path) -> None:
+def test_a_second_press_does_not_start_a_second_sign_in(tmp_path, flows) -> None:
     flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flows.append(flow)
     flow.start()
     wait_until(lambda: flow.progress().page_url is not None)
     first = flow._process
@@ -207,8 +221,9 @@ def test_a_second_press_does_not_start_a_second_sign_in(tmp_path) -> None:
     assert not flow.progress().running
 
 
-def test_a_cli_that_cannot_start_says_so(tmp_path) -> None:
+def test_a_cli_that_cannot_start_says_so(tmp_path, flows) -> None:
     flow = ClaudeSignInFlow([str(tmp_path / "no-such-cli")])
+    flows.append(flow)
 
     flow.start()
 
