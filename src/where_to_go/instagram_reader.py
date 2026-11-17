@@ -37,7 +37,7 @@ class InstagramRefused(SourceError):
     """status is None when Instagram didn't answer at all; collected keeps what was read before the refusal."""
 
     def __init__(self, status: int | None = None, collected: list[CollectedPost] | None = None) -> None:
-        super().__init__("Instagram refused to show the profile; will try again on the next refresh")
+        super().__init__("Instagram refused to show the profile. It will be tried again on the next refresh.")
         self.status = status
         self.collected = collected or []
 
@@ -59,13 +59,16 @@ class InstagramRequests:
         self._sleep = sleep
         self._clock = clock
         self._lock = asyncio.Lock()
-        self._last_start: float | None = None
+        self._last_end: float | None = None
 
     async def page(self, url: str, has_data: Callable[[InstagramPage], bool]) -> InstagramPage:
         """The page when it answers 200 with the data asked for; InstagramRefused otherwise."""
         async with self._lock:
             await self._wait_for_turn()
-            response = await self._get(url)
+            try:
+                response = await self._get(url)
+            finally:
+                self._last_end = self._clock()
         if response.status_code == NOT_FOUND:
             log.info("Instagram has no page %s", url)
             raise InstagramRefused(NOT_FOUND)
@@ -78,11 +81,10 @@ class InstagramRequests:
         return page
 
     async def _wait_for_turn(self) -> None:
-        if self._last_start is not None:
-            wait = self._last_start + self._pause - self._clock()
+        if self._last_end is not None:
+            wait = self._last_end + self._pause - self._clock()
             if wait > 0:
                 await self._sleep(wait)
-        self._last_start = self._clock()
 
     async def _get(self, url: str) -> httpx.Response:
         self._client.cookies.clear()
@@ -109,7 +111,7 @@ class InstagramReader:
         except InstagramRefused as refused:
             if refused.status is None:
                 raise SourceError("Instagram didn't respond") from refused
-            raise SourceError("Instagram refused to show the profile; try again later") from refused
+            raise SourceError("Instagram refused to show the profile. Try again later.") from refused
         return profile.title or name, len(profile.highlights)
 
     async def collect(self, name: str, known: set[int], reading: InstagramReading, now: datetime) -> list[CollectedPost]:
@@ -139,7 +141,7 @@ class InstagramReader:
             if refused.status == NOT_FOUND:
                 raise SourceError("This Instagram profile doesn't exist") from refused
             raise
-        profile = page.profile()
+        profile = None if page.private() else page.profile()
         if profile is None:
             raise SourceError("This Instagram profile is private")
         return profile

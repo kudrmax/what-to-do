@@ -122,7 +122,7 @@ async def test_instagram_refusal_keeps_what_was_read_before_it(tmp_path):
     with container.db.session() as s:
         [stored] = s.exec(select(Post).where(Post.source_id == source.id)).all()
     assert stored.external_id == story.pk and len(stored.image_paths) == 1
-    assert container.sources.get(source.id).last_error == "Instagram refused to show the profile; will try again on the next refresh"
+    assert container.sources.get(source.id).last_error == "Instagram refused to show the profile. It will be tried again on the next refresh."
     assert progress.stage is Stage.DONE
 
 

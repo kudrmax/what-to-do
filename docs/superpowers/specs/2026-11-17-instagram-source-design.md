@@ -59,7 +59,7 @@ A browser inside the app was never an option: the app has none.
    - **Posts**: "12 latest, then every new one"
    - **Pinned stories**: "N highlights; stories up to 30 days old, then every new one"
    Buttons **Cancel** and **Add**. With both checkboxes off the add button is disabled.
-4. Errors instead of the preview: "This Instagram profile doesn't exist", "This Instagram profile is private", "Instagram didn't respond", "Instagram refused to show the profile; try again later".
+4. Errors instead of the preview: "This Instagram profile doesn't exist", "This Instagram profile is private", "Instagram didn't respond", "Instagram refused to show the profile. Try again later.".
 5. An added profile stands in the source list with its own icon (Instagram's), a link to the profile and the same actions: rename, star, pause, delete. Its row also lets the user change **Posts** / **Pinned stories** later.
    - Turning one off works like pause for that kind: it is no longer collected; what was already stored and its cards stay, and it is not re-read when the reading rules change.
    - Turning it on again collects it from the next refresh by the same rules as at adding: the 12 latest posts, stories up to 30 days old.
@@ -105,7 +105,7 @@ The kept frames are stored as JPEG images of the post, after its cover. They go 
 ## When Instagram refuses
 
 - A refusal is any answer to the profile page that is not 200 with the profile data: 429, a redirect to the login page, a page without the data, a network error.
-- The source gets the error text next to it ("Instagram refused to show the profile; will try again on the next refresh"), as a broken Telegram channel does. The rest of the refresh goes on.
+- The source gets the error text next to it ("Instagram refused to show the profile. It will be tried again on the next refresh."), as a broken Telegram channel does. The rest of the refresh goes on.
 - No retries within a refresh, no backoff state: the next refresh tries again.
 - The answer of the refusal (status, headers, first 2 KB of the body) goes to the app log, so the first real refusal can be studied.
 - A refused highlight or post page after a good profile page is the same: error on the source, whatever was collected before it is kept.

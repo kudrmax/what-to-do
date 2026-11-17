@@ -171,7 +171,7 @@ async def test_refused_highlight_ends_the_reading_and_keeps_what_came_before(ins
         lambda request: httpx.Response(429) if instagram._part(request) == refused_id else httpx.Response(200, text=instagram.highlight_page(instagram._part(request)))
     )
 
-    with pytest.raises(InstagramRefused, match="will try again on the next refresh") as raised:
+    with pytest.raises(InstagramRefused, match="It will be tried again on the next refresh") as raised:
         await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(), NOW)
 
     assert {p.external_id for p in raised.value.collected} == ALL_POSTS | set(STORIES)
@@ -290,7 +290,7 @@ async def test_profile_without_its_data_is_a_refusal(instagram, client, answer, 
     instagram.profile.side_effect = None
     instagram.profile.return_value = answer
 
-    with caplog.at_level(logging.WARNING), pytest.raises(InstagramRefused, match="Instagram refused to show the profile; will try again on the next refresh"):
+    with caplog.at_level(logging.WARNING), pytest.raises(InstagramRefused, match="^Instagram refused to show the profile. It will be tried again on the next refresh.$"):
         await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(), NOW)
     assert NAME in caplog.text
 
@@ -324,7 +324,7 @@ async def test_refusal_in_preview_asks_to_try_later(instagram, client):
     instagram.profile.side_effect = None
     instagram.profile.return_value = httpx.Response(429)
 
-    with pytest.raises(SourceError, match="^Instagram refused to show the profile; try again later$"):
+    with pytest.raises(SourceError, match="^Instagram refused to show the profile. Try again later.$"):
         await reader(client, instagram.clock).title(NAME)
 
 
@@ -349,6 +349,15 @@ async def test_private_profile_is_said_so(instagram, client):
         await reader(client, instagram.clock).title(NAME)
 
 
+async def test_private_profile_that_still_lists_a_timeline_is_said_so(instagram, client):
+    user = {"username": "closed", "is_private": True, "polaris_ordered_timeline_connection": {"edges": []}}
+    instagram.profile.side_effect = None
+    instagram.profile.return_value = httpx.Response(200, text=f'<script type="application/json">{json.dumps({"data": {"xig_user_by_username": user}})}</script>')
+
+    with pytest.raises(SourceError, match="This Instagram profile is private"):
+        await reader(client, instagram.clock).title(NAME)
+
+
 async def test_title_gives_the_name_and_the_number_of_highlights(instagram, client):
     assert await reader(client, instagram.clock).title(NAME) == ("Esthetic Joys Embassy / EJE", 7)
 
@@ -364,6 +373,26 @@ async def test_sources_read_concurrently_share_one_pause(instagram, client):
 
     gaps = [later - earlier for earlier, later in zip(instagram.started, instagram.started[1:])]
     assert len(instagram.started) > 2 and min(gaps) >= 1.0
+
+
+async def test_the_pause_counts_from_the_end_of_the_previous_request(instagram, client):
+    spans: list[tuple[float, float]] = []
+
+    def slow(respond):
+        def answer(request: httpx.Request) -> httpx.Response:
+            started = instagram.clock()
+            instagram.clock.now += 3.0
+            spans.append((started, instagram.clock()))
+            return respond(request)
+
+        return answer
+
+    instagram.post.side_effect = slow(lambda request: httpx.Response(200, text=instagram.post_page(instagram._part(request))))
+
+    await reader(client, instagram.clock).collect(NAME, set(), InstagramReading(stories=False), NOW)
+
+    gaps = [later[0] - earlier[1] for earlier, later in zip(spans, spans[1:])]
+    assert len(spans) > 2 and min(gaps) >= 1.0
 
 
 async def test_no_request_carries_a_cookie(instagram, client):
