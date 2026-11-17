@@ -148,6 +148,15 @@ test("an_old_snapshot_is_shown_as_stale", async () => {
   expect(within(updated).getByText("2 days ago")).toBeInTheDocument();
 });
 
+test("an_old_snapshot_names_days_from_the_real_today_and_hides_past_ones", async () => {
+  const old = { ...snapshot(PLANS.occurrences, "2026-11-16T10:00:00Z"), today: "2026-11-16" };
+  render(<PhoneApp files={files(await seal(old, freshSalt()))} now={() => new Date("2026-11-17T23:30:00Z")} />);
+  await openWith(PASSWORD);
+  expect(await screen.findByRole("region", { name: "Today" })).toHaveTextContent("Puppet theatre");
+  expect(screen.queryByText("Jazz at Dorćol")).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Tomorrow" })).not.toBeInTheDocument();
+});
+
 test("a_fresh_snapshot_is_not_stale", async () => {
   render(<PhoneApp files={files(await seal(PLANS, freshSalt()))} now={() => NOW} />);
   await openWith(PASSWORD);

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import { ago, dayHeading } from "../domain/dates";
+import { ago, dayHeading, todayIn } from "../domain/dates";
 import { groupByDay } from "../domain/feed";
 import { SHOWN_PLANS } from "../domain/plans";
 import { ToggleChip } from "../ui/Chips";
@@ -16,7 +16,8 @@ export function PlanList({ snapshot, now, onLock }: { snapshot: PhoneSnapshot; n
   const [opened, setOpened] = useState<PhoneOccurrence | null>(null);
   const close = useCallback(() => setOpened(null), []);
   const plans: string[] = onlySure ? SHOWN_PLANS.sure : SHOWN_PLANS.going;
-  const shown = snapshot.occurrences.filter((item) => plans.includes(item.event.plan ?? "none"));
+  const today = todayIn(snapshot.timezone, now);
+  const shown = snapshot.occurrences.filter((item) => item.date >= today && plans.includes(item.event.plan ?? "none"));
 
   return (
     <div className="phone">
@@ -46,7 +47,7 @@ export function PlanList({ snapshot, now, onLock }: { snapshot: PhoneSnapshot; n
         ) : (
           <div className="day-feed">
             {groupByDay(shown).map(([day, items]) => {
-              const heading = dayHeading(day, snapshot.today);
+              const heading = dayHeading(day, today);
               return (
                 <section key={day} className="day-feed__day" aria-label={heading.title}>
                   <h2 className="day-heading">
