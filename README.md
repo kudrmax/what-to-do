@@ -148,6 +148,9 @@ The window starts the app's server when it opens and stops it when you quit. You
 
 ### Linux, Windows, and running from the code
 
+> [!NOTE]
+> **Untested on Linux and Windows.** It should work there, and the automated tests pass on both, but I have neither system to try the app on for real. If you do, I'd be grateful for an [issue](https://github.com/kudrmax/what-to-do/issues) on how it went, or a pull request with a fix.
+
 Run these in a Linux terminal, in PowerShell on Windows or in Terminal on macOS:
 
 ```bash
