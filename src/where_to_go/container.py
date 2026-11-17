@@ -156,10 +156,20 @@ class Container:
             linker=linker,
         )
         feed = Feed(events, sources)
+        originals = OriginalPosts(photo_texts)
         phone_config = PhonePageConfigRepository(db)
         phone_page = PhonePageService(
             config=phone_config,
-            builder=SnapshotBuilder(feed, cities, tags, mentions, images),
+            builder=SnapshotBuilder(
+                settings=settings,
+                cities=cities,
+                sources=sources,
+                tags=tags,
+                feed=feed,
+                mentions=mentions,
+                originals=originals,
+                images=images,
+            ),
             publisher=phone_publisher or GitHubPagesPublisher(http),
             cipher_factory=SnapshotCipher,
             bundle_dir=phone_bundle or project.dist / "phone",
@@ -183,7 +193,7 @@ class Container:
             dev_notes=DevNoteRepository(db),
             images=images,
             photos=photos,
-            originals=OriginalPosts(photo_texts),
+            originals=originals,
             cards=cards,
             linker=linker,
             feed=feed,

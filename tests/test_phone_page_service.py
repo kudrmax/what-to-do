@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import hashlib
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -10,7 +10,7 @@ from where_to_go.db import Database
 from where_to_go.phone_page.config import PhonePageConfigRepository
 from where_to_go.phone_page.github import MARKER, PublishError
 from where_to_go.phone_page.service import BUNDLE_MISSING, PhonePageService
-from where_to_go.phone_page.snapshot import PhoneOccurrence, PhoneSnapshot
+from where_to_go.phone_page.snapshot import PhoneSnapshot
 
 START = datetime(2026, 11, 17, 12, 0, tzinfo=UTC)
 REPOSITORY = "max/plans"
@@ -35,8 +35,10 @@ class FakeBuilder:
         self.posters: dict[str, Path] = {}
 
     def build(self, now: datetime) -> tuple[PhoneSnapshot, dict[str, Path]]:
-        occurrences = [PhoneOccurrence(date=date(2026, 11, 18), event={"title": t}, post_url=None) for t in self.titles]
-        snapshot = PhoneSnapshot(made_at=now, city="Belgrade", timezone="Europe/Belgrade", today=now.date(), tags=[], occurrences=occurrences)
+        occurrences = [{"date": "2026-11-18", "event": {"title": t}} for t in self.titles]
+        snapshot = PhoneSnapshot(
+            made_at=now, timezone="Europe/Belgrade", settings={}, cities=[], sources=[], tags=[], occurrences=occurrences, mentions={}, images={}
+        )
         return snapshot, dict(self.posters)
 
 

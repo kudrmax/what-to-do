@@ -2,8 +2,10 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from fastapi.testclient import TestClient
 
 from tests.helpers import add_city, extraction_by_text, judge_same_titles, photos_saying, raw_event
+from where_to_go.api import create_app
 from where_to_go.container import Container
 from where_to_go.models import CollectedPost, ExtractedEvent, Mark, Plan, Source
 from where_to_go.phone_page.snapshot import SnapshotBuilder
@@ -20,19 +22,28 @@ def container(tmp_path):
 
 @pytest.fixture
 def builder(container):
-    return SnapshotBuilder(container.feed, container.cities, container.tags, container.mentions, container.images)
+    return SnapshotBuilder(
+        settings=container.settings,
+        cities=container.cities,
+        sources=container.sources,
+        tags=container.tags,
+        feed=container.feed,
+        mentions=container.mentions,
+        originals=container.originals,
+        images=container.images,
+    )
 
 
-def seed(container, title: str, day: date, plan: Plan | None = None, handle: str = "a") -> int:
+def seed(container, title: str, day: date, plan: Plan | None = None, handle: str = "a", photos: list[str] | None = None, poster: int | None = None) -> int:
     city = container.cities.active() or add_city(container, "Белград", "Europe/Belgrade")
     source = next((s for s in container.sources.in_city(city.id) if s.handle == handle), None) or container.sources.add(
         Source(city_id=city.id, handle=handle, title=handle)
     )
     external = len(container.posts.known_ids(source.id)) + 1
     post = CollectedPost(external_id=external, url=f"https://t.me/{handle}/{external}", published_at=NOW, text="текст")
-    container.posts.add_new(source.id, post, [])
+    container.posts.add_new(source.id, post, photos or [])
     stored = next(p for p in container.posts.unprocessed([source.id]) if p.external_id == external)
-    mention = container.mentions.add(stored.id, 0, ExtractedEvent.model_validate(raw_event(title, day.isoformat())), None)
+    mention = container.mentions.add(stored.id, 0, ExtractedEvent.model_validate(raw_event(title, day.isoformat())), poster)
     container.posts.mark_processed(stored.id, "test")
     event_id = container.cards.create(city.id, mention)
     container.cards.refresh(event_id)
@@ -41,45 +52,60 @@ def seed(container, title: str, day: date, plan: Plan | None = None, handle: str
     return event_id
 
 
-def test_only_upcoming_sure_and_maybe(container, builder):
-    seed(container, "Sure", TODAY + timedelta(days=1), Plan.SURE)
-    seed(container, "Maybe", TODAY, Plan.MAYBE)
+def store_image(tmp_path, name: str) -> None:
+    (tmp_path / "images" / name).write_bytes(b"jpeg " + name.encode())
+
+
+def test_holds_what_the_api_answers(container, builder):
+    sure = seed(container, "Sure", TODAY + timedelta(days=1), Plan.SURE)
+    seed(container, "Maybe", TODAY, Plan.MAYBE, handle="b")
     seed(container, "No", TODAY + timedelta(days=1), Plan.NO)
     seed(container, "Went", TODAY - timedelta(days=1), Plan.WENT)
     seed(container, "Unmarked", TODAY + timedelta(days=1))
 
     snapshot, _ = builder.build(NOW)
 
-    assert [o.event["title"] for o in snapshot.occurrences] == ["Maybe", "Sure"]
-    assert snapshot.city == container.cities.active().label
-    assert snapshot.timezone == "Europe/Belgrade" and snapshot.today == TODAY
-    assert snapshot.tags == [t.name for t in container.tags.all()]
-    assert snapshot.occurrences[0].post_url == "https://t.me/a/2"
+    with TestClient(create_app(lambda: container)) as api:
+        assert snapshot.settings == api.get("/settings").json()
+        assert snapshot.cities == api.get("/cities").json()
+        assert snapshot.sources == api.get("/sources").json()
+        assert snapshot.tags == api.get("/tags").json()
+        assert snapshot.occurrences == api.get("/events", params={"start": TODAY.isoformat(), "plans": ["maybe", "sure"]}).json()
+        assert snapshot.mentions[str(sure)] == api.get(f"/events/{sure}/mentions").json()
+    assert [o["event"]["title"] for o in snapshot.occurrences] == ["Maybe", "Sure"]
+    assert set(snapshot.mentions) == {str(o["event"]["id"]) for o in snapshot.occurrences}
+    assert snapshot.timezone == "Europe/Belgrade" and snapshot.made_at == NOW
 
 
-def test_image_url_points_to_encrypted_file(container, builder, tmp_path):
-    event_id = seed(container, "Show", TODAY, Plan.SURE)
-    event = container.events.get(event_id)
-    event.image_path = "abc.jpg"
-    container.events.save(event)
-    (tmp_path / "images" / "abc.jpg").write_bytes(b"jpeg")
+def test_only_the_active_city(container, builder):
+    seed(container, "Show", TODAY, Plan.SURE)
+    add_city(container, "Нови Сад", "Europe/Belgrade")
+
+    snapshot, _ = builder.build(NOW)
+
+    assert [city["id"] for city in snapshot.cities] == [snapshot.settings["active_city_id"]]
+
+
+def test_every_image_the_answers_name_is_mapped_to_its_encrypted_file(container, builder, tmp_path):
+    seed(container, "Show", TODAY, Plan.SURE, photos=["poster.jpg", "hall.png"], poster=0)
+    store_image(tmp_path, "poster.jpg")
+    store_image(tmp_path, "hall.png")
 
     snapshot, files = builder.build(NOW)
 
-    assert snapshot.occurrences[0].event["image_url"] == "images/abc.bin"
-    assert files == {"images/abc.bin": container.images.path("abc.jpg")}
+    assert snapshot.occurrences[0]["event"]["image_url"] == "/images/poster.jpg"
+    assert snapshot.images == {"/images/poster.jpg": "images/poster.bin", "/images/hall.png": "images/hall.bin"}
+    assert files == {"images/poster.bin": container.images.path("poster.jpg"), "images/hall.bin": container.images.path("hall.png")}
 
 
-def test_missing_poster_is_left_out(container, builder):
-    event_id = seed(container, "Show", TODAY, Plan.SURE)
-    event = container.events.get(event_id)
-    event.image_path = "abc.jpg"
-    container.events.save(event)
+def test_missing_image_files_are_left_out(container, builder, tmp_path):
+    seed(container, "Show", TODAY, Plan.SURE, photos=["poster.jpg", "gone.jpg"], poster=0)
+    store_image(tmp_path, "poster.jpg")
 
     snapshot, files = builder.build(NOW)
 
-    assert snapshot.occurrences[0].event["image_url"] is None
-    assert files == {}
+    assert snapshot.images == {"/images/poster.jpg": "images/poster.bin"}
+    assert list(files) == ["images/poster.bin"]
 
 
 def test_hash_ignores_made_at(container, builder):

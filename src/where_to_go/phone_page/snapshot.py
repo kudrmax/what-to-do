@@ -1,47 +1,71 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import date, datetime
+from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
-from where_to_go.feed import Feed, FeedFilter, PlanFilter
+from where_to_go.feed import Feed, FeedFilter, Occurrence, PlanFilter
 from where_to_go.images import ImageStore
-from where_to_go.repositories import CityRepository, MentionRepository, TagRepository
+from where_to_go.models import IMAGE_ROUTE, CityPublic, MentionPublic, SourcePublic, TagPublic
+from where_to_go.originals import OriginalPosts
+from where_to_go.repositories import CityRepository, MentionRepository, SettingsRepository, SourceRepository, TagRepository
+from where_to_go.settings import AppSettings
 
-
-class PhoneOccurrence(BaseModel):
-    date: date
-    event: dict[str, Any]
-    post_url: str | None
+Answer = dict[str, Any]
 
 
 class PhoneSnapshot(BaseModel):
+    """What the phone page reads instead of the API: the API's own answers for the upcoming plans of the active city."""
+
     made_at: datetime
-    city: str
     timezone: str
-    today: date
-    tags: list[str]
-    occurrences: list[PhoneOccurrence]
+    settings: Answer
+    cities: list[Answer]
+    sources: list[Answer]
+    tags: list[Answer]
+    occurrences: list[Answer]
+    mentions: dict[str, list[Answer]]
+    images: dict[str, str]
 
     def content_hash(self) -> str:
         content = self.model_dump_json(exclude={"made_at"})
         return hashlib.sha256(content.encode()).hexdigest()
 
 
+def _answers(model: type, values: Iterable[Any]) -> list[Answer]:
+    """Values as the API serializes them under its response model."""
+    adapter = TypeAdapter(list[model])
+    return adapter.dump_python(adapter.validate_python(list(values), from_attributes=True), mode="json", by_alias=True)
+
+
 class SnapshotBuilder:
-    """The upcoming plans of the active city, as the Plans screen lists them, with the poster files they need."""
+    """The upcoming plans of the active city as the Plans screen asks the API for them, with every image file they name."""
 
     PLANS = frozenset({PlanFilter.MAYBE, PlanFilter.SURE})
 
-    def __init__(self, feed: Feed, cities: CityRepository, tags: TagRepository, mentions: MentionRepository, images: ImageStore) -> None:
-        self._feed = feed
+    def __init__(
+        self,
+        settings: SettingsRepository,
+        cities: CityRepository,
+        sources: SourceRepository,
+        tags: TagRepository,
+        feed: Feed,
+        mentions: MentionRepository,
+        originals: OriginalPosts,
+        images: ImageStore,
+    ) -> None:
+        self._settings = settings
         self._cities = cities
+        self._sources = sources
         self._tags = tags
+        self._feed = feed
         self._mentions = mentions
+        self._originals = originals
         self._images = images
 
     def build(self, now: datetime) -> tuple[PhoneSnapshot, dict[str, Path]] | None:
@@ -50,28 +74,33 @@ class SnapshotBuilder:
             return None
         today = now.astimezone(ZoneInfo(city.timezone)).date()
         criteria = FeedFilter(start=today, plans=self.PLANS, hidden_tags=self._tags.hidden())
-        files: dict[str, Path] = {}
-        occurrences = []
-        for occurrence in self._feed.occurrences(city, criteria):
-            event = occurrence.event
-            data = event.model_dump(mode="json")
-            data["image_url"] = self._poster(event.image_path, files)
-            mentions = self._mentions.of_event(event.id)
-            occurrences.append(PhoneOccurrence(date=occurrence.date, event=data, post_url=mentions[-1].post_url if mentions else None))
+        occurrences = _answers(Occurrence, self._feed.occurrences(city, criteria))
+        event_ids = dict.fromkeys(o["event"]["id"] for o in occurrences)
+        mentions = {str(i): _answers(MentionPublic, self._originals.present(self._mentions.of_event(i))) for i in event_ids}
+        urls = [o["event"]["image_url"] for o in occurrences] + [p["url"] for found in mentions.values() for m in found for p in m["photos"]]
+        images, files = self._image_files(urls)
         snapshot = PhoneSnapshot(
             made_at=now,
-            city=city.label,
             timezone=city.timezone,
-            today=today,
-            tags=[tag.name for tag in self._tags.all()],
+            settings=_answers(AppSettings, [self._settings.load()])[0],
+            cities=_answers(CityPublic, [city]),
+            sources=_answers(SourcePublic, self._sources.in_city(city.id)),
+            tags=_answers(TagPublic, self._tags.all()),
             occurrences=occurrences,
+            mentions=mentions,
+            images=images,
         )
         return snapshot, files
 
-    def _poster(self, image_path: str | None, files: dict[str, Path]) -> str | None:
-        path = self._images.path(image_path) if image_path else None
-        if path is None:
-            return None
-        key = f"images/{path.stem}.bin"
-        files[key] = path
-        return key
+    def _image_files(self, urls: Iterable[str | None]) -> tuple[dict[str, str], dict[str, Path]]:
+        """Each image URL the answers name, mapped to the encrypted file published for it; images no longer stored are left out."""
+        images: dict[str, str] = {}
+        files: dict[str, Path] = {}
+        for url in dict.fromkeys(u for u in urls if u and u.startswith(IMAGE_ROUTE + "/")):
+            path = self._images.path(url.removeprefix(IMAGE_ROUTE + "/"))
+            if path is None:
+                continue
+            key = f"images/{path.stem}.bin"
+            images[url] = key
+            files[key] = path
+        return images, files
