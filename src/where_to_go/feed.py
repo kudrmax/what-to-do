@@ -37,6 +37,7 @@ class FeedFilter:
     hide_multiday: bool = False
     only_priority: bool = False
     plans: frozenset[PlanFilter] = field(default_factory=frozenset)
+    collection: int | None = None
     search: SearchQuery = field(default_factory=lambda: SearchQuery(""))
 
     def accepts(self, event: Event) -> bool:
@@ -44,7 +45,9 @@ class FeedFilter:
             return False
         if self.tags and not self.tags & set(event.tags):
             return False
-        if event.plan is None and self.hidden_tags & set(event.tags):
+        if self.collection is not None and self.collection not in event.collection_ids:
+            return False
+        if event.plan is None and self.collection is None and self.hidden_tags & set(event.tags):
             return False
         if self.source_ids and not self.source_ids & set(event.source_ids):
             return False

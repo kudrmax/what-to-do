@@ -33,6 +33,9 @@ class AppSettings(BaseModel):
         description="What the user looks for first, in their own words, in every city. While reading posts Claude flags the events "
         "that fit it; empty: nothing is flagged",
     )
+    collections_enabled: bool = Field(
+        default=False, description="Shows the collection button on cards and the Collections screen; off only hides them"
+    )
     extraction_prompt: str = Field(
         default=prompts.EXTRACTION,
         min_length=1,

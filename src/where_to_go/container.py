@@ -29,6 +29,7 @@ from where_to_go.launcher.paths import ProjectPaths
 from where_to_go.releases import Releases, ReleaseSource
 from where_to_go.repositories import (
     CityRepository,
+    CollectionRepository,
     DevNoteRepository,
     EventRepository,
     MentionRepository,
@@ -69,6 +70,7 @@ class Container:
     tags: TagRepository
     events: EventRepository
     dev_notes: DevNoteRepository
+    collections: CollectionRepository
     images: ImageStore
     photos: PhotoTranscriber
     originals: OriginalPosts
@@ -193,6 +195,7 @@ class Container:
             tags=tags,
             events=events,
             dev_notes=DevNoteRepository(db),
+            collections=CollectionRepository(db),
             images=images,
             photos=photos,
             originals=originals,

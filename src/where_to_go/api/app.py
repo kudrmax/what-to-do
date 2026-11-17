@@ -31,9 +31,12 @@ from where_to_go.models import (
     CityContents,
     CityPublic,
     CityRequest,
+    CollectionBase,
+    CollectionPublic,
     DevNoteBase,
     DevNotePublic,
     Event,
+    EventCollections,
     EventPublic,
     Mark,
     MentionPublic,
@@ -77,6 +80,7 @@ class ApiTag(StrEnum):
     SETTINGS = "settings"
     SOURCES = "sources"
     TAGS = "tags"
+    COLLECTIONS = "collections"
     EVENTS = "events"
     REFRESH = "refresh"
     STATS = "stats"
@@ -87,6 +91,7 @@ TAG_HELP = {
     ApiTag.SETTINGS: "Settings and cities",
     ApiTag.SOURCES: "Telegram channels and websites of the active city",
     ApiTag.TAGS: "The fixed list of tags Claude may put on cards",
+    ApiTag.COLLECTIONS: "The user's own collections of events, shared by all cities",
     ApiTag.EVENTS: "The feed, a card, marks, manual merge and split",
     ApiTag.REFRESH: "Collect new posts and turn them into cards",
     ApiTag.STATS: "Counts of what was read, found and marked",
@@ -171,6 +176,13 @@ def _city_errors() -> Iterator[None]:
         raise HTTPException(409, str(error)) from None
     except CityError as error:
         raise HTTPException(422, str(error)) from None
+
+
+def _name(raw: str) -> str:
+    name = raw.strip()
+    if not name:
+        raise HTTPException(422, "The name is empty")
+    return name
 
 
 def _public(c: Container, event: Event) -> EventPublic:
@@ -386,6 +398,39 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         except KeyError:
             raise HTTPException(404, "Tag not found") from None
 
+    # ---------- collections ----------
+
+    @app.get("/collections", response_model=list[CollectionPublic], tags=[ApiTag.COLLECTIONS])
+    def collections(c: ContainerDep):
+        """Every collection in the order it was added."""
+        return c.collections.listed()
+
+    @app.post("/collections", response_model=CollectionPublic, status_code=201, tags=[ApiTag.COLLECTIONS])
+    def add_collection(body: CollectionBase, c: ContainerDep):
+        """Adds an empty collection. 409: one with this name exists."""
+        try:
+            return c.collections.add(_name(body.name))
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from None
+
+    @app.patch("/collections/{collection_id}", response_model=CollectionPublic, tags=[ApiTag.COLLECTIONS])
+    def rename_collection(collection_id: int, body: CollectionBase, c: ContainerDep):
+        """Renames a collection. 409: another one has this name."""
+        try:
+            return c.collections.rename(collection_id, _name(body.name))
+        except KeyError:
+            raise HTTPException(404, "Collection not found") from None
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from None
+
+    @app.delete("/collections/{collection_id}", status_code=204, tags=[ApiTag.COLLECTIONS])
+    def delete_collection(collection_id: int, c: ContainerDep):
+        """Deletes a collection; its events stay in the feed."""
+        try:
+            c.collections.delete(collection_id)
+        except KeyError:
+            raise HTTPException(404, "Collection not found") from None
+
     # ---------- events ----------
 
     @app.get("/events", response_model=list[Occurrence], tags=[ApiTag.EVENTS])
@@ -400,6 +445,9 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         only_timed: Annotated[bool, Query(description="Only events with a known date and time")] = False,
         hide_multiday: Annotated[bool, Query(description="Hide exhibitions, festivals and other multiday events")] = False,
         only_priority: Annotated[bool, Query(description="Only events Claude flagged as fitting the priority wish from settings")] = False,
+        collection: Annotated[
+            int | None, Query(description="Only events of this collection, whatever their tags; without start it begins at the earliest event")
+        ] = None,
         search: Annotated[
             str,
             Query(
@@ -411,7 +459,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     ):
         """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.
         Unmarked cards with a blacklisted tag are left out."""
-        first = start or (c.feed.earliest(city.id) if end else None) or datetime.now(ZoneInfo(city.timezone)).date()
+        first = start or (c.feed.earliest(city.id) if end or collection is not None else None) or datetime.now(ZoneInfo(city.timezone)).date()
         criteria = FeedFilter(
             start=first,
             end=end,
@@ -422,6 +470,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             hide_multiday=hide_multiday,
             only_priority=only_priority,
             plans=frozenset(plans),
+            collection=collection,
             search=SearchQuery(search),
         )
         return c.feed.occurrences(city, criteria)
@@ -458,6 +507,14 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def set_mark(body: Mark, c: ContainerDep, event: EventDep):
         """Sets interest and plan of a card. Both fields are written as sent: null clears a value."""
         return _public(c, c.events.set_mark(event.id, body))
+
+    @app.put("/events/{event_id}/collections", response_model=EventPublic, tags=[ApiTag.EVENTS])
+    def set_collections(body: EventCollections, c: ContainerDep, event: EventDep):
+        """Sets the collections a card is in. 422: a collection that does not exist."""
+        unknown = set(body.collection_ids) - c.collections.ids()
+        if unknown:
+            raise HTTPException(422, f"No collection with id {min(unknown)}")
+        return _public(c, c.events.set_collections(event.id, body.collection_ids))
 
     @app.post("/events/{event_id}/dev-notes", response_model=DevNotePublic, status_code=201, tags=[ApiTag.EVENTS])
     def add_dev_note(body: DevNoteBase, c: ContainerDep, event: EventDep):

@@ -138,3 +138,11 @@ def test_unmarked_card_only_paused_sources_announce_is_left_out():
         Sources(7),
     )
     assert [o.event.id for o in feed.occurrences(CITY, WEEK)] == [2, 3, 4]
+
+
+def test_collected_event_stays_when_only_paused_sources_announce_it():
+    collected = event(id=1, source_ids=[7], collection_ids=[3])
+    forgotten = event(id=2, source_ids=[7])
+    feed = Feed(Events(collected, forgotten), Sources(7))
+    assert [o.event.id for o in feed.occurrences(CITY, WEEK)] == [1]
+    assert [o.event.id for o in feed.occurrences(CITY, replace(WEEK, collection=4))] == []

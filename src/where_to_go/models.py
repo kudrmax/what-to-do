@@ -317,12 +317,19 @@ class EventCard(EventFacts, Mark):
     is_cancelled: bool = False
     conflicts: list[Conflict] = json_field(list[Conflict], default_factory=list, description="Sources disagree on these")
     source_ids: list[int] = json_field(list[int], default_factory=list)
+    collection_ids: list[int] = json_field(
+        list[int], default_factory=list, sa_column_kwargs={"server_default": "[]"}, description="The user's collections it is in"
+    )
     image_path: str | None = Field(default=None, exclude=True)
+
+    @property
+    def is_kept(self) -> bool:
+        """The user rated, planned or collected it: it stays where they left it."""
+        return self.interest is not None or self.plan is not None or bool(self.collection_ids)
 
     def is_dropped_with(self, paused_source_ids: set[int]) -> bool:
         """Only paused sources announce it and the user never marked it: it is no longer shown."""
-        unmarked = self.interest is None and self.plan is None
-        return unmarked and bool(self.source_ids) and paused_source_ids.issuperset(self.source_ids)
+        return not self.is_kept and bool(self.source_ids) and paused_source_ids.issuperset(self.source_ids)
 
 
 class Event(EventCard, table=True):
@@ -826,6 +833,28 @@ class DevNotePublic(DevNoteBase, Public):
     id: int
     event_id: int | None
     created_at: datetime
+
+
+class CollectionBase(SQLModel):
+    name: str = Field(min_length=1, max_length=100, schema_extra={"examples": ["Unusual"]})
+
+
+class Collection(CollectionBase, table=True):
+    """The user's own set of events kept for memory; shared by all cities."""
+
+    __tablename__ = "collections"
+
+    id: int | None = Field(default=None, primary_key=True)
+    position: int = 0
+
+
+class CollectionPublic(CollectionBase, Public):
+    id: int
+    size: int = Field(description="Events in it, in every city")
+
+
+class EventCollections(SQLModel):
+    collection_ids: list[int] = Field(description="Every collection the event is in; an empty list takes it out of all")
 
 
 # ---------- values that are not stored ----------
