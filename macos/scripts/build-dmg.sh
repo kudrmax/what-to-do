@@ -7,6 +7,9 @@
 # Needs: Xcode or its Command Line Tools, uv, Node.js (see .nvmrc). Runs on an Apple Silicon or Intel Mac
 # for either architecture.
 set -euo pipefail
+# The app runs on macOS 14 and later (macos/Package.swift); uv picks wheels for that macOS, so PyAV's
+# macOS 14 Apple Silicon wheels qualify.
+export MACOSX_DEPLOYMENT_TARGET=14.0
 
 arch=${1:?arm64 or x86_64}
 repo=${0:A:h:h:h}
