@@ -14,7 +14,7 @@ from claude_agent_sdk import ResultMessage
 from tests.helpers import add_city, judge_same_titles, photos_saying
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go import llm as llm_module
-from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn
+from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, ClaudeSignInFlow, SignInProgress
 from where_to_go.container import Container
 from where_to_go.llm import ClaudeJsonLlm, ClaudeSignedOutError, LlmError
 from where_to_go.models import Source
@@ -109,3 +109,113 @@ async def test_a_refresh_without_a_login_says_so_once(tmp_path) -> None:
     assert progress.errors == [SIGN_IN_HINT]
     assert extraction.calls > 1
     await container.close()
+
+
+SIGN_IN_PAGE = "https://claude.com/cai/oauth/authorize?code=true&client_id=c&state=s"
+LOGIN_SCRIPT = f"""
+import sys, time
+print("Opening browser to sign in…", flush=True)
+print("If the browser didn't open, visit: {SIGN_IN_PAGE}", flush=True)
+print("Paste code here if prompted > ", end="", flush=True)
+code = sys.stdin.readline().strip()
+if code == "good":
+    print("Login successful.")
+    sys.exit(0)
+print("OAuth error: Invalid code")
+sys.exit(1)
+"""
+
+
+def login_cli(tmp_path) -> list[str]:
+    script = tmp_path / "login.py"
+    script.write_text(LOGIN_SCRIPT, encoding="utf-8")
+    arguments = tmp_path / "arguments.txt"
+    recorder = f"import sys, runpy; open({str(arguments)!r}, 'w').write(' '.join(sys.argv[1:])); sys.argv = sys.argv[:1]; runpy.run_path({str(script)!r}, run_name='__main__')"
+    return [sys.executable, "-c", recorder]
+
+
+def wait_until(condition, timeout: float = 15) -> None:
+    import time
+
+    deadline = time.monotonic() + timeout
+    while not condition():
+        assert time.monotonic() < deadline, "timed out"
+        time.sleep(0.05)
+
+
+def test_signing_in_from_the_app_runs_the_clis_login_and_shows_the_page_to_open_by_hand(tmp_path) -> None:
+    flow = ClaudeSignInFlow(login_cli(tmp_path))
+
+    flow.start()
+    wait_until(lambda: flow.progress().page_url is not None)
+
+    assert (tmp_path / "arguments.txt").read_text() == "auth login --claudeai"
+    assert flow.progress() == SignInProgress(running=True, page_url=SIGN_IN_PAGE, error=None)
+    flow.stop()
+
+
+def test_the_code_from_the_sign_in_page_finishes_the_sign_in(tmp_path) -> None:
+    flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flow.start()
+    wait_until(lambda: flow.progress().page_url is not None)
+
+    assert flow.submit_code("  good \n")
+    wait_until(lambda: not flow.progress().running)
+
+    assert flow.progress() == SignInProgress(running=False, page_url=None, error=None)
+
+
+def test_a_wrong_code_says_what_the_cli_said(tmp_path) -> None:
+    flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flow.start()
+    wait_until(lambda: flow.progress().page_url is not None)
+
+    flow.submit_code("bad")
+    wait_until(lambda: not flow.progress().running)
+
+    assert flow.progress().error == "OAuth error: Invalid code"
+    assert not flow.submit_code("good")
+
+
+def test_a_second_press_does_not_start_a_second_sign_in(tmp_path) -> None:
+    flow = ClaudeSignInFlow(login_cli(tmp_path))
+    flow.start()
+    wait_until(lambda: flow.progress().page_url is not None)
+    first = flow._process
+
+    flow.start()
+
+    assert flow._process is first
+    flow.stop()
+    assert not flow.progress().running
+
+
+def test_a_cli_that_cannot_start_says_so(tmp_path) -> None:
+    flow = ClaudeSignInFlow([str(tmp_path / "no-such-cli")])
+
+    flow.start()
+
+    progress = flow.progress()
+    assert not progress.running
+    assert progress.error is not None and progress.error.startswith("Couldn't start signing in")
+
+
+def test_the_api_starts_the_sign_in_and_takes_the_code(tmp_path, monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from where_to_go.api import create_app
+
+    monkeypatch.setattr(ClaudeLogin, "check", lambda self: ClaudeSignIn.SIGNED_OUT)
+    container = Container.build(tmp_path / "data", matching_llm=judge_same_titles())
+    container.claude_sign_in = ClaudeSignInFlow(login_cli(tmp_path))
+    with TestClient(create_app(lambda: container)) as client:
+        assert client.post("/claude/sign-in/code", json={"code": "good"}).status_code == 409
+
+        started = client.post("/claude/sign-in").json()
+        wait_until(lambda: client.get("/claude/sign-in").json()["page_url"] is not None)
+        waiting = client.get("/claude/sign-in").json()
+        client.post("/claude/sign-in/code", json={"code": "good"})
+        wait_until(lambda: not client.get("/claude/sign-in").json()["signing_in"])
+
+    assert started["state"] == "signed_out"
+    assert waiting == {"state": "signed_out", "hint": SIGN_IN_HINT, "signing_in": True, "page_url": SIGN_IN_PAGE, "error": None}

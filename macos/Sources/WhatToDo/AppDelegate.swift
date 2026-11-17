@@ -20,11 +20,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appName = ProcessInfo.processInfo.processName
         NSApp.mainMenu = MainMenu.build(appName: appName)
+        if config.isBundled {
+            try? FileManager.default.createDirectory(at: config.home.workingDirectory, withIntermediateDirectories: true)
+        }
         launcher = ServerLauncher(
-            projectDir: config.projectDir,
-            commands: ServerCommands(projectDir: config.projectDir, port: config.port),
+            workingDirectory: config.home.workingDirectory,
+            commands: ServerCommands(home: config.home, port: config.port),
             probe: HTTPHealthProbe(url: config.versionURL),
-            runner: LoginShellRunner(),
+            runner: config.isBundled ? ShellRunner.plain(environment: config.home.environment(from: ProcessInfo.processInfo.environment)) : ShellRunner.login,
             sleeper: TaskSleeper(),
             policy: .standard
         )
@@ -142,7 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showFatalError(_ error: Error) {
         let alert = NSAlert()
         alert.messageText = "The App Was Built Incorrectly"
-        alert.informativeText = "\(error)\n\nRebuild it with `make app` in the project folder."
+        alert.informativeText = "\(error)\n\nRebuild it with `make app` in the project folder, or download What To Do again."
         alert.runModal()
         NSApp.terminate(nil)
     }

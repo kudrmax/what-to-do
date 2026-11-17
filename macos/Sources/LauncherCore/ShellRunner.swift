@@ -1,10 +1,23 @@
 import Foundation
 
-/// Runs a command in a login zsh, so an app opened from the Dock sees the same PATH as Terminal.
-public struct LoginShellRunner: CommandRunner {
+/// Runs a command in zsh. A login shell gives an app opened from the Dock the same PATH as Terminal;
+/// a plain one with a given environment keeps the user's shell setup out.
+public struct ShellRunner: CommandRunner {
     private static let shell = URL(fileURLWithPath: "/bin/zsh")
 
-    public init() {}
+    private let login: Bool
+    private let environment: [String: String]?
+
+    public static let login = ShellRunner(login: true, environment: nil)
+
+    public static func plain(environment: [String: String]) -> ShellRunner {
+        ShellRunner(login: false, environment: environment)
+    }
+
+    private init(login: Bool, environment: [String: String]?) {
+        self.login = login
+        self.environment = environment
+    }
 
     public func run(_ command: String, in directory: URL) async -> CommandResult {
         // Output goes to a file, not a pipe: background children keep inherited descriptors open,
@@ -27,7 +40,8 @@ public struct LoginShellRunner: CommandRunner {
     private func launch(_ command: String, in directory: URL, output: FileHandle) async throws -> Int32 {
         let process = Process()
         process.executableURL = Self.shell
-        process.arguments = ["-lc", command]
+        process.arguments = login ? ["-lc", command] : ["-f", "-c", command]
+        if let environment { process.environment = environment }
         process.currentDirectoryURL = directory
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = output

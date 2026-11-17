@@ -35,15 +35,18 @@ export function UpdatingOverlay() {
             Updating the app…
           </div>
           {run.steps.length > 0 && <UpdateSteps steps={run.steps} />}
-          {status && (
+          {status?.restart_command && (
             <div className="updating__fallback">
               <p className="updating__hint">Nothing has changed for {STUCK_AFTER_MINUTES} minutes? Restart the app manually:</p>
               <ByHand command={status.restart_command} waitFor="Wait for the line that starts with →." />
             </div>
           )}
+          {status && !status.restart_command && (
+            <p className="updating__fallback updating__hint">Nothing has changed for {STUCK_AFTER_MINUTES} minutes? Quit What To Do and open it again.</p>
+          )}
         </div>
       ) : (
-        <UpdateFailed logTail={run.logTail} command={status?.update_command ?? null} onClose={dismissFailure} />
+        <UpdateFailed logTail={run.logTail} command={status?.update_command ?? null} downloadPage={status?.download_page ?? null} onClose={dismissFailure} />
       )}
     </div>,
     document.body,
@@ -67,7 +70,7 @@ function UpdateSteps({ steps }: { steps: UpdateStep[] }) {
   );
 }
 
-function UpdateFailed({ logTail, command, onClose }: { logTail: string; command: string | null; onClose: () => void }) {
+function UpdateFailed({ logTail, command, downloadPage, onClose }: { logTail: string; command: string | null; downloadPage: string | null; onClose: () => void }) {
   const log = useRef<HTMLPreElement>(null);
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
@@ -84,6 +87,14 @@ function UpdateFailed({ logTail, command, onClose }: { logTail: string; command:
         <div className="updating__fallback">
           <p className="updating__hint">Run the update manually to see what went wrong:</p>
           <ByHand command={command} waitFor="Wait for the line “Updated to …” or an error." />
+        </div>
+      )}
+      {!command && downloadPage && (
+        <div className="updating__fallback">
+          <p className="updating__hint">Install the new version the way you installed this one: download the disk image for your Mac, open it and drag What To Do to Applications. Your events and settings stay.</p>
+          <a className="button button--small" href={downloadPage} target="_blank" rel="noreferrer">
+            Open the download page
+          </a>
         </div>
       )}
       <div className="updating__footer">

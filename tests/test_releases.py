@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from tests.helpers import judge_same_titles
 from where_to_go.api import create_app
 from where_to_go.container import Container
+from where_to_go.launcher.paths import ProjectPaths
 from where_to_go.launcher.paths import PROJECT_DIR
 from where_to_go.releases import (
     AppVersion,
@@ -202,7 +203,7 @@ def client(tmp_path):
     image.parent.mkdir(parents=True)
     image.write_bytes(b"installed png")
     container = lambda: Container.build(  # noqa: E731
-        tmp_path / "data", matching_llm=judge_same_titles(), project_dir=folder, release_source=FakeReleases(AppVersion(1, 2, 0))
+        tmp_path / "data", matching_llm=judge_same_titles(), project=ProjectPaths(folder), release_source=FakeReleases(AppVersion(1, 2, 0))
     )
     with TestClient(create_app(container)) as test_client:
         yield test_client
@@ -232,7 +233,7 @@ def test_images_point_under_the_interface_api(tmp_path):
     interface = tmp_path / "dist"
     (interface / "assets").mkdir(parents=True)
     (interface / "index.html").write_text("<html></html>", encoding="utf-8")
-    api = create_app(lambda: Container.build(tmp_path / "data", matching_llm=judge_same_titles(), project_dir=folder, release_source=FakeReleases(AppVersion(1, 2, 0))))
+    api = create_app(lambda: Container.build(tmp_path / "data", matching_llm=judge_same_titles(), project=ProjectPaths(folder), release_source=FakeReleases(AppVersion(1, 2, 0))))
     with TestClient(AppWithInterface.build(api, interface)) as test_client:
         html = test_client.get("/api/updates").json()["entries"][0]["sections"][0]["html"]
         assert 'src="/api/changelog/assets/1.2.0/' in html

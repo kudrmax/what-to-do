@@ -21,6 +21,7 @@ const keys = {
   feed: ["feed"],
   event: ["event"],
   refresh: ["refresh"],
+  claudeSignIn: ["claude-sign-in"],
   stats: ["stats"],
 } satisfies Record<string, QueryKey>;
 
@@ -136,4 +137,26 @@ export function useRefresh() {
     if (finishedAt) client.invalidateQueries({ predicate: (query) => query.queryKey[0] !== keys.refresh[0] });
   }, [client, finishedAt]);
   return { status: status.data, running: (status.data?.running ?? false) || start.isPending, start: () => start.mutate() };
+}
+
+/** Signing in to Claude from the app: polls while the browser has the sign-in page. */
+export function useClaudeSignIn() {
+  const api = useApi();
+  const client = useQueryClient();
+  const status = useQuery({
+    queryKey: keys.claudeSignIn,
+    queryFn: () => api.claudeSignIn(),
+    refetchInterval: (query) => (query.state.data?.signing_in ? 2000 : false),
+  });
+  const update = (data: Awaited<ReturnType<Api["claudeSignIn"]>>) => client.setQueryData(keys.claudeSignIn, data);
+  const start = useMutation({ mutationFn: () => api.startClaudeSignIn(), onSuccess: update });
+  const submit = useMutation({ mutationFn: (code: string) => api.submitClaudeSignInCode(code), onSuccess: update });
+  return {
+    status: status.data,
+    starting: start.isPending,
+    start: () => start.mutate(),
+    submitCode: (code: string) => submit.mutate(code),
+    submitting: submit.isPending,
+    codeError: submit.error,
+  };
 }

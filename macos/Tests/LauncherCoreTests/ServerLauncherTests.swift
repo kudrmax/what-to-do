@@ -3,7 +3,7 @@ import XCTest
 
 final class ServerLauncherTests: XCTestCase {
     private let projectDir = URL(fileURLWithPath: "/tmp/project")
-    private lazy var commands = ServerCommands(projectDir: projectDir, port: 18765)
+    private lazy var commands = ServerCommands(home: .project(projectDir), port: 18765)
     private var up: String { commands.up }
     private var down: String { commands.down }
 
@@ -152,10 +152,18 @@ final class ServerLauncherTests: XCTestCase {
     }
 
     func testRunsTheCopysOwnCommandLineByItsFullPath() {
-        let commands = ServerCommands(projectDir: URL(fileURLWithPath: "/Users/max/what's on"), port: 18766)
+        let commands = ServerCommands(home: .project(URL(fileURLWithPath: "/Users/max/what's on")), port: 18766)
 
         XCTAssertEqual(commands.up, "'/Users/max/what'\\''s on/.venv/bin/where-to-go' up --port 18766")
         XCTAssertEqual(commands.down, "'/Users/max/what'\\''s on/.venv/bin/where-to-go' down")
+    }
+
+    func testTheBundledAppRunsItsOwnPython() {
+        let home = ServerHome.bundle(python: URL(fileURLWithPath: "/Applications/What To Do.app/Contents/Resources/python/bin/python3"), state: URL(fileURLWithPath: "/tmp"))
+        let commands = ServerCommands(home: home, port: 18765)
+
+        XCTAssertEqual(commands.up, "'/Applications/What To Do.app/Contents/Resources/python/bin/python3' -m where_to_go up --port 18765")
+        XCTAssertEqual(commands.down, "'/Applications/What To Do.app/Contents/Resources/python/bin/python3' -m where_to_go down")
     }
 
     func testOutputTailIsReadable() async {
@@ -169,7 +177,7 @@ final class ServerLauncherTests: XCTestCase {
 
     private func makeLauncher(probe: FakeProbe, runner: FakeRunner) -> ServerLauncher {
         ServerLauncher(
-            projectDir: projectDir,
+            workingDirectory: projectDir,
             commands: commands,
             probe: probe,
             runner: runner,

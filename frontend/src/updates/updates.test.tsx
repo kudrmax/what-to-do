@@ -23,6 +23,7 @@ function status(overrides: Partial<UpdateStatus> = {}): UpdateStatus {
     check_failed: false,
     restart_command: "/app/.venv/bin/where-to-go restart",
     update_command: "/app/.venv/bin/where-to-go update",
+    download_page: null,
     ...overrides,
   };
 }
@@ -106,6 +107,20 @@ describe("updates", () => {
     expect(screen.getByRole("alertdialog", { name: "Update failed" })).toBeTruthy();
     expect(screen.getByText("npm ERR")).toBeTruthy();
     expect(screen.getByText("/app/.venv/bin/where-to-go update")).toBeTruthy();
+  });
+
+  it("an app installed from the disk image points to the download page instead of a terminal", async () => {
+    const { spies } = setup(<UpdateIndicator />, {
+      updates: status({ restart_command: null, update_command: null, download_page: "https://github.com/kudrmax/what-to-do/releases/latest" }),
+    });
+    spies.updateState.mockResolvedValue({ state: "failed", log_tail: "Couldn't reach GitHub.", steps: [] });
+    fireEvent.click(await screen.findByText("New version"));
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByText("Update to 1.1.0"));
+    await onePoll();
+    expect(screen.getByRole("alertdialog", { name: "Update failed" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open the download page" })).toHaveAttribute("href", "https://github.com/kudrmax/what-to-do/releases/latest");
+    expect(screen.queryByText("Copy")).toBeNull();
   });
 
   it("shows what's new once and remembers it was seen", async () => {

@@ -93,6 +93,13 @@ TAG_HELP = {
 class ClaudeSignInView(BaseModel):
     state: ClaudeSignIn
     hint: str
+    signing_in: bool = Field(default=False, description="A sign-in started from the app waits for the browser")
+    page_url: str | None = Field(default=None, description="The sign-in page to open by hand; it shows a code to paste")
+    error: str | None = Field(default=None, description="Why the last sign-in from the app failed")
+
+
+class SignInCodeRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=2000, description="The code the sign-in page shows")
 
 
 class SourceRequest(SQLModel):
@@ -493,10 +500,29 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         """Progress of the current or the last refresh; poll it while `running` is true."""
         return c.refresh.progress
 
+    def sign_in_view(c: Container) -> ClaudeSignInView:
+        progress = c.claude_sign_in.progress()
+        return ClaudeSignInView(
+            state=ClaudeLogin().check(), hint=SIGN_IN_HINT, signing_in=progress.running, page_url=progress.page_url, error=progress.error
+        )
+
     @app.get("/claude/sign-in", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])
-    def claude_sign_in():
-        """Whether Claude Code, which reads the posts, is signed in; `hint` says how to sign in."""
-        return ClaudeSignInView(state=ClaudeLogin().check(), hint=SIGN_IN_HINT)
+    def claude_sign_in(c: ContainerDep):
+        """Whether Claude Code, which reads the posts, is signed in, and how a sign-in started here goes."""
+        return sign_in_view(c)
+
+    @app.post("/claude/sign-in", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])
+    def start_claude_sign_in(c: ContainerDep):
+        """Opens Claude's sign-in page in the browser; poll `GET /claude/sign-in` until `state` is signed_in."""
+        c.claude_sign_in.start()
+        return sign_in_view(c)
+
+    @app.post("/claude/sign-in/code", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])
+    def submit_claude_sign_in_code(request: SignInCodeRequest, c: ContainerDep):
+        """Finishes the sign-in with the code the sign-in page shows. 409: no sign-in waits for a code."""
+        if not c.claude_sign_in.submit_code(request.code):
+            raise HTTPException(409, "No sign-in is waiting for a code. Press Sign in again")
+        return sign_in_view(c)
 
     # ---------- statistics ----------
 

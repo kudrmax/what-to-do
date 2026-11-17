@@ -151,7 +151,7 @@ class StatusServers:
         try:
             process = subprocess.Popen(
                 [self._python, "-I", str(self._paths.status_server_script), "--port", str(port), "--host", HOST],
-                cwd=self._paths.root,
+                cwd=self._paths.writable,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -209,7 +209,7 @@ class Updater:
         self._paths = paths
         self._config = config
         self._log = log
-        self._journal = UpdateJournal(paths.root)
+        self._journal = UpdateJournal(paths.writable)
         self._stages = Stages(self._journal)
         self._cli = cli or python_command()
         self._package_sync = package_sync
@@ -228,14 +228,14 @@ class Updater:
         with paths.update_log.open("a", encoding="utf-8") as log:
             process = subprocess.Popen(
                 [*(cli or python_command()), "update", DETACHED_CHILD],
-                cwd=paths.root,
+                cwd=paths.writable,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=log,
                 env=child_environment(**NON_INTERACTIVE),
                 **detached(),
             )
-        UpdateJournal(paths.root).write_pid(process.pid)
+        UpdateJournal(paths.writable).write_pid(process.pid)
         return process.pid
 
     def run(self) -> int:

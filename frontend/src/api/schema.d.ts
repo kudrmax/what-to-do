@@ -621,11 +621,35 @@ export interface paths {
         };
         /**
          * Claude Sign In
-         * @description Whether Claude Code, which reads the posts, is signed in; `hint` says how to sign in.
+         * @description Whether Claude Code, which reads the posts, is signed in, and how a sign-in started here goes.
          */
         get: operations["claude_sign_in_claude_sign_in_get"];
         put?: never;
-        post?: never;
+        /**
+         * Start Claude Sign In
+         * @description Opens Claude's sign-in page in the browser; poll `GET /claude/sign-in` until `state` is signed_in.
+         */
+        post: operations["start_claude_sign_in_claude_sign_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/claude/sign-in/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Claude Sign In Code
+         * @description Finishes the sign-in with the code the sign-in page shows. 409: no sign-in waits for a code.
+         */
+        post: operations["submit_claude_sign_in_code_claude_sign_in_code_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1087,6 +1111,22 @@ export interface components {
             state: components["schemas"]["ClaudeSignIn"];
             /** Hint */
             hint: string;
+            /**
+             * Signing In
+             * @description A sign-in started from the app waits for the browser
+             * @default false
+             */
+            signing_in: boolean;
+            /**
+             * Page Url
+             * @description The sign-in page to open by hand; it shows a code to paste
+             */
+            page_url?: string | null;
+            /**
+             * Error
+             * @description Why the last sign-in from the app failed
+             */
+            error?: string | null;
         };
         /** Conflict */
         Conflict: {
@@ -1699,6 +1739,14 @@ export interface components {
             /** @description Merges duplicate announcements */
             matching_model?: components["schemas"]["ClaudeModel"] | null;
         };
+        /** SignInCodeRequest */
+        SignInCodeRequest: {
+            /**
+             * Code
+             * @description The code the sign-in page shows
+             */
+            code: string;
+        };
         /** SiteExample */
         SiteExample: {
             /** Title */
@@ -1929,9 +1977,11 @@ export interface components {
             /** Check Failed */
             check_failed: boolean;
             /** Restart Command */
-            restart_command: string;
+            restart_command: string | null;
             /** Update Command */
-            update_command: string;
+            update_command: string | null;
+            /** Download Page */
+            download_page: string | null;
         };
         /**
          * UpdateStep
@@ -3057,6 +3107,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClaudeSignInView"];
+                };
+            };
+        };
+    };
+    start_claude_sign_in_claude_sign_in_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaudeSignInView"];
+                };
+            };
+        };
+    };
+    submit_claude_sign_in_code_claude_sign_in_code_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaudeSignInView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
