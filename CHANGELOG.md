@@ -2,6 +2,26 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.25.0 — 2026-11-18
+
+Venues that post only on Instagram now reach your feed.
+
+### Instagram profiles
+Add a public Instagram profile the same way as a channel: paste `instagram.com/name` and the app shows the profile with what it will read. **Refresh** then reads its posts, with every photo of a carousel, and its pinned stories, the highlights under the profile, where many venues keep their weekly program. It also takes a few frames from every video, so text that appears later in a reel or a story is read too. No Instagram account or login is needed.
+![](docs/images/changelog/1.25.0/instagram-preview.png)
+
+The first refresh takes stories from the last 30 days, then every new one, so old highlights don't flood the feed. Each profile in **Sources** has its own **Posts** and **Pinned stories** switches: turn one off and it is no longer read, while the cards it already brought stay.
+![](docs/images/changelog/1.25.0/instagram-source.png)
+
+Stories that disappear after 24 hours and the sound of videos are not read: Instagram shows them only to signed-in visitors.
+
+### New
+- A bare name such as `@londonevents` asks whether it is a Telegram channel or an Instagram profile.
+![](docs/images/changelog/1.25.0/network-choice.png)
+
+### Improvements
+- The link to the original says where it leads: **Open post in Telegram**, **Open post on Instagram** or **Open highlight on Instagram**.
+
 ## 1.24.0 — 2026-11-18
 
 Keep the events worth remembering.
