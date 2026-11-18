@@ -7,10 +7,12 @@ event are declared once, in EventFacts, and shared by what Claude extracts and b
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from datetime import UTC, datetime, time
 from datetime import date as Day
 from enum import StrEnum
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import quote_plus
 
 from dateutil.rrule import rrulestr
@@ -63,6 +65,37 @@ class InstagramUrls:
     @classmethod
     def is_story(cls, url: str) -> bool:
         return url.startswith(f"{cls.BASE}/stories/")
+
+
+@dataclass(frozen=True)
+class TelegramPostLink:
+    """A link to one post of a public channel, as posts give them: t.me/<handle>/<number>."""
+
+    handle: str
+    number: int
+
+    _PATTERN: ClassVar[re.Pattern[str]] = re.compile(
+        r"(?:https?://)?(?:www\.)?(?:t\.me|telegram\.me)/(?!s/|c/|joinchat/)([A-Za-z][A-Za-z0-9_]{3,31})/(\d+)(?![\w/])"
+    )
+
+    @classmethod
+    def all_in(cls, text: str) -> list[TelegramPostLink]:
+        found = (cls(handle, int(number)) for handle, number in cls._PATTERN.findall(text))
+        return list(dict.fromkeys(found))
+
+    @classmethod
+    def parse(cls, url: str | None) -> TelegramPostLink | None:
+        found = cls.all_in(url or "")
+        return found[0] if len(found) == 1 else None
+
+    @property
+    def url(self) -> str:
+        return TelegramUrls.post(self.handle, self.number)
+
+    @property
+    def key(self) -> str:
+        """Channel names ignore case, so one post has one key however a link spells it."""
+        return self.url.lower()
 
 
 class EventKind(StrEnum):
@@ -200,6 +233,14 @@ class EventFacts(SQLModel):
         "links to. null when the post gives none; never the channel or another post about the event",
     )
 
+    def happens_on(self, day: Day) -> bool:
+        if self.kind == EventKind.RECURRING and self.rrule:
+            rule = rrulestr(self.rrule, dtstart=datetime.combine(self.start_date, time()))
+            return bool(rule.between(datetime.combine(day, time()), datetime.combine(day, time.max), inc=True))
+        if self.kind == EventKind.MULTIDAY and self.end_date:
+            return self.start_date <= day <= self.end_date
+        return self.start_date == day
+
     def facts(self) -> dict[str, Any]:
         """The facts alone, as values: a table model is not validated, so a dump would leave nested facts as dicts."""
         return {name: getattr(self, name) for name in EventFacts.model_fields}
@@ -256,6 +297,11 @@ class ExtractedEvent(EventFacts):
         default_factory=list,
         description="The lines of the post text that are about this event, copied exactly. Empty when the whole post is about this one event",
     )
+    details_url: str | None = Field(
+        default=None,
+        description="The link to a Telegram post (t.me/<channel>/<number>) the post gives for this event's details, such as the link "
+        "on its line in a digest; null when the post gives none or the post itself is that announcement",
+    )
 
     @model_validator(mode="after")
     def _only_follow_ups_go_without_a_date(self) -> ExtractedEvent:
@@ -292,12 +338,19 @@ class EventCard(EventFacts, Mark):
     is_cancelled: bool = False
     conflicts: list[Conflict] = json_field(list[Conflict], default_factory=list, description="Sources disagree on these")
     source_ids: list[int] = json_field(list[int], default_factory=list)
+    collection_ids: list[int] = json_field(
+        list[int], default_factory=list, sa_column_kwargs={"server_default": "[]"}, description="The user's collections it is in"
+    )
     image_path: str | None = Field(default=None, exclude=True)
+
+    @property
+    def is_kept(self) -> bool:
+        """The user rated, planned or collected it: it stays where they left it."""
+        return self.interest is not None or self.plan is not None or bool(self.collection_ids)
 
     def is_dropped_with(self, paused_source_ids: set[int]) -> bool:
         """Only paused sources announce it and the user never marked it: it is no longer shown."""
-        unmarked = self.interest is None and self.plan is None
-        return unmarked and bool(self.source_ids) and paused_source_ids.issuperset(self.source_ids)
+        return not self.is_kept and bool(self.source_ids) and paused_source_ids.issuperset(self.source_ids)
 
 
 class Event(EventCard, table=True):
@@ -463,8 +516,23 @@ class Post(SQLModel, table=True):
     processed_at: datetime | None = Field(default=None, index=True)
     process_error: str | None = None
     read_with: str | None = Field(default=None, description="Fingerprint of the reading rules the post was last read with")
+    linked: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+        description="Fetched only because a post of a source links to it; its own links are not followed",
+    )
 
     source: Source = Relationship(sa_relationship_kwargs={"lazy": "joined"})
+
+
+class ForeignPost(SQLModel, table=True):
+    """A post of a channel that is no source, kept because a source links to it. It is stored as a post of that source
+    with this row's id, negated, as external_id: the source's own post numbers stay its own."""
+
+    __tablename__ = "foreign_posts"
+
+    id: int | None = Field(default=None, primary_key=True)
+    url: str = Field(unique=True)
 
 
 class WebSite(SQLModel, table=True):
@@ -806,6 +874,28 @@ class DevNotePublic(DevNoteBase, Public):
     id: int
     event_id: int | None
     created_at: datetime
+
+
+class CollectionBase(SQLModel):
+    name: str = Field(min_length=1, max_length=100, schema_extra={"examples": ["Unusual"]})
+
+
+class Collection(CollectionBase, table=True):
+    """The user's own set of events kept for memory; shared by all cities."""
+
+    __tablename__ = "collections"
+
+    id: int | None = Field(default=None, primary_key=True)
+    position: int = 0
+
+
+class CollectionPublic(CollectionBase, Public):
+    id: int
+    size: int = Field(description="Events in it, in every city")
+
+
+class EventCollections(SQLModel):
+    collection_ids: list[int] = Field(description="Every collection the event is in; an empty list takes it out of all")
 
 
 # ---------- values that are not stored ----------

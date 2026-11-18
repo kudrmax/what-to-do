@@ -182,6 +182,21 @@ class TelegramChannelReader:
         wanted = set(ordered[-recent:]) | {i for i in ordered if newest_known is not None and i > newest_known}
         return [seen[i] for i in ordered if i in wanted and i not in known]
 
+    async def posts(self, handle: str, numbers: set[int]) -> list[CollectedPost]:
+        """The posts with these numbers, a page of the channel per run of nearby posts; a deleted one is left out."""
+        found: dict[int, CollectedPost] = {}
+        wanted = set(numbers)
+        for _ in range(self.MAX_PAGES):
+            if not wanted:
+                break
+            page = (await self._page(handle, max(wanted) + 1)).posts()
+            if not page:
+                break
+            found.update((post.external_id, post) for post in page if post.external_id in wanted)
+            oldest = min(post.external_id for post in page)
+            wanted = {n for n in wanted if n < oldest}
+        return [found[n] for n in sorted(found)]
+
     async def _page(self, handle: str, before: int | None) -> TelegramPageParser:
         params = {"before": before} if before else None
         try:

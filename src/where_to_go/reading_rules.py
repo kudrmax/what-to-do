@@ -7,7 +7,7 @@ class ReadingRules:
     Change POSTS together with PHOTOS, since a post is read with the text of its photos.
     The first values are the fingerprints the readings already carried, so switching to them re-read nothing."""
 
-    POSTS = "digests-read-whole-1"
+    POSTS = "post-links-1"
     PHOTOS = "8a0769ce1a02a386"
 
     @classmethod

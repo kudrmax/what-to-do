@@ -16,11 +16,14 @@ from where_to_go.models import (
     City,
     CityContents,
     CollectedPost,
+    Collection,
+    CollectionPublic,
     DevNote,
     Event,
     EventFacts,
     ExtractedEvent,
     ExtractedPlace,
+    ForeignPost,
     Mark,
     Mention,
     PhotoText,
@@ -34,6 +37,7 @@ from where_to_go.models import (
     SourceKind,
     Tag,
     PageFacts,
+    TelegramPostLink,
     TelegramUrls,
     WebPage,
     WebSite,
@@ -281,17 +285,37 @@ class PostRepository:
         self._db = db
 
     SKIPPED = "skipped"
+    _NOT_STORED = frozenset({"image_urls", "video_urls", "video_covers", "read"})
 
-    def add_new(self, source_id: int, post: CollectedPost, image_paths: list[str]) -> bool:
+    def add_new(self, source_id: int, post: CollectedPost, image_paths: list[str], linked: bool = False) -> bool:
         with self._db.session() as s:
             if s.exec(select(Post.id).where(Post.source_id == source_id, Post.external_id == post.external_id)).first():
                 return False
-            fields = post.model_dump(exclude={"image_urls", "video_urls", "video_covers", "read"})
+            fields = post.model_dump(exclude=self._NOT_STORED)
             if not post.read:
                 fields |= {"processed_at": _now(), "read_with": self.SKIPPED}
-            s.add(Post(source_id=source_id, image_paths=image_paths, **fields))
+            s.add(Post(source_id=source_id, image_paths=image_paths, linked=linked, **fields))
             s.commit()
             return True
+
+    def add_foreign(self, source_id: int, post: CollectedPost, image_paths: list[str]) -> bool:
+        """A post of a channel that is no source, kept under the source that links to it."""
+        with self._db.transaction(), self._db.session() as s:
+            if s.exec(select(ForeignPost.id).where(ForeignPost.url == post.url)).first():
+                return False
+            foreign = ForeignPost(url=post.url)
+            s.add(foreign)
+            s.flush()
+            fields = post.model_dump(exclude=self._NOT_STORED | {"external_id"})
+            s.add(Post(source_id=source_id, external_id=-foreign.id, image_paths=image_paths, linked=True, **fields))
+            s.commit()
+            return True
+
+    def stored(self, links: Iterable[TelegramPostLink]) -> set[str]:
+        """Keys of the linked posts that are kept already, under any source."""
+        keys = [link.key for link in links]
+        with self._db.session() as s:
+            return {url.lower() for url in s.exec(select(Post.url).where(func.lower(Post.url).in_(keys)))}
 
     def replace_text(self, post_id: int, text: str) -> None:
         """New facts of the same post, read again at the next refresh; a post the user merged or split by hand stays."""
@@ -524,6 +548,19 @@ class MentionRepository:
         with self._db.session() as s:
             return list(s.exec(select(Mention).where(Mention.post_id == post_id).order_by(Mention.item_index)).unique())
 
+    def with_details_link(self) -> list[Mention]:
+        """Carded mentions that link to a post about their event, except those the user placed by hand."""
+        with self._db.session() as s:
+            query = select(Mention).where(
+                func.json_extract(Mention.data, "$.details_url").is_not(None), col(Mention.event_id).is_not(None), Mention.locked == False  # noqa: E712
+            )
+            return list(s.exec(query).unique())
+
+    def of_linked_post(self, link: TelegramPostLink) -> list[Mention]:
+        with self._db.session() as s:
+            query = select(Mention).join(Post, Post.id == Mention.post_id).where(func.lower(Post.url) == link.key)
+            return list(s.exec(query.order_by(Mention.item_index)).unique())
+
     def of_posts_with_photoless(self) -> list[list[Mention]]:
         """The mentions of every post where some event has no photo, post by post."""
         with self._db.session() as s:
@@ -698,6 +735,71 @@ class EventRepository:
         event.sqlmodel_update(mark.model_dump(include=set(Mark.model_fields)))
         event.marked_at = _now()
         return self.save(event)
+
+    def set_collections(self, event_id: int, collection_ids: Iterable[int]) -> Event:
+        event = self.get(event_id)
+        event.collection_ids = sorted(set(collection_ids))
+        return self.save(event)
+
+
+class CollectionRepository:
+    """The user's collections; an event lists the ones it is in."""
+
+    def __init__(self, db: Database) -> None:
+        self._db = db
+
+    def listed(self) -> list[CollectionPublic]:
+        with self._db.session() as s:
+            collections = list(s.exec(select(Collection).order_by(Collection.position, Collection.id)))
+            sizes = {c.id: 0 for c in collections}
+            for ids in s.exec(select(Event.collection_ids)):
+                for collection_id in ids or []:
+                    if collection_id in sizes:
+                        sizes[collection_id] += 1
+        return [CollectionPublic(id=c.id, name=c.name, size=sizes[c.id]) for c in collections]
+
+    def ids(self) -> set[int]:
+        with self._db.session() as s:
+            return set(s.exec(select(Collection.id)))
+
+    def add(self, name: str) -> CollectionPublic:
+        with self._db.session() as s:
+            present = list(s.exec(select(Collection)))
+            self._check_free(present, name)
+            collection = Collection(name=name, position=max((c.position for c in present), default=-1) + 1)
+            s.add(collection)
+            s.commit()
+            s.refresh(collection)
+            return CollectionPublic(id=collection.id, name=collection.name, size=0)
+
+    def rename(self, collection_id: int, name: str) -> CollectionPublic:
+        with self._db.session() as s:
+            collection = s.get(Collection, collection_id)
+            if collection is None:
+                raise KeyError(collection_id)
+            self._check_free([c for c in s.exec(select(Collection)) if c.id != collection_id], name)
+            collection.name = name
+            s.add(collection)
+            s.commit()
+        return next(c for c in self.listed() if c.id == collection_id)
+
+    def delete(self, collection_id: int) -> None:
+        """Takes the collection out of every event that is in it; the events themselves stay."""
+        with self._db.session() as s:
+            collection = s.get(Collection, collection_id)
+            if collection is None:
+                raise KeyError(collection_id)
+            for event in s.exec(select(Event)):
+                if collection_id in event.collection_ids:
+                    event.collection_ids = [i for i in event.collection_ids if i != collection_id]
+                    s.add(event)
+            s.delete(collection)
+            s.commit()
+
+    @staticmethod
+    def _check_free(present: list[Collection], name: str) -> None:
+        if any(c.name.casefold() == name.casefold() for c in present):
+            raise ValueError(f"There is a collection \"{name}\" already")
 
 
 class DevNoteRepository:

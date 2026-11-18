@@ -142,9 +142,14 @@ async def test_manual_split_and_merge_are_kept(app):
     assert all(m.locked for m in container.mentions.of_event(split_id))
     assert (container.events.get(kafana.id).interest, container.events.get(kafana.id).plan) == (4, Plan.SURE)
 
+    funny, odd = container.collections.add("Смешное").id, container.collections.add("Необычное").id
+    container.events.set_collections(kafana.id, [funny])
+    container.events.set_collections(split_id, [odd, funny])
+
     container.cards.merge(kafana.id, split_id)
 
     assert len(container.events.get(kafana.id).source_ids) == 2
+    assert container.events.get(kafana.id).collection_ids == sorted([funny, odd])
     with pytest.raises(KeyError):
         container.events.get(split_id)
 

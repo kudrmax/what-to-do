@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 
 import { useChangeSettings, useCities } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
+import { useCollectionsOn } from "../events/useCollectionsOn";
 import { useNativeWindow } from "../native/useNativeWindow";
 import { Icon } from "../ui/Icon";
 import { Popover } from "../ui/Popover";
@@ -12,16 +13,18 @@ import "./AppShell.css";
 
 const linkClass = (active: boolean, extra = "") => () => ["shell__link", extra, active ? "active" : ""].filter(Boolean).join(" ");
 
-const MENU = [SECTIONS.feed, SECTIONS.calendar, SECTIONS.plans, SECTIONS.sources, SECTIONS.stats];
+const MENU = [SECTIONS.feed, SECTIONS.calendar, SECTIONS.plans, SECTIONS.collections, SECTIONS.sources, SECTIONS.stats];
 
 /** The window frame with the sections menu; `screenPath` is the screen shown, which stays lit under an open event. */
 export function AppShell({ screenPath, children }: { screenPath: string; children: ReactNode }) {
   const onMouseDown = useNativeWindow();
+  const collectionsOn = useCollectionsOn();
+  const menu = MENU.filter((section) => section !== SECTIONS.collections || collectionsOn);
   return (
     <div className="shell" onMouseDown={onMouseDown}>
       <nav className="shell__nav" aria-label="Sections">
         <CityMenu />
-        {MENU.map((section) => (
+        {menu.map((section) => (
           <NavLink key={section.path} to={section.path} className={linkClass(screenPath === section.path)}>
             <Icon name={section.icon} />
             {section.title}

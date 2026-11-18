@@ -595,3 +595,38 @@ def test_phone_page_turn_off_reports_a_github_failure_but_stays_off(tmp_path):
         assert response.status_code == 422
         assert response.json()["detail"] == "GitHub is down"
         assert client.get("/phone-page").json()["enabled"] is False
+
+
+def test_collections_hold_events_and_filter_the_feed(client):
+    concert, lecture = seeded(
+        client,
+        ("a", raw_event("Концерт", "2099-01-02", "21:00", tags=["Концерт"])),
+        ("a", raw_event("Лекция", "2099-01-05", "19:00", tags=["Лекция"])),
+    )
+    assert client.get("/settings").json()["collections_enabled"] is False
+    funny = client.post("/collections", json={"name": "Смешное"}).json()
+    odd = client.post("/collections", json={"name": " Необычное "}).json()
+    assert odd["name"] == "Необычное"
+    assert client.post("/collections", json={"name": "смешное"}).status_code == 409
+    assert client.post("/collections", json={"name": "  "}).status_code == 422
+
+    card = client.put(f"/events/{concert}/collections", json={"collection_ids": [odd["id"], funny["id"]]}).json()
+    assert card["collection_ids"] == sorted([funny["id"], odd["id"]])
+    client.put(f"/events/{lecture}/collections", json={"collection_ids": [funny["id"]]})
+    assert client.put(f"/events/{lecture}/collections", json={"collection_ids": [999]}).status_code == 422
+    assert [(c["name"], c["size"]) for c in client.get("/collections").json()] == [("Смешное", 2), ("Необычное", 1)]
+
+    def ids(collection):
+        return [o["event"]["id"] for o in client.get("/events", params={"collection": collection}).json()]
+
+    concert_tag = next(t for t in client.get("/tags").json() if t["name"] == "Концерт")
+    client.put(f"/tags/{concert_tag['id']}/hidden", json={"hidden": True})
+    assert ids(funny["id"]) == [concert, lecture]  # every date, hidden tags too
+    assert ids(odd["id"]) == [concert]
+
+    assert client.patch(f"/collections/{odd['id']}", json={"name": "Смешное"}).status_code == 409
+    assert client.patch(f"/collections/{odd['id']}", json={"name": "Странное"}).json()["name"] == "Странное"
+    assert client.delete(f"/collections/{funny['id']}").status_code == 204
+    assert client.delete(f"/collections/{funny['id']}").status_code == 404
+    assert client.get(f"/events/{concert}").json()["collection_ids"] == [odd["id"]]
+    assert client.get(f"/events/{lecture}").json()["collection_ids"] == []

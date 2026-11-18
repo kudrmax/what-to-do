@@ -1,5 +1,5 @@
-import { useId, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 import { errorText } from "./errors";
 import { Icon } from "./Icon";
@@ -49,9 +49,16 @@ export function Subsection({ title, hint, children }: { title: string; hint?: Re
 }
 
 /** A section closed until asked for: things most people never need to see. */
-export function CollapsibleSection({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+export function CollapsibleSection({ title, hint, children, openFor }: { title: string; hint: string; children: ReactNode; openFor?: string }) {
+  const { hash } = useLocation();
+  const asked = openFor !== undefined && hash === `#${openFor}`;
+  const [open, setOpen] = useState(asked);
   const body = useId();
+  useEffect(() => {
+    if (!asked) return;
+    setOpen(true);
+    requestAnimationFrame(() => document.getElementById(openFor)?.scrollIntoView({ block: "start" }));
+  }, [asked, openFor]);
   return (
     <section className="screen-section collapsible">
       <div className="screen-section__head">

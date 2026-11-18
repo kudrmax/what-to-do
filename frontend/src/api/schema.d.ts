@@ -409,6 +409,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collections
+         * @description Every collection in the order it was added.
+         */
+        get: operations["collections_collections_get"];
+        put?: never;
+        /**
+         * Add Collection
+         * @description Adds an empty collection. 409: one with this name exists.
+         */
+        post: operations["add_collection_collections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{collection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Collection
+         * @description Deletes a collection; its events stay in the feed.
+         */
+        delete: operations["delete_collection_collections__collection_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Collection
+         * @description Renames a collection. 409: another one has this name.
+         */
+        patch: operations["rename_collection_collections__collection_id__patch"];
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -505,6 +553,26 @@ export interface paths {
          * @description Sets interest and plan of a card. Both fields are written as sent: null clears a value.
          */
         put: operations["set_mark_events__event_id__mark_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{event_id}/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Collections
+         * @description Sets the collections a card is in. 422: a collection that does not exist.
+         */
+        put: operations["set_collections_events__event_id__collections_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -939,6 +1007,12 @@ export interface components {
              */
             priority_wish: string;
             /**
+             * Collections Enabled
+             * @description Shows the collection button on cards and the Collections screen; off only hides them
+             * @default false
+             */
+            collections_enabled: boolean;
+            /**
              * Extraction Prompt
              * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
              * @default You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.
@@ -1203,6 +1277,29 @@ export interface components {
              */
             error?: string | null;
         };
+        /** CollectionBase */
+        CollectionBase: {
+            /**
+             * Name
+             * @example Unusual
+             */
+            name: string;
+        };
+        /** CollectionPublic */
+        CollectionPublic: {
+            /**
+             * Name
+             * @example Unusual
+             */
+            name: string;
+            /** Id */
+            id: number;
+            /**
+             * Size
+             * @description Events in it, in every city
+             */
+            size: number;
+        };
         /** Conflict */
         Conflict: {
             field: components["schemas"]["ConflictField"];
@@ -1249,6 +1346,14 @@ export interface components {
              * @description What went wrong, ready to show
              */
             detail: string;
+        };
+        /** EventCollections */
+        EventCollections: {
+            /**
+             * Collection Ids
+             * @description Every collection the event is in; an empty list takes it out of all
+             */
+            collection_ids: number[];
         };
         /**
          * EventKind
@@ -1343,6 +1448,11 @@ export interface components {
             conflicts: components["schemas"]["Conflict"][];
             /** Source Ids */
             source_ids: number[];
+            /**
+             * Collection Ids
+             * @description The user's collections it is in
+             */
+            collection_ids: number[];
             /** Id */
             id: number;
             /** Is Going */
@@ -1476,6 +1586,11 @@ export interface components {
              * @description The lines of the post text that are about this event, copied exactly. Empty when the whole post is about this one event
              */
             post_lines?: string[];
+            /**
+             * Details Url
+             * @description The link to a Telegram post (t.me/<channel>/<number>) the post gives for this event's details, such as the link on its line in a digest; null when the post gives none or the post itself is that announcement
+             */
+            details_url?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1865,6 +1980,11 @@ export interface components {
              * @description What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged
              */
             priority_wish?: string | null;
+            /**
+             * Collections Enabled
+             * @description Shows the collection button on cards and the Collections screen; off only hides them
+             */
+            collections_enabled?: boolean | null;
             /**
              * Extraction Prompt
              * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
@@ -2915,6 +3035,123 @@ export interface operations {
             };
         };
     };
+    collections_collections_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionPublic"][];
+                };
+            };
+        };
+    };
+    add_collection_collections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionBase"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_collection_collections__collection_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_collection_collections__collection_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionBase"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     feed_events_get: {
         parameters: {
             query?: {
@@ -2934,6 +3171,8 @@ export interface operations {
                 hide_multiday?: boolean;
                 /** @description Only events Claude flagged as fitting the priority wish from settings */
                 only_priority?: boolean;
+                /** @description Only events of this collection, whatever their tags, each once (a regular one on its next date); without start it begins at the earliest event */
+                collection?: number | null;
                 /** @description Words to find in the title, description, venue, address and tags. Each word may be any part of a word, case does not matter, one typo is forgiven, and the Cyrillic letters that differ only by dots count as one. When nothing is found, the words are tried once more as if typed with the Russian and English keyboard layouts swapped */
                 search?: string;
             };
@@ -3068,6 +3307,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Mark"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_collections_events__event_id__collections_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventCollections"];
             };
         };
         responses: {

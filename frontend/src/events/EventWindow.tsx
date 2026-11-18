@@ -18,6 +18,7 @@ import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { Popover } from "../ui/Popover";
 import { LoadError } from "../ui/Screen";
 import { EventTime } from "./EventTime";
+import { CollectionButton } from "./CollectionButton";
 import { DevNoteButton } from "./DevNoteButton";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
 import { OpenPostButton } from "./OpenPostButton";
@@ -63,6 +64,7 @@ function EventDetails({ event, day }: { event: EventCard; day: string }) {
           <div className="marks-row">
             <InterestPicker event={event} size="large" />
             <DevNoteButton event={event} size="large" />
+            <CollectionButton event={event} place="window" />
           </div>
           <PlanPicker event={event} size="large" />
         </div>

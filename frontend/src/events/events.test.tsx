@@ -35,6 +35,7 @@ function card(overrides: Partial<EventCard> = {}): EventCard {
     is_going: false,
     is_cancelled: false,
     is_priority: false,
+    collection_ids: [],
     conflicts: [],
     source_ids: [1],
     image_url: null,
