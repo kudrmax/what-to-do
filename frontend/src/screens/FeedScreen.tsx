@@ -57,7 +57,7 @@ export function FeedScreen() {
   const actions = city && (
     <div className="screen__actions">
       <Segmented
-        tabs
+        role="tabs"
         label="View"
         options={[
           { id: "list", label: "List" },
@@ -75,7 +75,7 @@ export function FeedScreen() {
       {!city ? (
         <NoCity />
       ) : sources.data?.length === 0 ? (
-        <EmptyState title="No sources yet" text={`Add Telegram channels and websites that announce events in ${city.name}, then click Refresh.`} link={{ to: SECTIONS.sources.path, label: "Add sources" }} />
+        <EmptyState title="No sources yet" text={`Add Telegram channels, Instagram profiles and websites that announce events in ${city.name}, then click Refresh.`} link={{ to: SECTIONS.sources.path, label: "Add sources" }} />
       ) : sources.data && neverRefreshed(sources.data) && feed.data?.length === 0 && !filters.query.search ? (
         <FirstRefresh count={sources.data.length} city={city.name} />
       ) : feed.isError ? (

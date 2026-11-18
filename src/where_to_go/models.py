@@ -47,6 +47,26 @@ class TelegramUrls:
         return parts[0] if url.startswith(cls.BASE + "/") and len(parts) == 2 and parts[1].isdigit() else None
 
 
+class InstagramUrls:
+    BASE = "https://www.instagram.com"
+
+    @classmethod
+    def profile(cls, name: str) -> str:
+        return f"{cls.BASE}/{name}/"
+
+    @classmethod
+    def post(cls, code: str) -> str:
+        return f"{cls.BASE}/p/{code}/"
+
+    @classmethod
+    def highlight(cls, highlight_id: str) -> str:
+        return f"{cls.BASE}/stories/highlights/{highlight_id}/"
+
+    @classmethod
+    def is_story(cls, url: str) -> bool:
+        return url.startswith(f"{cls.BASE}/stories/")
+
+
 @dataclass(frozen=True)
 class TelegramPostLink:
     """A link to one post of a public channel, as posts give them: t.me/<handle>/<number>."""
@@ -110,6 +130,7 @@ class BookingKind(StrEnum):
 class SourceKind(StrEnum):
     TELEGRAM = "telegram"
     WEB = "web"
+    INSTAGRAM = "instagram"
 
 
 class SourceStatus(StrEnum):
@@ -468,12 +489,17 @@ class Source(SourceBase, table=True):
 
 class SourcePublic(SourceBase, Public):
     id: int
+    instagram: InstagramReading | None = Field(default=None, description="What is read from an Instagram source; null for other kinds")
 
     @computed_field
     @property
     def url(self) -> str:
-        """The channel on t.me, or the site's section with its events."""
-        return f"https://{self.handle}" if self.kind == SourceKind.WEB else TelegramUrls.channel(self.handle)
+        """The channel on t.me, the site's section with its events, or the Instagram profile."""
+        if self.kind == SourceKind.WEB:
+            return f"https://{self.handle}"
+        if self.kind == SourceKind.INSTAGRAM:
+            return InstagramUrls.profile(self.handle)
+        return TelegramUrls.channel(self.handle)
 
 
 class Post(SQLModel, table=True):
@@ -524,6 +550,21 @@ class WebSite(SQLModel, table=True):
         description="False while no page has told how the site labels its time: in a city on UTC in winter both readings agree",
     )
     horizon_days: int = 30
+
+
+class InstagramReading(SQLModel):
+    """What is read from an Instagram profile."""
+
+    posts: bool = True
+    stories: bool = True
+
+
+class InstagramProfile(InstagramReading, table=True):
+    """The Instagram source's choice of what to read."""
+
+    __tablename__ = "instagram_profiles"
+
+    source_id: int = Field(primary_key=True, foreign_key="sources.id", ondelete="CASCADE")
 
 
 class WebPage(SQLModel, table=True):
@@ -868,6 +909,9 @@ class CollectedPost(SQLModel):
     published_at: datetime
     text: str
     image_urls: list[str] = []
+    video_urls: list[str] = []
+    video_covers: dict[str, str] = Field(default={}, description="The image each video opens with, by the video's URL")
+    read: bool = Field(default=True, description="False: the post is only remembered as seen and never read")
 
 
 class EventReading(ExtractedEvent):

@@ -2,8 +2,8 @@
  "openapi": "3.1.0",
  "info": {
   "title": "What To Do",
-  "description": "\nLocal backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.23.0"
+  "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
+  "version": "1.24.0"
  },
  "paths": {
   "/settings": {
@@ -292,7 +292,7 @@
      "sources"
     ],
     "summary": "List Sources",
-    "description": "Channels of the active city with the result of their last refresh.",
+    "description": "Sources of the active city with the result of their last refresh.",
     "operationId": "list_sources_sources_get",
     "responses": {
      "200": {
@@ -316,7 +316,7 @@
      "sources"
     ],
     "summary": "Add Source",
-    "description": "Adds a public Telegram channel or a website to the active city. Its posts or events are read on the next refresh.\n\n422: not a channel or event page link, the channel is closed, or the site cannot be read. 409: already added.",
+    "description": "Adds a public Telegram channel, a public Instagram profile or a website to the active city.\nIts posts or events are read on the next refresh.\n\n422: not a channel, profile or event page link, a bare name without the kind, the channel or profile is closed,\nnothing is chosen to read from an Instagram profile, or the site cannot be read. 409: already added.",
     "operationId": "add_source_sources_post",
     "requestBody": {
      "content": {
@@ -358,7 +358,7 @@
      "sources"
     ],
     "summary": "Preview Source",
-    "description": "What adding the link would add: a channel's title, or a website's name, its event pages and a few examples.\n\n422: the link is not a channel, or the site has no list of pages or no event markup.",
+    "description": "What adding the link would add: a channel's or an Instagram profile's title (with its number of pinned stories),\nor a website's name, its event pages and a few examples.\n\n422: the link is not a channel or profile, a bare name comes without the kind, the profile cannot be read,\nor the site has no list of pages or no event markup.",
     "operationId": "preview_source_sources_preview_post",
     "requestBody": {
      "content": {
@@ -559,6 +559,59 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/SourcePause"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourcePublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/{source_id}/instagram": {
+   "put": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Set Instagram Reading",
+    "description": "Sets what is read from an Instagram profile: posts, pinned stories or both.\n\n422: not an Instagram source, or both are off. Turning one off keeps what was collected; turning it on collects it\nfrom the next refresh.",
+    "operationId": "set_instagram_reading_sources__source_id__instagram_put",
+    "parameters": [
+     {
+      "name": "source_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Source Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InstagramReading"
        }
       }
      }
@@ -3380,6 +3433,23 @@
     "type": "object",
     "title": "HTTPValidationError"
    },
+   "InstagramReading": {
+    "properties": {
+     "posts": {
+      "type": "boolean",
+      "title": "Posts",
+      "default": true
+     },
+     "stories": {
+      "type": "boolean",
+      "title": "Stories",
+      "default": true
+     }
+    },
+    "type": "object",
+    "title": "InstagramReading",
+    "description": "What is read from an Instagram profile."
+   },
    "InterestCount": {
     "properties": {
      "interest": {
@@ -4276,6 +4346,11 @@
       "type": "array",
       "title": "Examples",
       "default": []
+     },
+     "highlights": {
+      "type": "integer",
+      "title": "Highlights",
+      "default": 0
      }
     },
     "type": "object",
@@ -4284,7 +4359,8 @@
      "title",
      "handle",
      "pages_found",
-     "examples"
+     "examples",
+     "highlights"
     ],
     "title": "SitePreview",
     "description": "What adding a link would add: shown to the user before they confirm."
@@ -4293,7 +4369,8 @@
     "type": "string",
     "enum": [
      "telegram",
-     "web"
+     "web",
+     "instagram"
     ],
     "title": "SourceKind"
    },
@@ -4370,10 +4447,21 @@
       "type": "integer",
       "title": "Id"
      },
+     "instagram": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InstagramReading"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "What is read from an Instagram source; null for other kinds"
+     },
      "url": {
       "type": "string",
       "title": "Url",
-      "description": "The channel on t.me, or the site's section with its events.",
+      "description": "The channel on t.me, the site's section with its events, or the Instagram profile.",
       "readOnly": true
      }
     },
@@ -4388,6 +4476,7 @@
      "status",
      "paused",
      "id",
+     "instagram",
      "url"
     ],
     "title": "SourcePublic"
@@ -4412,7 +4501,7 @@
       "type": "string",
       "minLength": 1,
       "title": "Link",
-      "description": "A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha",
+      "description": "A public channel (t.me/name, @name, name), a public Instagram profile (instagram.com/name, @name) or a link to any event page of a website with an afisha",
       "examples": [
        "t.me/londonevents"
       ]
@@ -4428,6 +4517,28 @@
       ],
       "title": "Title",
       "description": "Empty: the channel's own title is used"
+     },
+     "kind": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SourceKind"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Only for a bare name valid for both Telegram and Instagram"
+     },
+     "instagram": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/InstagramReading"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Only for an Instagram profile: what to read; both by default"
      }
     },
     "type": "object",
@@ -4852,7 +4963,7 @@
   },
   {
    "name": "sources",
-   "description": "Telegram channels and websites of the active city"
+   "description": "Telegram channels, Instagram profiles and websites of the active city"
   },
   {
    "name": "tags",

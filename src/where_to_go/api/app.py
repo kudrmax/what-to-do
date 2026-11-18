@@ -38,12 +38,14 @@ from where_to_go.models import (
     Event,
     EventCollections,
     EventPublic,
+    InstagramReading,
     Mark,
     MentionPublic,
     PlacePublic,
     PotentialSourceMark,
     PotentialSourcePublic,
     Source,
+    SourceKind,
     SourcePublic,
     SourcePause,
     SourceStatusChange,
@@ -63,11 +65,11 @@ from where_to_go.telegram import SourceError
 from where_to_go.web_sources import SitePreview
 
 DESCRIPTION = """
-Local backend of «What To Do». It reads public Telegram channels, Claude turns posts into event cards
+Local backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards
 and merges the same event announced by several channels into one card.
 
 **First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),
-add channels (`POST /sources`), press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.
+add sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.
 
 **Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).
 Without a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.
@@ -89,7 +91,7 @@ class ApiTag(StrEnum):
 
 TAG_HELP = {
     ApiTag.SETTINGS: "Settings and cities",
-    ApiTag.SOURCES: "Telegram channels and websites of the active city",
+    ApiTag.SOURCES: "Telegram channels, Instagram profiles and websites of the active city",
     ApiTag.TAGS: "The fixed list of tags Claude may put on cards",
     ApiTag.COLLECTIONS: "The user's own collections of events, shared by all cities",
     ApiTag.EVENTS: "The feed, a card, marks, manual merge and split",
@@ -124,10 +126,15 @@ class PhonePageRequest(BaseModel):
 class SourceRequest(SQLModel):
     link: str = Field(
         min_length=1,
-        description="A public channel (t.me/name, @name, name) or a link to any event page of a website with an afisha",
+        description=(
+            "A public channel (t.me/name, @name, name), a public Instagram profile (instagram.com/name, @name) "
+            "or a link to any event page of a website with an afisha"
+        ),
         schema_extra={"examples": ["t.me/londonevents"]},
     )
     title: str | None = Field(default=None, description="Empty: the channel's own title is used")
+    kind: SourceKind | None = Field(default=None, description="Only for a bare name valid for both Telegram and Instagram")
+    instagram: InstagramReading | None = Field(default=None, description="Only for an Instagram profile: what to read; both by default")
 
 
 class SourceRename(SQLModel):
@@ -187,6 +194,22 @@ def _name(raw: str) -> str:
 
 def _public(c: Container, event: Event) -> EventPublic:
     return EventPublic.of(event, c.cities.get(event.city_id))
+
+
+NOTHING_TO_READ = "Choose posts or pinned stories to read"
+
+
+def _reads_something(reading: InstagramReading) -> bool:
+    return reading.posts or reading.stories
+
+
+def _source_public(c: Container, source: Source) -> SourcePublic:
+    return _sources_public(c, [source])[0]
+
+
+def _sources_public(c: Container, sources: list[Source]) -> list[SourcePublic]:
+    readings = c.instagram.readings(s.id for s in sources if s.kind == SourceKind.INSTAGRAM)
+    return [SourcePublic.model_validate({**s.model_dump(), "instagram": readings.get(s.id)}) for s in sources]
 
 
 def _event(event_id: int, c: ContainerDep) -> Event:
@@ -281,17 +304,21 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     @app.get("/sources", response_model=list[SourcePublic], tags=[ApiTag.SOURCES])
     def list_sources(c: ContainerDep, city: CityDep):
-        """Channels of the active city with the result of their last refresh."""
-        return c.sources.in_city(city.id)
+        """Sources of the active city with the result of their last refresh."""
+        return _sources_public(c, c.sources.in_city(city.id))
 
     @app.post("/sources", response_model=SourcePublic, status_code=201, tags=[ApiTag.SOURCES])
     async def add_source(body: SourceRequest, c: ContainerDep, city: CityDep):
-        """Adds a public Telegram channel or a website to the active city. Its posts or events are read on the next refresh.
+        """Adds a public Telegram channel, a public Instagram profile or a website to the active city.
+        Its posts or events are read on the next refresh.
 
-        422: not a channel or event page link, the channel is closed, or the site cannot be read. 409: already added.
+        422: not a channel, profile or event page link, a bare name without the kind, the channel or profile is closed,
+        nothing is chosen to read from an Instagram profile, or the site cannot be read. 409: already added.
         """
+        if body.instagram is not None and not _reads_something(body.instagram):
+            raise HTTPException(422, NOTHING_TO_READ)
         try:
-            return await c.catalog.add(city, body.link, body.title)
+            return _source_public(c, await c.catalog.add(city, body.link, body.title, body.kind, body.instagram))
         except DuplicateSourceError as error:
             raise HTTPException(409, str(error)) from None
         except SourceError as error:
@@ -299,12 +326,14 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     @app.post("/sources/preview", response_model=SitePreview, tags=[ApiTag.SOURCES])
     async def preview_source(body: SourceRequest, c: ContainerDep, city: CityDep):
-        """What adding the link would add: a channel's title, or a website's name, its event pages and a few examples.
+        """What adding the link would add: a channel's or an Instagram profile's title (with its number of pinned stories),
+        or a website's name, its event pages and a few examples.
 
-        422: the link is not a channel, or the site has no list of pages or no event markup.
+        422: the link is not a channel or profile, a bare name comes without the kind, the profile cannot be read,
+        or the site has no list of pages or no event markup.
         """
         try:
-            return await c.catalog.preview(city, body.link)
+            return await c.catalog.preview(city, body.link, kind=body.kind)
         except DuplicateSourceError as error:
             raise HTTPException(409, str(error)) from None
         except SourceError as error:
@@ -313,17 +342,30 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     @app.patch("/sources/{source_id}", response_model=SourcePublic, tags=[ApiTag.SOURCES])
     def rename_source(body: SourceRename, c: ContainerDep, source: SourceDep):
         """Renames a source."""
-        return c.sources.change(source.id, title=body.title.strip())
+        return _source_public(c, c.sources.change(source.id, title=body.title.strip()))
 
     @app.put("/sources/{source_id}/status", response_model=SourcePublic, tags=[ApiTag.SOURCES])
     def mark_source(body: SourceStatusChange, c: ContainerDep, source: SourceDep):
         """Sets the user's mark on a source: new or favorite. It changes nothing in the refresh or the feed."""
-        return c.sources.change(source.id, status=body.status)
+        return _source_public(c, c.sources.change(source.id, status=body.status))
 
     @app.put("/sources/{source_id}/paused", response_model=SourcePublic, tags=[ApiTag.SOURCES])
     def pause_source(body: SourcePause, c: ContainerDep, source: SourceDep):
         """Pauses or resumes a source. Refresh skips a paused one, so no new posts come from it; its cards stay."""
-        return c.sources.change(source.id, paused=body.paused)
+        return _source_public(c, c.sources.change(source.id, paused=body.paused))
+
+    @app.put("/sources/{source_id}/instagram", response_model=SourcePublic, tags=[ApiTag.SOURCES])
+    def set_instagram_reading(body: InstagramReading, c: ContainerDep, source: SourceDep):
+        """Sets what is read from an Instagram profile: posts, pinned stories or both.
+
+        422: not an Instagram source, or both are off. Turning one off keeps what was collected; turning it on collects it
+        from the next refresh."""
+        if source.kind != SourceKind.INSTAGRAM:
+            raise HTTPException(422, "Only an Instagram profile has this to choose")
+        if not _reads_something(body):
+            raise HTTPException(422, NOTHING_TO_READ)
+        c.instagram.change(source.id, body)
+        return _source_public(c, source)
 
     @app.delete("/sources/{source_id}", status_code=204, tags=[ApiTag.SOURCES])
     def delete_source(c: ContainerDep, source: SourceDep):
@@ -343,7 +385,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         422: the channel is closed or has no web preview; nothing changes and it stays in the list.
         """
         try:
-            return await c.potential_sources.adopt(city, potential_id)
+            return _source_public(c, await c.potential_sources.adopt(city, potential_id))
         except KeyError:
             raise HTTPException(404, "Potential source not found") from None
         except SourceError as error:

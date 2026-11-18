@@ -6,7 +6,8 @@ import respx
 
 from tests.helpers import add_city, channel_page, extraction_by_text, judge_same_titles, photos_saying, raw_event
 from where_to_go.container import Container
-from where_to_go.models import EventFacts, EventKind, Mark, Source, TelegramPostLink
+from where_to_go.linked_posts import LinkedPosts
+from where_to_go.models import CollectedPost, EventFacts, EventKind, Mark, Source, SourceKind, TelegramPostLink
 from where_to_go.refresh import Stage
 
 RECENT = (datetime.now(UTC) - timedelta(days=1)).isoformat()
@@ -163,3 +164,26 @@ async def test_a_line_carded_before_its_post_was_fetched_moves_to_the_post_card_
 
     titles = sorted(e.title for e in container.events.in_city(1))
     assert titles == ["Блогер", "Быть блогером в эмиграции", "Импровизационные игры с Ниной"]  # the rated line stays put
+
+
+class _RecordingReader:
+    def __init__(self) -> None:
+        self.asked: list[str] = []
+
+    async def posts(self, handle: str, numbers: set[int]) -> list:
+        self.asked.append(handle)
+        return []
+
+
+async def test_an_instagram_caption_linking_a_telegram_post_does_not_lead_on(app):
+    container, _ = app
+    profile = container.sources.add(Source(city_id=1, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="Eje"))
+    caption = CollectedPost(external_id=1, url="https://www.instagram.com/p/a/", published_at=datetime.now(UTC), text=DIGEST)
+    container.posts.add_new(profile.id, caption, [])
+    reader = _RecordingReader()
+
+    added = await LinkedPosts(container.posts, reader, container.images).collect(
+        [container.posts.get(container.posts.id_of(profile.id, 1))], container.sources.in_city(1)
+    )
+
+    assert added == 0 and reader.asked == []

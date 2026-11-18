@@ -1,6 +1,6 @@
 # What To Do
 
-**Every event in your city from the Telegram channels and websites you follow, in one calm feed.**
+**Every event in your city from the Telegram channels, Instagram profiles and websites you follow, in one calm feed.**
 
 Event announcements are scattered across dozens of channels: long digests, posters with the date only in the picture, the same concert posted five times. What To Do reads them for you. Claude turns each post into a clean event card, merges duplicates and lays everything out by day, so you can pick tonight's plan in a minute.
 
@@ -52,7 +52,7 @@ Switch **Upcoming** to **Review** and go through events like in a dating app. Dr
 
 Click a card to see the date, the place with a map link, the price, the sign-up or ticket link and the full description. **Add to Calendar** downloads an `.ics` file for Apple Calendar, Google Calendar or Outlook.
 
-![Event window: tags, title, time, place, price, Open post and Add to Calendar buttons](docs/images/readme/event.png)
+![Event window: tags, title, time, place, price, Open post in Telegram and Add to Calendar buttons](docs/images/readme/event.png)
 
 ### Duplicates merged, originals one click away
 
@@ -80,7 +80,7 @@ The app runs on your computer, but your plans can go with you. Turn on **Setting
 
 ### Sources you control
 
-Add a public Telegram channel or an event page on a website. Each source shows when it was last read, how many events it brought and whether it works. Star your favorites, pause a source instead of deleting it, and check **Potential sources**: channels your sources forward from or link to, ready to add in one click.
+Add a public Telegram channel, a public Instagram profile or an event page on a website. Each source shows when it was last read, how many events it brought and whether it works. Star your favorites, pause a source instead of deleting it, and check **Potential sources**: channels your sources forward from or link to, ready to add in one click.
 
 ![Sources: Telegram channels and a website with refresh time, event count and status](docs/images/readme/sources.png)
 
@@ -214,6 +214,7 @@ Open **Sources**. The empty list shows how to find sources:
 
 - **Telegram channels.** Search Telegram for your city's name together with words like "events", "concerts" or "afisha", in the local language too. Look up the venues you like: clubs, bars, museums and language schools often have a channel.
 - **Only public channels work.** Open `https://t.me/s/channelname` in a browser: if you see its posts, the app can read them.
+- **Instagram profiles.** Paste `instagram.com/name`, or type `@name` and pick **Instagram**. Only public profiles work. The preview lets you choose what to read: posts, pinned stories, or both.
 - **Websites work too.** Paste the link to any single event on an event website. The app finds the site's list of events, shows a preview and adds the site with **Add website**.
 
 Paste a link such as `t.me/channelname` and press **Add**.
@@ -268,7 +269,7 @@ Everything stays on your computer except:
 
 | Where | What |
 | --- | --- |
-| Telegram (`t.me`) and the websites you add | The app downloads their public posts and event pages |
+| Telegram (`t.me`), Instagram and the websites you add | The app downloads their public posts and event pages |
 | Claude, through your Claude Code login | Post texts and photos, to turn them into events |
 | GitHub | Checks for new versions and downloads them: the macOS app asks GitHub's list of releases, a copy run from the code runs `git fetch` |
 
@@ -279,6 +280,17 @@ Every refresh spends Claude calls from your subscription's usage limits: for pho
 
 **A channel shows an error.**
 The channel is private, or its web preview is turned off. Open `https://t.me/s/channelname` in a browser: if no posts show up, the app can't read them either.
+
+**What does the app read from Instagram?**
+It opens public profiles the way a visitor who isn't logged in does: no Instagram account, no login, no cookies.
+
+| Read | Not read |
+| --- | --- |
+| Posts: the text, every photo of a carousel, the place | Stories that last 24 hours: Instagram hides them from visitors who aren't logged in |
+| Pinned stories (highlights) up to 30 days old, then every new one | The sound of videos and anything said in them |
+| Videos: a few frames, so the text shown on screen is read too | Private profiles |
+
+If Instagram refuses to show a profile, the source shows an error and the next refresh tries again.
 
 ## For developers
 

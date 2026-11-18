@@ -168,7 +168,7 @@ test("tapping_a_card_opens_the_apps_event_window", async () => {
   const window = await screen.findByRole("dialog", { name: "Jazz at Dorćol" });
   expect(within(window).getByText("About Jazz at Dorćol")).toBeInTheDocument();
   expect(within(window).getByRole("link", { name: /Dorćol Platz/ })).toHaveAttribute("href", "https://maps.example/dorcol");
-  expect(await within(window).findByRole("link", { name: "Open post" })).toHaveAttribute("href", "https://t.me/jazz/1");
+  expect(await within(window).findByRole("link", { name: "Open post in Telegram" })).toHaveAttribute("href", "https://t.me/jazz/1");
   expect(within(window).getByRole("tab", { name: "Original" })).toBeInTheDocument();
   expect(within(window).getByRole("link", { name: "Add to Calendar" }).getAttribute("href")).toMatch(/^data:text\/calendar/);
   fireEvent.click(within(window).getByRole("button", { name: "Close" }));

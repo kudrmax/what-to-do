@@ -14,6 +14,8 @@ export type Source = Schemas["SourcePublic"];
 export type NewSource = Schemas["SourceRequest"];
 export type SitePreview = Schemas["SitePreview"];
 export type SourceStatus = Schemas["SourceStatus"];
+export type SourceKind = Schemas["SourceKind"];
+export type InstagramReading = Schemas["InstagramReading"];
 export type PotentialSource = Schemas["PotentialSourcePublic"];
 export type PotentialSourceOrigin = Schemas["PotentialSourceOrigin"];
 export type Tag = Schemas["TagPublic"];
@@ -81,11 +83,13 @@ export function createApi(baseUrl: string) {
     deleteCity: (id: number) => answer(client.DELETE("/cities/{city_id}", { params: { path: { city_id: id } } })),
 
     sources: () => answer(client.GET("/sources")),
-    previewSource: (link: string) => answer(client.POST("/sources/preview", { body: { link } })),
+    previewSource: (link: string, kind?: SourceKind) => answer(client.POST("/sources/preview", { body: { link, kind } })),
     addSource: (body: NewSource) => answer(client.POST("/sources", { body })),
     renameSource: (id: number, title: string) => answer(client.PATCH("/sources/{source_id}", { ...source(id), body: { title } })),
     markSource: (id: number, status: SourceStatus) => answer(client.PUT("/sources/{source_id}/status", { ...source(id), body: { status } })),
     pauseSource: (id: number, paused: boolean) => answer(client.PUT("/sources/{source_id}/paused", { ...source(id), body: { paused } })),
+    setInstagramReading: (id: number, reading: InstagramReading) =>
+      answer(client.PUT("/sources/{source_id}/instagram", { ...source(id), body: reading })),
     deleteSource: (id: number) => answer(client.DELETE("/sources/{source_id}", source(id))),
     potentialSources: () => answer(client.GET("/potential-sources")),
     adoptPotentialSource: (id: number) => answer(client.POST("/potential-sources/{potential_id}/source", { params: { path: { potential_id: id } } })),

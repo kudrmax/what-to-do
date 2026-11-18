@@ -11,6 +11,7 @@ from where_to_go.cities import CityCatalog
 from where_to_go.db import Database
 from where_to_go.extraction import PostExtractor
 from where_to_go.feed import Feed
+from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linking import DetailsLinks, EventCards, EventLinker, PostMentions
 from where_to_go.linked_posts import LinkedPosts
@@ -40,6 +41,7 @@ from where_to_go.repositories import (
     SettingsRepository,
     SourceRepository,
     TagRepository,
+    InstagramRepository,
     WebRepository,
 )
 from where_to_go.resolution import EventResolver
@@ -48,7 +50,8 @@ from where_to_go.statistics import Statistics
 from where_to_go.telegram import TelegramChannelReader
 from where_to_go.web import SitemapReader
 from where_to_go.localities import LocalityJudge, LocalityRepository
-from where_to_go.source_types import SourceTypes, TelegramSourceType, WebSourceType
+from where_to_go.instagram_reader import InstagramReader, InstagramRequests
+from where_to_go.source_types import InstagramSourceType, SourceTypes, TelegramSourceType, WebSourceType
 from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 
 
@@ -57,11 +60,13 @@ from where_to_go.web_sources import WebSiteProbe, WebSiteReader
 class Container:
     db: Database
     http: httpx.AsyncClient
+    instagram_http: httpx.AsyncClient
     settings: SettingsRepository
     cities: CityRepository
     city_catalog: CityCatalog
     sources: SourceRepository
     web: WebRepository
+    instagram: InstagramRepository
     catalog: SourceCatalog
     potential_sources: PotentialSources
     posts: PostRepository
@@ -97,20 +102,24 @@ class Container:
         release_source: ReleaseSource | None = None,
         phone_publisher: PagesPublisher | None = None,
         phone_bundle: Path | None = None,
+        instagram_pause: float = 1.0,
     ) -> Container:
         project = project or ProjectPaths.here()
         db = Database(data_dir / "where-to-go.sqlite3")
         http = http or httpx.AsyncClient(timeout=30, headers={"User-Agent": USER_AGENT})
+        instagram_http = httpx.AsyncClient(timeout=30, follow_redirects=False)
         settings = SettingsRepository(db)
         cities = CityRepository(db, settings)
         sources = SourceRepository(db)
         web = WebRepository(db)
+        instagram = InstagramRepository(db)
         posts = PostRepository(db)
         mentions = MentionRepository(db)
         places = PlaceRepository(db)
         tags = TagRepository(db)
         events = EventRepository(db)
         images = ImageStore(data_dir / "images", http)
+        frames = VideoFrames(data_dir / "images", http)
         reader = TelegramChannelReader(http)
         cards = EventCards(events, mentions, EventResolver(tags.fallback), db.transaction)
         matching_llm = matching_llm or ClaudeJsonLlm(lambda: settings.load().matching_model)
@@ -126,6 +135,7 @@ class Container:
                 WebSiteReader(http, sitemaps, web, posts, LocalityJudge(matching_llm, LocalityRepository(db))),
                 web,
             ),
+            InstagramSourceType(InstagramReader(InstagramRequests(instagram_http, instagram_pause)), posts, instagram),
         )
         catalog = SourceCatalog(sources, events, cards, types)
         potential_sources = PotentialSources(PotentialSourceRepository(db), sources, posts, catalog)
@@ -148,11 +158,13 @@ class Container:
             settings=settings,
             cities=cities,
             sources=sources,
+            instagram=instagram,
             posts=posts,
             mentions=mentions,
             events=events,
             types=types,
             images=images,
+            frames=frames,
             photos=photos,
             post_reader=post_reader,
             post_mentions=post_mentions,
@@ -182,11 +194,13 @@ class Container:
         return cls(
             db=db,
             http=http,
+            instagram_http=instagram_http,
             settings=settings,
             cities=cities,
             city_catalog=CityCatalog(cities, tags, lambda: refresh.progress.running),
             sources=sources,
             web=web,
+            instagram=instagram,
             catalog=catalog,
             potential_sources=potential_sources,
             posts=posts,
@@ -216,4 +230,5 @@ class Container:
         await self.refresh.stop()
         self.claude_sign_in.stop()
         await self.http.aclose()
+        await self.instagram_http.aclose()
         self.db.close()

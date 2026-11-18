@@ -3,7 +3,9 @@ import pytest
 import respx
 
 from tests.helpers import channel_page
-from where_to_go.telegram import HtmlText, SourceError, TelegramChannelReader, TelegramHandle, TelegramPageParser
+from where_to_go.models import SourceKind
+from where_to_go.source_types import InstagramSourceType, SourceTypes, TelegramSourceType, WebSourceType
+from where_to_go.telegram import AmbiguousNameError, HtmlText, SourceError, SourceLink, TelegramChannelReader, TelegramHandle, TelegramPageParser
 from selectolax.lexbor import LexborHTMLParser
 
 
@@ -80,6 +82,55 @@ async def test_raising_the_depth_reaches_older_unread_posts_of_a_channel_already
         assert [p.external_id for p in await reader.new_posts("bg", {5, 6}, recent=2)] == []
         assert [p.external_id for p in await reader.new_posts("bg", {5, 6}, recent=5)] == [2, 3, 4]
         assert [p.external_id for p in await reader.new_posts("bg", {4}, recent=1)] == [5, 6]
+
+
+class TestSourceLinkKind:
+    @pytest.mark.parametrize(
+        ("link", "kind"),
+        [
+            ("t.me/x_events", SourceKind.TELEGRAM),
+            ("https://telegram.me/x_events", SourceKind.TELEGRAM),
+            ("instagram.com/eje.belgrade", SourceKind.INSTAGRAM),
+            ("https://www.instagram.com/eje.belgrade/", SourceKind.INSTAGRAM),
+            ("@eje.belgrade", SourceKind.INSTAGRAM),
+            ("eje.belgrade", SourceKind.WEB),
+            ("https://example.com/events", SourceKind.WEB),
+            ("@londonevents", None),
+            ("londonevents", None),
+        ],
+    )
+    def test_kind_of(self, link, kind):
+        assert SourceLink.kind_of(link) == kind
+
+
+class TestSourceTypesRouting:
+    def _types(self):
+        return SourceTypes(
+            TelegramSourceType(None, None, None),
+            WebSourceType(None, None, None),
+            InstagramSourceType(None, None, None),
+        )
+
+    def test_bare_name_is_ambiguous(self):
+        with pytest.raises(AmbiguousNameError, match="Pick whether this is a Telegram channel or an Instagram profile"):
+            self._types().for_link("@londonevents")
+
+    def test_chosen_kind_resolves_a_bare_name(self):
+        assert self._types().for_link("@londonevents", SourceKind.TELEGRAM).kind == SourceKind.TELEGRAM
+
+    def test_links_route_by_their_kind(self):
+        types = self._types()
+        assert types.for_link("t.me/x_events").kind == SourceKind.TELEGRAM
+        assert types.for_link("https://example.com/events").kind == SourceKind.WEB
+
+    def test_a_link_naming_its_network_ignores_a_contradicting_kind(self):
+        types = self._types()
+        assert types.for_link("t.me/x_events", SourceKind.INSTAGRAM).kind == SourceKind.TELEGRAM
+        assert types.for_link("instagram.com/eje.belgrade", SourceKind.TELEGRAM).kind == SourceKind.INSTAGRAM
+        assert types.for_link("https://example.com/events", SourceKind.TELEGRAM).kind == SourceKind.WEB
+
+    def test_instagram_links_go_to_instagram(self):
+        assert self._types().for_link("instagram.com/eje.belgrade").kind == SourceKind.INSTAGRAM
 
 
 @respx.mock

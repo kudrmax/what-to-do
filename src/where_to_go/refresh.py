@@ -10,8 +10,9 @@ import anyio
 from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import City, ExtractedEvent, Post, Public, Source, SourceKind
+from where_to_go.models import ChannelReference, City, CollectedPost, ExtractedEvent, Post, Public, Source, SourceKind
 from where_to_go.extraction import ExtractionContext, PostExtractor
+from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linked_posts import LinkedPosts
 from where_to_go.linking import Atomically, EventLinker, PostMentions
@@ -21,6 +22,7 @@ from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
     CityRepository,
     EventRepository,
+    InstagramRepository,
     MentionRepository,
     PlaceRepository,
     PhotoTextRepository,
@@ -30,6 +32,7 @@ from where_to_go.repositories import (
     TagRepository,
     WebRepository,
 )
+from where_to_go.instagram_reader import InstagramRefused
 from where_to_go.source_types import SourceTypes
 from where_to_go.telegram import SourceError
 
@@ -160,9 +163,17 @@ class PostReader:
                 self._places.forget_post(result.post_id)
                 for place in result.places:
                     self._places.add(context.city.id, result.post_id, place)
-                self._potential_sources.note(context.city.id, by_id[result.post_id], result.channels)
+                self._potential_sources.note(context.city.id, post, self._channels(post, sources[post.source_id], result.channels))
                 self._posts.mark_processed(result.post_id, context.rules)
 
+
+    @staticmethod
+    def _channels(post: Post, source: Source, channels: list[ChannelReference]) -> list[ChannelReference]:
+        """An Instagram caption is full of @accounts that are not Telegram channels: only a real t.me link counts there."""
+        if source.kind != SourceKind.INSTAGRAM:
+            return channels
+        text = post.text.lower()
+        return [c for c in channels if f"t.me/{c.handle.lower()}" in text]
 
     def _settled(self, post: Post, source: Source, events: list[tuple[ExtractedEvent, int | None]]) -> list[tuple[ExtractedEvent, int | None]]:
         """An event page's own facts replace Claude's reading of them; a page Claude split into several events is left as read."""
@@ -186,11 +197,13 @@ class RefreshService:
         settings: SettingsRepository,
         cities: CityRepository,
         sources: SourceRepository,
+        instagram: InstagramRepository,
         posts: PostRepository,
         mentions: MentionRepository,
         events: EventRepository,
         types: SourceTypes,
         images: ImageStore,
+        frames: VideoFrames,
         photos: PhotoTranscriber,
         post_reader: PostReader,
         post_mentions: PostMentions,
@@ -203,11 +216,13 @@ class RefreshService:
         self._settings = settings
         self._cities = cities
         self._sources = sources
+        self._instagram = instagram
         self._posts = posts
         self._mentions = mentions
         self._events = events
         self._types = types
         self._images = images
+        self._frames = frames
         self._post_reader = post_reader
         self._linker = linker
         self.progress = RefreshProgress()
@@ -264,11 +279,12 @@ class RefreshService:
         context = self._post_reader.context(city)
         today = datetime.now(ZoneInfo(city.timezone)).date()
         recent = self._settings.load().recent_posts
-        posts = self._posts.to_read(sources, context.rules, recent, today)
+        readings = self._instagram.readings(sources)
+        posts = self._posts.to_read(sources, context.rules, recent, today, readings)
         linked = await self._linked_posts.collect(posts, self._sources.in_city(city.id))
         if linked:
             self.progress.new_posts += linked
-            posts = self._posts.to_read(sources, context.rules, recent, today)
+            posts = self._posts.to_read(sources, context.rules, recent, today, readings)
 
         self.progress.enter(Stage.PHOTOS)
         with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text
@@ -305,21 +321,56 @@ class RefreshService:
     async def _collect_one(self, source: Source, city: City) -> None:
         try:
             found = await self._types.of(source.kind).collect(source, city, self.progress)
+        except InstagramRefused as error:
+            await self._store(source, error.collected)
+            self._failed(source, str(error))
+            return
         except SourceError as error:
-            self._sources.record_error(source.id, str(error))
-            self.progress.errors.append(f"{source.title}: {error}")
+            self._failed(source, str(error))
             return
         except Exception as error:  # one broken source must not stop the others
             log.exception("collecting %s failed", source.title)
-            message = f"couldn't read it: {error.__class__.__name__}"
-            self._sources.record_error(source.id, message)
-            self.progress.errors.append(f"{source.title}: {message}")
+            self._failed(source, f"couldn't read it: {error.__class__.__name__}")
             return
-        for post in found:
-            paths = [p for p in [await self._images.save(u) for u in post.image_urls] if p]
-            if self._posts.add_new(source.id, post, paths):
-                self.progress.new_posts += 1
+        await self._store(source, found)
         self._sources.record_success(source.id)
+
+    async def _store(self, source: Source, found: list[CollectedPost]) -> None:
+        for post in found:
+            paths = await self._media(post) if post.read else []
+            if self._posts.add_new(source.id, post, paths) and post.read:
+                self.progress.new_posts += 1
+
+    async def _media(self, post: CollectedPost) -> list[str]:
+        """The images of a post, the frames of each video right after its cover. Images always win: frames get only
+        the room the post's images leave of the photos read per post."""
+        by_cover: dict[str | None, list[str]] = {}
+        for video in post.video_urls:
+            by_cover.setdefault(post.video_covers.get(video), []).append(video)
+        room = PhotoTranscriber.PER_POST - len(post.image_urls)
+        paths: list[str] = []
+        for url in post.image_urls:
+            saved = await self._images.save(url)
+            paths += [saved] if saved else []
+            for video in by_cover.pop(url, []):
+                frames = await self._video_frames(video, saved, room)
+                room -= len(frames)
+                paths += frames
+        for video in [video for videos in by_cover.values() for video in videos]:
+            frames = await self._video_frames(video, None, room)
+            room -= len(frames)
+            paths += frames
+        return paths
+
+    async def _video_frames(self, url: str, cover: str | None, room: int) -> list[str]:
+        if room <= 0:
+            return []
+        frames = await self._frames.save(url, self._images.path(cover) if cover else None)
+        return frames[:room]
+
+    def _failed(self, source: Source, message: str) -> None:
+        self._sources.record_error(source.id, message)
+        self.progress.errors.append(f"{source.title}: {message}")
 
     async def _transcribe(self, batch: list[str]) -> None:
         """A post waits for its photos: read without them it would lose what its poster says."""

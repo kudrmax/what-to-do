@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -36,6 +36,13 @@ const EVENT: EventCard = {
   place: null,
   map_url: null,
 };
+
+async function postLine(): Promise<HTMLElement> {
+  await screen.findAllByRole("link", { name: /^Open / });
+  const line = document.querySelector<HTMLElement>(".post-line");
+  if (!line) throw new Error("no post line");
+  return line;
+}
 
 function openOriginal(mentions: () => Promise<Mention[]>, readOnly = false) {
   const api = createApi("");
@@ -91,7 +98,7 @@ describe("event window editing", () => {
   it("read-only keeps the tabs and the posts but leaves out every editing control", async () => {
     openOriginal(posts, true);
     fireEvent.click(await screen.findByRole("tab", { name: /Original/ }));
-    expect(await screen.findByRole("link", { name: "Open post in Telegram" })).toBeInTheDocument();
+    expect(within(await postLine()).getByRole("link", { name: "Open post in Telegram" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "club" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Split into a separate event" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Merge with another event on this day" })).not.toBeInTheDocument();
@@ -103,6 +110,15 @@ describe("event window editing", () => {
 });
 
 describe("event window original", () => {
+  it("names the link to each original by where it leads", async () => {
+    const instagram = (id: number, url: string) => ({ ...mention(id, "eje"), source_kind: "instagram", post_url: url }) as Mention;
+    openOriginal(() => Promise.resolve([instagram(1, "https://www.instagram.com/p/DfmlSc4DQL_/"), { ...instagram(2, "https://www.instagram.com/stories/highlights/17901/"), source_title: "club" }]));
+    fireEvent.click(await screen.findByRole("tab", { name: /Original/ }));
+    expect(within(await postLine()).getByRole("link", { name: "Open post on Instagram" })).toHaveAttribute("href", "https://www.instagram.com/p/DfmlSc4DQL_/");
+    fireEvent.click(screen.getByRole("tab", { name: "club" }));
+    expect(within(await postLine()).getByRole("link", { name: "Open highlight on Instagram" })).toBeInTheDocument();
+  });
+
   it("says the posts did not load instead of showing an empty tab, and loads them again on request", async () => {
     const loadMentions = openOriginal(() => Promise.reject(new ApiError(404, "Not Found")));
     fireEvent.click(await screen.findByRole("tab", { name: "Original" }));

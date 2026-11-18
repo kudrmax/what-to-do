@@ -17,6 +17,9 @@ export function FindingSources({ city }: { city: string }) {
         <Step icon="eye" title="Check that it is public">
           Open <span className="finding__query">t.me/s/name</span> in a browser, with the channel’s name. If its posts show there, the app can read it.
         </Step>
+        <Step icon="instagram" title="Instagram profiles too">
+          Paste <span className="finding__query">instagram.com/name</span> of a venue or a community. Only public profiles work.
+        </Step>
         <Step icon="globe" title="Websites work too">
           Paste a link to any event page of a site with event listings: the app finds the site’s other events by itself.
         </Step>

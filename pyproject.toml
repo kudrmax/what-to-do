@@ -11,6 +11,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "anyio>=4.16.0",
+    "av>=19,<20",
     "claude-agent-sdk>=0.2.180",
     "cryptography>=42",
     "fastapi>=0.162.2",
@@ -18,6 +19,7 @@ dependencies = [
     "httpx>=0.28.1",
     "icalendar>=7.3.0",
     "markdown-it-py>=4.2.0",
+    "pillow>=13.0.0",
     "platformdirs>=4.14.5",
     "psutil>=7.2.2",
     "pydantic>=2.14.3",

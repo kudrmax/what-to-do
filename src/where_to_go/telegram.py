@@ -6,7 +6,7 @@ from datetime import datetime
 import httpx
 from selectolax.lexbor import LexborHTMLParser as HTMLParser, LexborNode as Node
 
-from where_to_go.models import CollectedPost, TelegramUrls
+from where_to_go.models import CollectedPost, SourceKind, TelegramUrls
 
 _HANDLE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{3,31}$")
 _BACKGROUND_URL = re.compile(r"background-image:url\('([^']+)'\)")
@@ -14,6 +14,11 @@ _BACKGROUND_URL = re.compile(r"background-image:url\('([^']+)'\)")
 
 class SourceError(Exception):
     """A problem the user should see next to the source."""
+
+
+class AmbiguousNameError(SourceError):
+    def __init__(self) -> None:
+        super().__init__("Pick whether this is a Telegram channel or an Instagram profile")
 
 
 class TelegramHandle:
@@ -30,12 +35,20 @@ class TelegramHandle:
 
 class SourceLink:
     @staticmethod
-    def is_telegram(link: str) -> bool:
-        """t.me and telegram.me links, @name and a bare name; any other web address is a website."""
+    def kind_of(link: str) -> SourceKind | None:
+        """What the link points to; None for a name that is valid on both Telegram and Instagram, so the user picks."""
+        from where_to_go.instagram import InstagramName  # instagram.py imports SourceError from this module
+
         text = link.strip()
         if re.match(r"^(https?://)?(www\.)?(t\.me|telegram\.me)/", text, re.IGNORECASE):
-            return True
-        return "/" not in text and "." not in text
+            return SourceKind.TELEGRAM
+        if InstagramName.is_link(text):
+            return SourceKind.INSTAGRAM
+        if text.startswith("@") and "/" not in text and "." in text:
+            return SourceKind.INSTAGRAM
+        if _HANDLE.match(text.lstrip("@")):
+            return None
+        return SourceKind.WEB
 
 
 class TelegramPageParser:

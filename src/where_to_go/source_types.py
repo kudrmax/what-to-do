@@ -1,4 +1,4 @@
-"""The kinds of sources — Telegram channels and websites — behind one interface: the catalog adds them,
+"""The kinds of sources — Telegram channels, websites and Instagram profiles — behind one interface: the catalog adds them,
 the refresh reads them, and neither knows which kind it holds."""
 
 from __future__ import annotations
@@ -9,18 +9,17 @@ from datetime import UTC, datetime, timedelta
 from typing import ClassVar
 from zoneinfo import ZoneInfo
 
-from where_to_go.models import City, CollectedPost, Source, SourceKind, WebSite
-from where_to_go.repositories import PostRepository, SettingsRepository, WebRepository
-from where_to_go.telegram import SourceLink, TelegramChannelReader, TelegramHandle
+from where_to_go.instagram import InstagramName
+from where_to_go.instagram_reader import InstagramReader
+from where_to_go.models import City, CollectedPost, InstagramReading, Source, SourceKind, WebSite
+from where_to_go.repositories import InstagramRepository, PostRepository, SettingsRepository, WebRepository
+from where_to_go.telegram import AmbiguousNameError, SourceLink, TelegramChannelReader, TelegramHandle
 from where_to_go.web_sources import NO_TALLY, PageTally, SitePreview, WebSiteProbe, WebSiteReader
 
 
 class SourceType(ABC):
     kind: ClassVar[SourceKind]
     already_added: ClassVar[str]
-
-    @abstractmethod
-    def accepts(self, link: str) -> bool: ...
 
     def handle_of(self, link: str) -> str | None:
         """The source's handle when the link alone tells it, so a duplicate is caught before any request."""
@@ -30,7 +29,7 @@ class SourceType(ABC):
     async def preview(self, city: City, link: str, title: str | None = None) -> SitePreview:
         """What the link would add; SourceError when it cannot be a source. A given title is not looked up."""
 
-    async def attach(self, source: Source, city: City, link: str) -> None:
+    async def attach(self, source: Source, city: City, link: str, reading: InstagramReading | None = None) -> None:
         """Keeps what this kind needs besides the source itself."""
 
     @abstractmethod
@@ -46,9 +45,6 @@ class TelegramSourceType(SourceType):
         self._reader = reader
         self._posts = posts
         self._settings = settings
-
-    def accepts(self, link: str) -> bool:
-        return SourceLink.is_telegram(link)
 
     def handle_of(self, link: str) -> str | None:
         return TelegramHandle.parse(link)
@@ -81,14 +77,11 @@ class WebSourceType(SourceType):
         self._clock = clock
         self._probed: dict[tuple[int, str], tuple[datetime, SitePreview, WebSite]] = {}
 
-    def accepts(self, link: str) -> bool:
-        return not SourceLink.is_telegram(link)
-
     async def preview(self, city: City, link: str, title: str | None = None) -> SitePreview:
         preview, _ = await self._probed_site(city, link)
         return preview.model_copy(update={"title": title}) if title else preview
 
-    async def attach(self, source: Source, city: City, link: str) -> None:
+    async def attach(self, source: Source, city: City, link: str, reading: InstagramReading | None = None) -> None:
         _, site = await self._probed_site(city, link)
         self._web.add_site(WebSite(**{**site.model_dump(), "source_id": source.id}))
         self._probed.pop(self._key(city, link), None)
@@ -111,12 +104,53 @@ class WebSourceType(SourceType):
         return city.id, link.strip()
 
 
+class InstagramSourceType(SourceType):
+    kind = SourceKind.INSTAGRAM
+    already_added = "This profile is already added"
+
+    def __init__(
+        self,
+        reader: InstagramReader,
+        posts: PostRepository,
+        profiles: InstagramRepository,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        self._reader = reader
+        self._posts = posts
+        self._profiles = profiles
+        self._clock = clock
+
+    def handle_of(self, link: str) -> str | None:
+        return InstagramName.parse(link)
+
+    async def preview(self, city: City, link: str, title: str | None = None) -> SitePreview:
+        name = InstagramName.parse(link)
+        if title:
+            return SitePreview(kind=self.kind, title=title, handle=name)
+        found, highlights = await self._reader.title(name)
+        return SitePreview(kind=self.kind, title=found, handle=name, highlights=highlights)
+
+    async def attach(self, source: Source, city: City, link: str, reading: InstagramReading | None = None) -> None:
+        self._profiles.add(source.id, reading or InstagramReading())
+
+    async def collect(self, source: Source, city: City, tally: PageTally = NO_TALLY) -> list[CollectedPost]:
+        known = self._posts.known_ids(source.id)
+        return await self._reader.collect(source.handle, known, self._profiles.reading(source.id), self._clock())
+
+
 class SourceTypes:
     def __init__(self, *types: SourceType) -> None:
         self._types = types
 
-    def for_link(self, link: str) -> SourceType:
-        return next(t for t in self._types if t.accepts(link))
+    def for_link(self, link: str, kind: SourceKind | None = None) -> SourceType:
+        """The type serving the link. A link that names its network decides alone; a bare name valid on several
+        networks needs the kind the user picked."""
+        named = SourceLink.kind_of(link)
+        if named is None:
+            named = kind
+        if named is None:
+            raise AmbiguousNameError
+        return self.of(named)
 
     def of(self, kind: SourceKind) -> SourceType:
         return next(t for t in self._types if t.kind == kind)

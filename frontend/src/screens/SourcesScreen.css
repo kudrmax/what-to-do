@@ -1,7 +1,8 @@
+/* Link, Name and Add keep their places; the network choice, when asked, gets its own row under Link. */
 .add-source {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
   gap: 12px;
   padding: 18px;
   border-radius: var(--radius-card);
@@ -9,18 +10,35 @@
 }
 
 .add-source__field {
-  flex: 1 1 200px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
-.add-source__field--wide {
-  flex: 2 1 280px;
+.add-source__network {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 .add-source__error {
-  flex-basis: 100%;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .add-source {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .add-source__field--wide,
+  .add-source__network {
+    grid-column: 1 / -1;
+  }
+
+  .add-source__network {
+    grid-row: 2;
+  }
 }
 
 .sources-table {
@@ -255,4 +273,117 @@
   display: inline-flex;
   flex: none;
   color: var(--text-muted);
+}
+
+.add-source__network .segmented {
+  height: 38px;
+  align-items: center;
+}
+
+.add-source__network .segmented button {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.instagram-reading {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.instagram-reading legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.instagram-reading__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.instagram-reading__option + .instagram-reading__option {
+  border-top: 1px solid var(--line);
+}
+
+.instagram-reading__option input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.instagram-reading__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.instagram-reading__name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.instagram-reading__count {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.instagram-reading__hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.reading-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.reading-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  margin-left: -6px;
+  padding: 0 8px 0 6px;
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  font-size: var(--caption-size);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.reading-toggle + .reading-toggle {
+  margin-left: 0;
+}
+
+.reading-toggle:hover:not(:has(input:disabled)) {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+
+.reading-toggle--on {
+  color: var(--text-2);
+}
+
+.reading-toggle:has(input:disabled) {
+  cursor: default;
+}
+
+.reading-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--accent);
 }

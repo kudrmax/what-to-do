@@ -8,6 +8,7 @@ from sqlmodel import Field, col, select
 
 from where_to_go.db import Database
 from where_to_go.models import INTEREST_MAX, City, Event, Mention, PhotoText, Place, Plan, Post, Public, Source
+from where_to_go.repositories import PostRepository
 
 WEEKS_SHOWN = 12
 
@@ -82,7 +83,11 @@ class Statistics:
         with self._db.session() as s:
             sources = list(s.exec(select(Source).where(Source.city_id == city.id)))
             source_ids = [source.id for source in sources]
-            posts = [p for p in s.exec(select(Post).where(col(Post.source_id).in_(source_ids))) if p.processed_at is not None]
+            posts = [
+                p
+                for p in s.exec(select(Post).where(col(Post.source_id).in_(source_ids)))
+                if p.processed_at is not None and p.read_with != PostRepository.SKIPPED
+            ]
             mentions = list(s.exec(select(Mention).join(Post).where(col(Post.source_id).in_(source_ids))))
             paused = {source.id for source in sources if source.paused}
             events = [e for e in s.exec(select(Event).where(Event.city_id == city.id)) if not e.is_dropped_with(paused)]

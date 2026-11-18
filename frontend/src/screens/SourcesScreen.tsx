@@ -1,16 +1,19 @@
 import { useId, useState, type FormEvent } from "react";
 
-import type { SitePreview, Source } from "../api/client";
-import { useAddSource, useDeleteSource, useMarkSource, usePauseSource, usePreviewSource, useRenameSource, useSources } from "../api/queries";
+import type { InstagramReading, SitePreview, Source, SourceKind } from "../api/client";
+import { useAddSource, useDeleteSource, useMarkSource, usePauseSource, usePreviewSource, useRenameSource, useSetInstagramReading, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
 import { ago, clock, longDate, plural } from "../domain/dates";
+import { ambiguousName } from "../domain/sources";
 import { errorText } from "../ui/errors";
-import { Icon } from "../ui/Icon";
+import { Icon, type IconName } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
 import { InlineEdit } from "../ui/InlineEdit";
 import { Screen } from "../ui/Screen";
+import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { FindingSources } from "./FindingSources";
+import { InstagramPreviewCard } from "./InstagramPreviewCard";
 import { NoCity } from "./NoCity";
 import { PotentialSources } from "./PotentialSources";
 import "./SourcesScreen.css";
@@ -32,21 +35,32 @@ export function SourcesScreen() {
   );
 }
 
+const NETWORKS: SegmentedOption<SourceKind>[] = [
+  { id: "telegram", label: "Telegram" },
+  { id: "instagram", label: "Instagram" },
+];
+
 export function AddSourceForm() {
   const check = usePreviewSource();
   const add = useAddSource();
   const [link, setLink] = useState("");
   const [title, setTitle] = useState("");
-  const [site, setSite] = useState<SitePreview | null>(null);
-  const reset = () => (setLink(""), setTitle(""), setSite(null), check.reset());
-  const addNow = () => add.mutate({ link: link.trim(), title: title.trim() || null }, { onSuccess: reset });
+  const [network, setNetwork] = useState<SourceKind | null>(null);
+  const [preview, setPreview] = useState<SitePreview | null>(null);
+  const asksNetwork = ambiguousName(link);
+  const kind = asksNetwork ? network : null;
+  const reset = () => (setLink(""), setTitle(""), setNetwork(null), setPreview(null), check.reset());
+  const addNow = (instagram?: InstagramReading) =>
+    add.mutate({ link: link.trim(), title: title.trim() || null, ...(kind && { kind }), ...(instagram && { instagram }) }, { onSuccess: reset });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     add.reset();
-    setSite(null);
-    check.mutate(link.trim(), { onSuccess: (preview) => (preview.kind === "web" ? setSite(preview) : addNow()) });
+    setPreview(null);
+    check.mutate({ link: link.trim(), ...(kind && { kind }) }, { onSuccess: (found) => (found.kind === "telegram" ? addNow() : setPreview(found)) });
   };
+  const changeLink = (value: string) => (setLink(value), setNetwork(null), setPreview(null));
   const busy = check.isPending || add.isPending;
+  const unchosen = asksNetwork && !network;
   const error = check.error ?? add.error;
   return (
     <div className="add-source-block">
@@ -56,24 +70,33 @@ export function AddSourceForm() {
           <input
             className="input"
             value={link}
-            onChange={(e) => (setLink(e.target.value), setSite(null))}
-            placeholder="t.me/channel or an event page on a website"
+            onChange={(e) => changeLink(e.target.value)}
+            placeholder="Link or @name"
             required
             aria-invalid={Boolean(error)}
           />
         </label>
+        {asksNetwork && (
+          <div className="add-source__field add-source__network">
+            <span className="label" aria-hidden="true">
+              Network
+            </span>
+            <Segmented label="Network" options={NETWORKS} value={network} onChange={setNetwork} role="radio" />
+          </div>
+        )}
         <label className="add-source__field">
           <span className="label">Name</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Same as the channel or website" />
+          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Its own name" />
         </label>
-        {!site && (
-          <button type="submit" className="button" disabled={busy || !link.trim()}>
+        {!preview && (
+          <button type="submit" className="button" disabled={busy || !link.trim() || unchosen} title={unchosen ? "Choose Telegram or Instagram first" : undefined}>
             {busy ? "Checking…" : "Add"}
           </button>
         )}
         {error && <p className="error-text add-source__error">{errorText(error)}</p>}
       </form>
-      {site && <SitePreviewCard site={site} adding={add.isPending} onAdd={addNow} onCancel={() => setSite(null)} />}
+      {preview?.kind === "web" && <SitePreviewCard site={preview} adding={add.isPending} onAdd={() => addNow()} onCancel={() => setPreview(null)} />}
+      {preview?.kind === "instagram" && <InstagramPreviewCard profile={preview} adding={add.isPending} onAdd={addNow} onCancel={() => setPreview(null)} />}
     </div>
   );
 }
@@ -178,11 +201,41 @@ function sourceState(source: Source): { label: string; kind: string } {
   return source.last_refreshed_at ? { label: "Working", kind: "ok" } : { label: "Awaiting refresh", kind: "new" };
 }
 
+const KINDS: Record<SourceKind, { label: string; icon: IconName; address: (source: Source) => string }> = {
+  telegram: { label: "Telegram channel", icon: "send", address: (source) => `@${source.handle}` },
+  web: { label: "Website", icon: "globe", address: (source) => source.handle },
+  instagram: { label: "Instagram profile", icon: "instagram", address: (source) => `@${source.handle}` },
+};
+
+function InstagramReadingToggles({ source, reading }: { source: Source; reading: InstagramReading }) {
+  const set = useSetInstagramReading();
+  const shown = set.isPending ? set.variables.reading : reading;
+  const toggle = (change: Partial<InstagramReading>) => set.mutate({ id: source.id, reading: { ...shown, ...change } });
+  return (
+    <>
+      <div className="reading-toggles" role="group" aria-label="What to read">
+        <ReadingToggle name="Posts" on={shown.posts} last={shown.posts && !shown.stories} onChange={(posts) => toggle({ posts })} />
+        <ReadingToggle name="Pinned stories" on={shown.stories} last={shown.stories && !shown.posts} onChange={(stories) => toggle({ stories })} />
+      </div>
+      {set.error && <p className="error-text">{errorText(set.error)}</p>}
+    </>
+  );
+}
+
+function ReadingToggle({ name, on, last, onChange }: { name: string; on: boolean; last: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className={`reading-toggle${on ? " reading-toggle--on" : ""}`} title={last ? "A profile reads at least one of them" : undefined}>
+      <input type="checkbox" checked={on} disabled={last} onChange={(e) => onChange(e.target.checked)} />
+      {name}
+    </label>
+  );
+}
+
 function SourceRow({ source }: { source: Source }) {
   const rename = useRenameSource();
   const remove = useDeleteSource();
   const [confirming, setConfirming] = useState(false);
-  const web = source.kind === "web";
+  const kind = KINDS[source.kind];
   const state = sourceState(source);
   return (
     <div className={`sources-table__row${source.paused ? " sources-table__row--paused" : ""}`} role="row">
@@ -191,14 +244,15 @@ function SourceRow({ source }: { source: Source }) {
       </span>
       <div className="sources-table__name" role="cell">
         <span className="sources-table__heading">
-          <span role="img" aria-label={web ? "Website" : "Telegram channel"} className="sources-table__kind">
-            <Icon name={web ? "globe" : "send"} size={14} />
+          <span role="img" aria-label={kind.label} className="sources-table__kind">
+            <Icon name={kind.icon} size={14} />
           </span>
           <InlineEdit value={source.title} label="Source name" className="sources-table__title" onSave={(title) => rename.mutate({ id: source.id, title })} />
         </span>
         <a href={source.url} target="_blank" rel="noreferrer" className="sources-table__link">
-          {web ? source.handle : `@${source.handle}`}
+          {kind.address(source)}
         </a>
+        {source.instagram && <InstagramReadingToggles source={source} reading={source.instagram} />}
       </div>
       <span role="cell" className="sources-table__value sources-table__updated">
         {source.last_refreshed_at ? `Refreshed ${ago(source.last_refreshed_at)}` : "Not refreshed yet"}

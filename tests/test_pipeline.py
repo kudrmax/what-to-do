@@ -1,18 +1,24 @@
 import asyncio
+import io
 import json
+from pathlib import Path
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
 import respx
+from PIL import Image
 
+from tests.test_frames import make_video
 from tests.helpers import BELGRADE, add_city, photos_saying, FakeLlm, channel_page, event_page, extraction_by_text, judge_same_titles, raw_event, sitemap
 from where_to_go.container import Container
-from where_to_go.models import Booking, BookingKind, Mark, Mention, Plan, Source, SourceKind, WebSite
+from where_to_go.instagram import InstagramPage
+from where_to_go.models import Booking, CollectedPost, BookingKind, EventFacts, EventKind, ExtractedEvent, InstagramReading, Mark, Mention, Plan, Post, Source, SourceKind, WebSite
 from where_to_go.llm import LlmError
 from where_to_go.reading_rules import ReadingRules
 from where_to_go.refresh import Stage
 from where_to_go.repositories import SettingsRepository
+from sqlmodel import select
 
 RECENT = (datetime.now(UTC) - timedelta(days=2)).isoformat()
 LATER = (datetime.now(UTC) - timedelta(days=1)).isoformat()
@@ -86,6 +92,37 @@ async def test_unreachable_channel_is_recorded_on_the_source(app):
     progress = await container.refresh.wait()
     kafana = next(s for s in container.sources.in_city(1) if s.handle == "kafana")
     assert "private" in kafana.last_error
+    assert progress.stage is Stage.DONE
+
+
+INSTAGRAM = Path(__file__).parent / "fixtures" / "instagram"
+
+
+@respx.mock
+async def test_instagram_refusal_keeps_what_was_read_before_it(tmp_path):
+    container = Container.build(
+        tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient(), instagram_pause=0
+    )
+    city = add_city(container, "Белград", "Europe/Belgrade")
+    source = container.sources.add(Source(city_id=city.id, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="EJE"))
+    container.instagram.add(source.id, InstagramReading(posts=False))
+    profile = InstagramPage((INSTAGRAM / "profile.html").read_text(encoding="utf-8")).profile()
+    timetable, food = profile.highlights[:2]
+    respx.get(url__regex=r"^https://[^/]*(cdninstagram\.com|fbcdn\.net)/").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://www.instagram.com/eje.belgrade/").respond(200, text=(INSTAGRAM / "profile.html").read_text(encoding="utf-8"))
+    respx.get(f"https://www.instagram.com/stories/highlights/{timetable.id}/").respond(
+        200, text=(INSTAGRAM / "highlight_timetable.html").read_text(encoding="utf-8")
+    )
+    respx.get(f"https://www.instagram.com/stories/highlights/{food.id}/").respond(429)
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+
+    [story] = InstagramPage((INSTAGRAM / "highlight_timetable.html").read_text(encoding="utf-8")).stories()
+    with container.db.session() as s:
+        [stored] = s.exec(select(Post).where(Post.source_id == source.id)).all()
+    assert stored.external_id == story.pk and len(stored.image_paths) == 1
+    assert container.sources.get(source.id).last_error == "Instagram refused to show the profile. It will be tried again on the next refresh."
     assert progress.stage is Stage.DONE
 
 
@@ -692,3 +729,239 @@ async def test_paused_source_is_not_read_and_keeps_its_cards(app):
     assert progress.stage is Stage.DONE, progress.errors
     assert kafana_channel.call_count == calls_before
     assert {e.original_title for e in container.events.in_city(1)} == {"Кафаны"}
+
+
+async def refresh_instagram_posts(tmp_path, monkeypatch, posts: list[CollectedPost]):
+    stored, _ = await refresh_instagram(tmp_path, monkeypatch, posts)
+    return stored
+
+
+async def refresh_instagram(tmp_path, monkeypatch, posts: list[CollectedPost]):
+    container = Container.build(
+        tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient(), instagram_pause=0
+    )
+    city = add_city(container, "Белград", "Europe/Belgrade")
+    source = container.sources.add(Source(city_id=city.id, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="EJE"))
+
+    async def collect(*args, **kwargs):
+        return posts
+
+    monkeypatch.setattr(container.refresh._types.of(SourceKind.INSTAGRAM), "collect", collect)
+    container.refresh.start()
+    progress = await container.refresh.wait()
+    with container.db.session() as s:
+        stored = s.exec(select(Post).where(Post.source_id == source.id)).all()
+    assert container.sources.get(source.id).last_error is None and progress.errors == []
+    await container.close()
+    return stored, progress
+
+
+def collected(**fields) -> CollectedPost:
+    return CollectedPost(external_id=1, url="https://www.instagram.com/p/a/", published_at=datetime.now(UTC), text="Квиз", **fields)
+
+
+@respx.mock
+async def test_a_post_keeps_its_images_and_then_the_frames_of_its_video(tmp_path, monkeypatch):
+    respx.get("https://scontent.cdninstagram.com/cover.jpg").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://scontent.cdninstagram.com/clip.mp4").respond(200, content=make_video([(255, 0, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=["https://scontent.cdninstagram.com/cover.jpg"], video_urls=["https://scontent.cdninstagram.com/clip.mp4"])
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    cover, *frames = stored.image_paths
+    assert cover.endswith(".jpg") and "-f" not in cover
+    assert [name.rsplit("-f", 1)[1] for name in frames] == ["0.jpg", "1.jpg"]
+
+
+def serve_image(url: str, color: tuple[int, int, int]) -> None:
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 64), color).save(buffer, "PNG")
+    respx.get(url).respond(200, content=buffer.getvalue(), headers={"content-type": "image/png"})
+
+
+CDN = "https://scontent.cdninstagram.com"
+
+
+@respx.mock
+async def test_a_video_follows_its_cover_and_leaves_out_the_frames_that_repeat_it(tmp_path, monkeypatch):
+    for name, color in [("a", (0, 255, 0)), ("cover", (255, 0, 0)), ("b", (255, 255, 0))]:
+        serve_image(f"{CDN}/{name}.png", color)
+    respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(255, 0, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=[f"{CDN}/a.png", f"{CDN}/cover.png", f"{CDN}/b.png"], video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": f"{CDN}/cover.png"})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert ["-f" in name for name in stored.image_paths] == [False, False, True, False]
+
+
+@respx.mock
+async def test_a_post_with_ten_images_gets_no_video_frames(tmp_path, monkeypatch):
+    images = [f"{CDN}/{i}.png" for i in range(10)]
+    for i, url in enumerate(images):
+        serve_image(url, (i * 20, 0, 0))
+    video = respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(255, 0, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": images[-1]})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 10 and not video.called
+
+
+@respx.mock
+async def test_photos_after_an_opening_video_win_over_its_frames(tmp_path, monkeypatch):
+    images = [f"{CDN}/{i}.png" for i in range(10)]
+    for i, url in enumerate(images):
+        serve_image(url, (i * 20, 0, 0))
+    video = respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(0, 255, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": images[0]})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 10 and not any("-f" in name for name in stored.image_paths)
+    assert not video.called
+
+
+RAINBOW = [(255, 0, 0), (255, 255, 0), (0, 255, 0), (0, 255, 255), (0, 0, 255), (255, 0, 255), (255, 255, 255), (0, 0, 0)]
+
+
+@respx.mock
+@pytest.mark.parametrize("photos, frames", [(3, 6), (6, 3)])
+async def test_an_opening_video_gets_only_the_room_its_photos_leave(tmp_path, monkeypatch, photos, frames):
+    images = [f"{CDN}/cover.png"] + [f"{CDN}/{i}.png" for i in range(photos)]
+    serve_image(images[0], (128, 128, 128))
+    for i, url in enumerate(images[1:]):
+        serve_image(url, (i * 20, 0, 0))
+    respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video(RAINBOW, 2))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"], video_covers={f"{CDN}/clip.mp4": images[0]})
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert ["-f" in name for name in stored.image_paths] == [False] + [True] * frames + [False] * photos
+
+
+@respx.mock
+async def test_frames_fill_only_the_room_a_post_has_left(tmp_path, monkeypatch):
+    images = [f"{CDN}/{i}.png" for i in range(9)]
+    for i, url in enumerate(images):
+        serve_image(url, (i * 20, 0, 0))
+    respx.get(f"{CDN}/clip.mp4").respond(200, content=make_video([(0, 255, 0), (0, 0, 255)], 5))
+    post = collected(image_urls=images, video_urls=[f"{CDN}/clip.mp4"])
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 10 and stored.image_paths[-1].endswith("-f0.jpg")
+
+
+@respx.mock
+async def test_a_skipped_story_is_not_counted_as_a_new_post(tmp_path, monkeypatch):
+    read = collected()
+    skipped = CollectedPost(external_id=2, url="https://www.instagram.com/stories/highlights/2/", published_at=datetime.now(UTC), text="", read=False)
+
+    _, progress = await refresh_instagram(tmp_path, monkeypatch, [read, skipped])
+
+    assert progress.new_posts == 1
+
+
+@respx.mock
+async def test_a_skipped_post_downloads_no_media(tmp_path, monkeypatch):
+    media = respx.get(url__regex=r"^https://scontent\.cdninstagram\.com/").respond(200, content=b"x")
+    post = collected(image_urls=["https://scontent.cdninstagram.com/cover.jpg"], video_urls=["https://scontent.cdninstagram.com/clip.mp4"], read=False)
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert stored.image_paths == [] and not media.called
+
+
+@respx.mock
+async def test_a_video_that_cannot_be_downloaded_costs_the_post_only_its_frames(tmp_path, monkeypatch):
+    respx.get("https://scontent.cdninstagram.com/cover.jpg").respond(200, content=b"img", headers={"content-type": "image/jpeg"})
+    respx.get("https://scontent.cdninstagram.com/clip.mp4").mock(side_effect=OSError("reset"))
+    post = collected(image_urls=["https://scontent.cdninstagram.com/cover.jpg"], video_urls=["https://scontent.cdninstagram.com/clip.mp4"])
+
+    [stored] = await refresh_instagram_posts(tmp_path, monkeypatch, [post])
+
+    assert len(stored.image_paths) == 1 and "-f" not in stored.image_paths[0]
+
+
+class InstagramShelf:
+    """An Instagram source with posts and stories of given ages, all read under old rules."""
+
+    def __init__(self, container: Container) -> None:
+        city = add_city(container, "Белград", "Europe/Belgrade")
+        self.container = container
+        self.source = container.sources.add(Source(city_id=city.id, kind=SourceKind.INSTAGRAM, handle="eje.belgrade", title="EJE"))
+        self.today = datetime.now(UTC).date()
+        self._count = 0
+
+    def add(self, url: str, age_days: int, *, read: bool = True, processed: bool = True) -> int:
+        self._count += 1
+        post = CollectedPost(external_id=self._count, url=url, published_at=datetime.now(UTC) - timedelta(days=age_days), text="Квиз", read=read)
+        self.container.posts.add_new(self.source.id, post, [])
+        post_id = self.container.posts.id_of(self.source.id, self._count)
+        if processed and read:
+            self.container.posts.mark_processed(post_id, "old rules")
+        return post_id
+
+    def post(self, age_days: int = 1, **kwargs) -> int:
+        return self.add(f"https://www.instagram.com/p/c{self._count}/", age_days, **kwargs)
+
+    def story(self, age_days: int, **kwargs) -> int:
+        return self.add(f"https://www.instagram.com/stories/highlights/{self._count}/", age_days, **kwargs)
+
+    def to_read(self, reading: InstagramReading = InstagramReading(), recent: int = 20) -> set[int]:
+        chosen = self.container.posts.to_read([self.source.id], "new rules", recent, self.today, {self.source.id: reading})
+        return {p.id for p in chosen}
+
+
+@pytest.fixture
+async def shelf(tmp_path):
+    container = Container.build(tmp_path, extraction_llm=extraction_by_text({}), matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
+    yield InstagramShelf(container)
+    await container.close()
+
+
+async def test_a_rules_change_reads_instagram_posts_and_fresh_stories_again_but_not_old_or_skipped_ones(shelf):
+    post = shelf.post()
+    fresh = shelf.story(29)
+    shelf.story(31)
+    shelf.story(2, read=False)
+
+    assert shelf.to_read() == {post, fresh}
+
+
+async def test_a_rules_change_reads_only_the_latest_instagram_posts(shelf):
+    shelf.post(5)
+    newer = shelf.post(2)
+    newest = shelf.post(1)
+
+    assert shelf.to_read(recent=2) == {newer, newest}
+
+
+async def test_stories_turned_off_are_never_chosen_read_or_not_and_keep_their_events(shelf):
+    c = shelf.container
+    post = shelf.post()
+    story = shelf.story(3)
+    shelf.story(1, processed=False)
+    facts = EventFacts(title="Квиз", original_title="Квиз", description="", kind=EventKind.SINGLE, start_date=shelf.today, tags=[])
+    event = c.events.create(shelf.source.city_id, facts)
+    c.mentions.assign(c.mentions.add(story, 0, ExtractedEvent(**facts.facts()), None).id, event.id)
+    c.instagram.add(shelf.source.id, InstagramReading())
+
+    c.instagram.change(shelf.source.id, InstagramReading(stories=False))
+
+    assert shelf.to_read(c.instagram.reading(shelf.source.id)) == {post}
+    assert [m.post_id for m in c.mentions.of_event(event.id)] == [story]
+
+
+async def test_posts_turned_off_are_never_chosen(shelf):
+    shelf.post()
+    shelf.post(processed=False)
+    story = shelf.story(3)
+
+    assert shelf.to_read(InstagramReading(posts=False)) == {story}
+
+
+async def test_an_unread_fresh_story_is_chosen(shelf):
+    story = shelf.story(1, processed=False)
+
+    assert shelf.to_read() == {story}

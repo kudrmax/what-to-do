@@ -39,6 +39,7 @@ class SitePreview(Public):
     handle: str
     pages_found: int = 0
     examples: list[SiteExample] = []
+    highlights: int = 0
 
 
 class Section:

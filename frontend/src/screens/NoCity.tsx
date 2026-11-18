@@ -16,7 +16,7 @@ export function NoCity() {
         <h2 id="welcome-title" className="welcome__title">
           Where are you looking for things to do?
         </h2>
-        <p className="welcome__text">Add your city. Then add Telegram channels and websites that announce events there, and Claude turns their posts into event cards.</p>
+        <p className="welcome__text">Add your city. Then add Telegram channels, Instagram profiles and websites that announce events there, and Claude turns their posts into event cards.</p>
       </div>
       <NewCity canCancel={false} />
     </section>

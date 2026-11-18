@@ -9,6 +9,7 @@ import { SECTIONS } from "../app/routes";
 import { clock, dayAndMonth, longDate, momentDay, momentText } from "../domain/dates";
 import { formatPrice } from "../domain/price";
 import { describeRecurrence } from "../domain/recurrence";
+import { originalPlace, type OriginalPlace } from "../domain/sources";
 import { orderTags } from "../domain/tags";
 import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
@@ -152,7 +153,7 @@ function Description({ event, day, mentions, load, onView }: { event: EventCard;
   ];
   return (
     <section className="description">
-      <Segmented label="Description" options={tabs} value={tab} onChange={setTab} tabs />
+      <Segmented label="Description" options={tabs} value={tab} onChange={setTab} role="tabs" />
       {tab === "summary" ? <Summary event={event} mentions={mentions} onView={onView} /> : <Originals event={event} day={day} mentions={mentions} load={load} onView={onView} />}
     </section>
   );
@@ -212,10 +213,17 @@ function OriginalsMissing({ load }: { load: MentionsLoad }) {
   return <p className="details__description details__description--muted">{load.loading ? "Loading original…" : "This event has no sources left."}</p>;
 }
 
+const OPEN_ORIGINAL: Record<OriginalPlace, string> = {
+  website: "Open page on website",
+  telegram: "Open post in Telegram",
+  instagramPost: "Open post on Instagram",
+  instagramHighlight: "Open highlight on Instagram",
+};
+
 function PostLine({ event, day, mention, named, canSplit }: { event: EventCard; day: string; mention: Mention; named: boolean; canSplit: boolean }) {
   const readOnly = useReadOnly();
   const posted = momentText(mention.published_at);
-  const openLabel = mention.source_kind === "web" ? "Open page on website" : "Open post in Telegram";
+  const openLabel = OPEN_ORIGINAL[originalPlace(mention)];
   return (
     <div className="post-line">
       {named && <span className="post-line__name">{mention.source_title}</span>}
