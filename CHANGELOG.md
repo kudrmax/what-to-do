@@ -2,6 +2,14 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.25.1 — 2026-11-19
+
+The app opens even when another program sits on its port.
+
+### Fixed
+- The macOS app built from the code no longer stops at "Couldn't Start" when another program holds its port: like the app from the disk image, it moves to a free port nearby and stays there.
+- Every copy now starts on port 48765, which few other programs use, so it rarely has to move. Your theme, feed view and event filters are kept per port, so they reset once after the move.
+
 ## 1.25.0 — 2026-11-18
 
 Venues that post only on Instagram now reach your feed.
