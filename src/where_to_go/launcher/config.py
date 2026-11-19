@@ -9,10 +9,8 @@ from platformdirs import user_data_dir
 
 from where_to_go.launcher.paths import ProjectPaths
 
-DEFAULT_PORT = 18765
-# The app installed from the disk image is meant for people who run other local tools too: a port few
-# programs pick, so it rarely has to move.
-BUNDLE_DEFAULT_PORT = 48765
+# A port few programs pick, so the app rarely has to move off it.
+DEFAULT_PORT = 48765
 DEFAULT_INSTANCE = "prod"
 WORKTREE_INSTANCE = "dev"
 APP_DATA_NAME = "where-to-go"
@@ -51,7 +49,7 @@ class DotEnv:
 class InstanceConfig:
     """How this copy runs when nothing else is said.
 
-    Everyone gets the same defaults: port 18765 (48765 for the app from the disk image), the data in the
+    Everyone gets the same defaults: port 48765, the data in the
     user's data folder of the platform, the "prod" instance. `.env` in the copy overrides them, and
     `WHERE_TO_GO_*` variables override `.env`. A port set there is fixed; otherwise the copy keeps to the
     port it moved to when another program held its own (`paths.chosen_port`).
@@ -72,8 +70,7 @@ class InstanceConfig:
     def load(cls, paths: ProjectPaths, environ: Mapping[str, str] = os.environ) -> InstanceConfig:
         dotenv = DotEnv.read(paths.env_file)
         set_port = environ.get(cls.ENV_PORT) or dotenv.get("PORT")
-        default_port = BUNDLE_DEFAULT_PORT if paths.bundle is not None else DEFAULT_PORT
-        port_text = set_port or cls._remembered_port(paths) or str(default_port)
+        port_text = set_port or cls._remembered_port(paths) or str(DEFAULT_PORT)
         data_text = environ.get(cls.ENV_DATA_DIR) or dotenv.get("DATA_DIR") or ""
         instance = environ.get(cls.ENV_INSTANCE) or dotenv.get("INSTANCE_ENV_NAME") or cls._default_instance(paths)
         return cls(

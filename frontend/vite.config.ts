@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-const BACKEND = process.env.WHERE_TO_GO_BACKEND ?? "http://127.0.0.1:18765";
+const BACKEND = process.env.WHERE_TO_GO_BACKEND ?? "http://127.0.0.1:48765";
 
 export default defineConfig({
   plugins: [react()],
