@@ -37,11 +37,11 @@ This builds the app and puts it into `~/Applications`. Start it from Launchpad o
 
 The app's name follows `INSTANCE_ENV_NAME` in `.env`: **What To Do** for `prod`, **What To Do Dev** for `dev`.
 
-The app remembers the project folder and port. Run `make app` again after you move the project folder or change `PORT` in `.env`.
+The app remembers the project folder. Run `make app` again after you move it.
 
 ## How it starts
 
-On launch, the app checks whether What To Do itself answers at `http://127.0.0.1:<PORT>/api/version`: another program on the port does not count. If not, it runs the copy's own `.venv/bin/where-to-go up --port <PORT>` and waits up to two minutes. On quit, it always runs `.venv/bin/where-to-go down`, whoever started the server: a refresh in progress stops with it, and the posts it has already read stay saved.
+On launch, the app asks the copy's `.venv/bin/where-to-go port` which port to use, as the app from the disk image does: when another program holds the copy's port, it moves to a free one nearby and stays there; a `PORT` set in `.env` is kept. Then it checks whether What To Do itself answers at `http://127.0.0.1:<PORT>/api/version`: another program on the port does not count. If not, it runs the copy's own `.venv/bin/where-to-go up --port <PORT>` and waits up to two minutes. On quit, it always runs `.venv/bin/where-to-go down`, whoever started the server: a refresh in progress stops with it, and the posts it has already read stay saved.
 
 The command runs in a login shell, which reads `~/.zprofile` but not `~/.zshrc`. Node.js is needed only when the interface has to be built (the first start and after an update that changed it); `where-to-go up` also looks for it in the Homebrew, nvm and Volta folders. If the app still can't find `node`, add it to your `PATH` in `~/.zprofile`.
 

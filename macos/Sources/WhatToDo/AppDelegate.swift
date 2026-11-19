@@ -19,10 +19,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSApp.mainMenu = MainMenu.build(appName: ProcessInfo.processInfo.processName)
-        guard config.isBundled else { return setUp(config, runner: ShellRunner.login) }
-
-        try? FileManager.default.createDirectory(at: config.home.workingDirectory, withIntermediateDirectories: true)
-        let runner = ShellRunner.plain(environment: config.home.environment(from: ProcessInfo.processInfo.environment))
+        let runner: CommandRunner
+        if config.isBundled {
+            try? FileManager.default.createDirectory(at: config.home.workingDirectory, withIntermediateDirectories: true)
+            runner = ShellRunner.plain(environment: config.home.environment(from: ProcessInfo.processInfo.environment))
+        } else {
+            runner = ShellRunner.login
+        }
         let chooser = PortChooser(command: ServerCommands(home: config.home, port: config.port).port, workingDirectory: config.home.workingDirectory, runner: runner)
         Task {
             let port = await chooser.port(fallback: config.port)

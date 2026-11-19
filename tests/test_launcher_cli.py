@@ -230,14 +230,12 @@ def test_status_of_a_stopped_copy_says_how_to_start_it(tmp_path: Path) -> None:
 
 def test_the_app_from_the_disk_image_starts_on_a_rarely_used_port(tmp_path: Path) -> None:
     from where_to_go.launcher.bundle import AppBundle
-    from where_to_go.launcher.config import BUNDLE_DEFAULT_PORT
-
     bundle = AppBundle(app=tmp_path / "What To Do.app", arch="arm64")
     paths = ProjectPaths(bundle.project, state=tmp_path / "state", bundle=bundle)
 
     config = InstanceConfig.load(paths, environ={})
 
-    assert config.port == BUNDLE_DEFAULT_PORT == 48765
+    assert config.port == DEFAULT_PORT == 48765
     assert not config.port_fixed
 
 

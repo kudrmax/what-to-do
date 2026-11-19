@@ -4,7 +4,7 @@
 # Windows (see README). The command line reads the optional .env of this copy itself; `make app` reads it
 # here for the app's name and port.
 -include .env
-PORT ?= 18765
+PORT ?= 48765
 INSTANCE_ENV_NAME ?= prod
 MENU_BAR_ICON ?= 0
 

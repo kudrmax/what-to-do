@@ -17,7 +17,7 @@ How What To Do is built and how to work on it. For installing and using the app,
 
 ```bash
 uv sync
-uv run where-to-go serve      # the server in this terminal: API at http://127.0.0.1:18765, endpoint docs at /docs
+uv run where-to-go serve      # the server in this terminal: API at http://127.0.0.1:48765, endpoint docs at /docs
 uv run pytest
 ```
 
@@ -25,7 +25,7 @@ Run `uv run where-to-go serve --help` for the flags:
 
 | Flag | Meaning |
 | --- | --- |
-| `--port` | Port to listen on. Defaults to `PORT` from `.env`, `$WHERE_TO_GO_PORT` or 18765. |
+| `--port` | Port to listen on. Defaults to `PORT` from `.env`, `$WHERE_TO_GO_PORT` or 48765. |
 | `--data` | Folder for the database and images. Defaults to the platform's user data folder; a git worktree uses its own `./data`. |
 | `--ui` | A built web interface to serve at the root. The API then moves to `/api`. |
 
@@ -68,7 +68,7 @@ Settings of a copy come from the command-line flags, then `WHERE_TO_GO_PORT`, `W
 
 | Variable | Meaning |
 | --- | --- |
-| `PORT` | Port of this copy, kept even when busy. Without it the copy starts on 18765 (48765 for the app from the disk image), moves to a free port nearby when another program holds it and remembers the move in `.pids/port` |
+| `PORT` | Port of this copy, kept even when busy. Without it the copy starts on 48765, a port few programs use, moves to a free port nearby when another program holds it and remembers the move in `.pids/port` |
 | `DATA_DIR` | Folder for the database and images; empty means the platform's user data folder |
 | `INSTANCE_ENV_NAME` | Label of this copy: `prod` names the macOS app "What To Do", anything else "What To Do <Name>" |
 | `MENU_BAR_ICON` | `1` makes the macOS app live in the menu bar |

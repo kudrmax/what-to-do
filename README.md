@@ -163,7 +163,7 @@ cd what-to-do
 uv run where-to-go up
 ```
 
-`up` installs everything the first time, builds the interface, starts the app in the background and prints its address, usually **http://127.0.0.1:18765**: open it in your browser. Closing the terminal does not stop the app.
+`up` installs everything the first time, builds the interface, starts the app in the background and prints its address, usually **http://127.0.0.1:48765**: open it in your browser. Closing the terminal does not stop the app.
 
 #### Everyday commands
 
