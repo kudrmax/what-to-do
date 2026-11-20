@@ -2,6 +2,14 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.29.0 — 2026-11-20
+
+Cards show every photo of their event, not just one.
+
+### Photo grid on cards
+When the posts about an event carry several photos, its card shows them as a grid: the main photo large, up to four more beside it. A video counts as one photo, and a weekly digest adds only its picture of this event. On a wide card the main photo sits on top with the rest in a row under it. The phone page shows the same grid.
+![](docs/images/changelog/1.29.0/photo-grid.png)
+
 ## 1.28.1 — 2026-11-20
 
 Add to Calendar works in the macOS app.
