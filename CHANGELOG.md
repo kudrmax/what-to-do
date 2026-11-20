@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.27.1 — 2026-11-20
+
+A copy of your data can no longer publish your phone page.
+
+### Fixed
+- The phone page's GitHub token now stays in the macOS Keychain of this computer, tied to the app's data folder, instead of in the database. A copy of the data, such as a test copy of the app, no longer carries the token and never publishes to your page. The app moves the token there by itself on the first start after the update: there is nothing to enter again.
+
 ## 1.27.0 — 2026-11-20
 
 Tell Claude what each tag means, and give the events in your feed their tags again.
