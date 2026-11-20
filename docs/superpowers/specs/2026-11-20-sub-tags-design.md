@@ -121,12 +121,28 @@ listening session gets "Talk": both exist already.
 
 Tag names here are translated; in Max's settings the names and meanings are in Russian, like all his tags.
 
+## Second use: games (data, not code)
+
+Max's marks: improv games, LEGO Battle, D&D and board game nights got "maybe" with 4–5; every quiz, bingo and
+KinoLoto got "won't go" with 1–2. Of the 9 upcoming events with "Games and quizzes", 7 are quizzes and bingo.
+
+"Games and quizzes" is renamed to "Games" and gets three kinds:
+
+| Tag | Meaning for Claude | Visibility |
+|---|---|---|
+| Games (parent) | events where the guests play themselves | — |
+| Quiz | teams answer the host's questions; bingo and lotto too | hidden |
+| Board and role-playing | board games, D&D and other tabletop role-playing, mafia | shown |
+| Live games | games played with the body or on a stage: improv games, LEGO Battle, table football, a detective game | shown |
+
+Improv games belong to "Live games", not to "Theatre"; the meaning says so.
+
 ## Non-goals
 
 - Moving an existing tag under a parent. A kind is created as a new tag.
 - More than one level.
 - Several kinds of one parent on one event.
-- Other tags (quizzes, theatre, kids): each gets its own decision later, with the same mechanism.
+- Tags not covered by a "use" section above keep their place until it is written.
 
 ## Tests
 
