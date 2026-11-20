@@ -31,6 +31,7 @@ export function event(id: number, title: string, plan: "sure" | "maybe", extra: 
     plan,
     is_going: true,
     image_url: null,
+    image_urls: [],
     place: "Dorćol Platz",
     map_url: "https://maps.example/dorcol",
     ...extra,

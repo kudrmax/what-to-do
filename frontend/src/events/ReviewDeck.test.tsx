@@ -34,6 +34,7 @@ function card(id: number, title: string): EventCard {
     conflicts: [],
     source_ids: [1],
     image_url: null,
+    image_urls: [],
     place: null,
     map_url: null,
   };
