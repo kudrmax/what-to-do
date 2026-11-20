@@ -42,6 +42,12 @@ const PATHS = {
       <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />
     </>
   ),
+  ban: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.6 5.6l12.8 12.8" />
+    </>
+  ),
   chevronLeft: <path d="M15 6l-6 6 6 6" />,
   chevronRight: <path d="M9 6l6 6-6 6" />,
   sun: (

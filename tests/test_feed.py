@@ -2,7 +2,7 @@ from dataclasses import replace
 from datetime import date, time
 
 from where_to_go.feed import Feed, FeedFilter, PlanFilter
-from where_to_go.models import City, Event, EventKind, Plan
+from where_to_go.models import City, Event, EventKind, HiddenTags, Plan
 from where_to_go.search import SearchQuery
 
 CITY = City(id=1, name="Белград", country="Сербия", timezone="Europe/Belgrade")
@@ -168,11 +168,32 @@ def test_hidden_tags_leave_out_a_card_only_when_every_tag_is_hidden():
         ),
         Sources(),
     )
-    criteria = replace(WEEK, hidden_tags=frozenset({"Театр", "Детям"}))
+    criteria = replace(WEEK, hidden_tags=HiddenTags(hidden=frozenset({"Театр", "Детям"})))
     assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [2, 4]
 
 
+def test_an_always_hidden_tag_leaves_out_a_card_whatever_its_other_tags():
+    feed = Feed(
+        Events(
+            event(id=1, tags=["Детям", "Мастер-класс"]),
+            event(id=2, tags=["Театр", "Детям"]),
+            event(id=3, tags=["Мастер-класс"]),
+            event(id=4, tags=["Театр"]),
+        ),
+        Sources(),
+    )
+    criteria = replace(WEEK, hidden_tags=HiddenTags(hidden=frozenset({"Театр"}), always=frozenset({"Детям"})))
+    assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [3]
+
+
 def test_priority_card_is_never_hidden_by_tags():
-    feed = Feed(Events(event(id=1, tags=["Театр"], is_priority=True), event(id=2, tags=["Театр"])), Sources())
-    criteria = replace(WEEK, hidden_tags=frozenset({"Театр"}))
-    assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [1]
+    feed = Feed(
+        Events(
+            event(id=1, tags=["Театр"], is_priority=True),
+            event(id=2, tags=["Театр"]),
+            event(id=3, tags=["Детям", "Общение"], is_priority=True),
+        ),
+        Sources(),
+    )
+    criteria = replace(WEEK, hidden_tags=HiddenTags(hidden=frozenset({"Театр"}), always=frozenset({"Детям"})))
+    assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [1, 3]

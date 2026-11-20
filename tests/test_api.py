@@ -137,7 +137,7 @@ def test_feed_filters(client):
 def test_tags_settings_and_unknown_ids(client):
     client.post("/cities", json=BELGRADE)
     tags = client.get("/tags").json()
-    assert tags[-1] == {"id": tags[-1]["id"], "name": "Другое", "description": "", "is_fallback": True, "hidden": False}
+    assert tags[-1] == {"id": tags[-1]["id"], "name": "Другое", "description": "", "is_fallback": True, "visibility": "shown"}
     taken = client.patch(f"/tags/{tags[-1]['id']}", json={"name": "Концерт"})
     assert taken.status_code == 422 and "Концерт" in taken.json()["detail"]
     added = client.post("/tags", json={"name": "Танцы"}).json()
@@ -170,14 +170,33 @@ def test_blacklisted_tags_hide_unmarked_cards(client):
     window = {"start": "2099-01-01", "end": "2099-01-07"}
     concert_tag = next(t for t in client.get("/tags").json() if t["name"] == "Концерт")
 
-    hidden = client.put(f"/tags/{concert_tag['id']}/hidden", json={"hidden": True}).json()
+    hidden = client.put(f"/tags/{concert_tag['id']}/visibility", json={"visibility": "hidden"}).json()
 
-    assert hidden["hidden"] is True
+    assert hidden["visibility"] == "hidden"
     shown = [o["event"]["id"] for o in client.get("/events", params=window).json()]
     assert shown == [lecture, marked]
-    client.put(f"/tags/{concert_tag['id']}/hidden", json={"hidden": False})
+    client.put(f"/tags/{concert_tag['id']}/visibility", json={"visibility": "shown"})
     assert concert in [o["event"]["id"] for o in client.get("/events", params=window).json()]
-    assert client.put("/tags/999/hidden", json={"hidden": True}).status_code == 404
+    assert client.put("/tags/999/visibility", json={"visibility": "hidden"}).status_code == 404
+    assert client.put(f"/tags/{concert_tag['id']}/visibility", json={"visibility": "maybe"}).status_code == 422
+
+
+def test_an_always_hidden_tag_hides_unmarked_cards_whatever_their_other_tags(client):
+    concert, lecture, both, marked = seeded(
+        client,
+        ("a", raw_event("Концерт", "2099-01-02", "21:00", tags=["Концерт"])),
+        ("a", raw_event("Лекция", "2099-01-02", "19:00", tags=["Лекция"])),
+        ("a", raw_event("Джаз", "2099-01-03", "20:00", tags=["Лекция", "Концерт"])),
+        ("a", raw_event("Опера", "2099-01-04", "20:00", tags=["Концерт"])),
+    )
+    client.put(f"/events/{marked}/mark", json={"interest": 5, "plan": "sure"})
+    concert_tag = next(t for t in client.get("/tags").json() if t["name"] == "Концерт")
+
+    always = client.put(f"/tags/{concert_tag['id']}/visibility", json={"visibility": "always_hidden"}).json()
+
+    assert always["visibility"] == "always_hidden"
+    shown = [o["event"]["id"] for o in client.get("/events", params={"start": "2099-01-01", "end": "2099-01-07"}).json()]
+    assert shown == [lecture, marked]
 
 
 def test_reordering_tags_keeps_the_fallback_last(client):
@@ -620,7 +639,7 @@ def test_collections_hold_events_and_filter_the_feed(client):
         return [o["event"]["id"] for o in client.get("/events", params={"collection": collection}).json()]
 
     concert_tag = next(t for t in client.get("/tags").json() if t["name"] == "Концерт")
-    client.put(f"/tags/{concert_tag['id']}/hidden", json={"hidden": True})
+    client.put(f"/tags/{concert_tag['id']}/visibility", json={"visibility": "always_hidden"})
     assert ids(funny["id"]) == [concert, lecture]  # every date, hidden tags too
     assert ids(odd["id"]) == [concert]
 

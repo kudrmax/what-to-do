@@ -25,6 +25,14 @@ def _card_language_from_settings(connection: Connection) -> None:
     )
 
 
+def _tag_visibility_from_hidden(connection: Connection) -> None:
+    """Tags hidden before 1.28 keep hiding the same way: an event leaves the feed when every tag it has is hidden."""
+    columns = {row[1] for row in connection.exec_driver_sql('PRAGMA table_info("tags")')}
+    if "hidden" in columns:
+        connection.exec_driver_sql("UPDATE tags SET visibility = 'HIDDEN' WHERE hidden")
+
+
 AFTER_NEW_COLUMN: dict[str, Callable[[Connection], None]] = {
     "cities.card_language": _card_language_from_settings,
+    "tags.visibility": _tag_visibility_from_hidden,
 }

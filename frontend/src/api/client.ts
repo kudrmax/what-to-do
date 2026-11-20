@@ -20,6 +20,7 @@ export type PotentialSource = Schemas["PotentialSourcePublic"];
 export type PotentialSourceOrigin = Schemas["PotentialSourceOrigin"];
 export type Tag = Schemas["TagPublic"];
 export type TagChange = Schemas["TagChange"];
+export type TagVisibility = Schemas["TagVisibility"];
 export type Collection = Schemas["CollectionPublic"];
 export type EventCard = Schemas["EventPublic"];
 export type Mention = Schemas["MentionPublic"];
@@ -100,7 +101,8 @@ export function createApi(baseUrl: string) {
     tags: () => answer(client.GET("/tags")),
     addTag: (name: string) => answer(client.POST("/tags", { body: { name, description: "" } })),
     changeTag: (id: number, change: TagChange) => answer(client.PATCH("/tags/{tag_id}", { params: { path: { tag_id: id } }, body: change })),
-    hideTag: (id: number, hidden: boolean) => answer(client.PUT("/tags/{tag_id}/hidden", { params: { path: { tag_id: id } }, body: { hidden } })),
+    setTagVisibility: (id: number, visibility: TagVisibility) =>
+      answer(client.PUT("/tags/{tag_id}/visibility", { params: { path: { tag_id: id } }, body: { visibility } })),
     reorderTags: (ids: number[]) => answer(client.PUT("/tags/order", { body: { ids } })),
     retagStatus: () => answer(client.GET("/tags/retag")),
     retag: () => answer(client.POST("/tags/retag")),

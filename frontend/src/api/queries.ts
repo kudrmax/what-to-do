@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange } from "./client";
+import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange, TagVisibility } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -122,7 +122,8 @@ export const useSetInstagramReading = () =>
   useApiMutation((api, { id, reading }: { id: number; reading: InstagramReading }) => api.setInstagramReading(id, reading), STALE.sources);
 export const useDeleteSource = () => useApiMutation((api, id: number) => api.deleteSource(id), STALE.city);
 export const useAddTag = () => useApiMutation((api, name: string) => api.addTag(name), STALE.tags);
-export const useHideTag = () => useApiMutation((api, { id, hidden }: { id: number; hidden: boolean }) => api.hideTag(id, hidden), STALE.tags);
+export const useTagVisibility = () =>
+  useApiMutation((api, { id, visibility }: { id: number; visibility: TagVisibility }) => api.setTagVisibility(id, visibility), STALE.tags);
 
 /** Shows the new order at once, so a dragged tag does not jump back while the server saves it. */
 export function useReorderTags() {

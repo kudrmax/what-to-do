@@ -415,7 +415,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tags/{tag_id}/hidden": {
+    "/tags/{tag_id}/visibility": {
         parameters: {
             query?: never;
             header?: never;
@@ -424,10 +424,10 @@ export interface paths {
         };
         get?: never;
         /**
-         * Hide Tag
-         * @description Blacklists a tag or takes it off the list. Cards marked by the user are shown whatever their tags.
+         * Set Tag Visibility
+         * @description Shows a tag, hides it, or hides it always. Cards marked by the user are shown whatever their tags.
          */
-        put: operations["hide_tag_tags__tag_id__hidden_put"];
+        put: operations["set_tag_visibility_tags__tag_id__visibility_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -493,7 +493,7 @@ export interface paths {
         /**
          * Feed
          * @description The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.
-         *     Unmarked cards with a blacklisted tag are left out.
+         *     Unmarked cards whose every tag is hidden, or that have an always hidden tag, are left out.
          */
         get: operations["feed_events_get"];
         put?: never;
@@ -2306,16 +2306,18 @@ export interface components {
              * @description Put by Claude when no tag fits; always last
              */
             is_fallback: boolean;
-            /**
-             * Hidden
-             * @description Blacklisted: the feed leaves out cards whose every tag is hidden, unless the user marked them or they fit the priority wish
-             */
-            hidden: boolean;
+            /** @description Hidden tags leave a card out of the feed when every tag it has is hidden; an always hidden tag leaves out every card that has it. Cards the user marked or that fit the priority wish stay whatever their tags */
+            visibility: components["schemas"]["TagVisibility"];
         };
-        /** TagVisibility */
-        TagVisibility: {
-            /** Hidden */
-            hidden: boolean;
+        /**
+         * TagVisibility
+         * @description How a tag keeps events out of the feed.
+         * @enum {string}
+         */
+        TagVisibility: "shown" | "hidden" | "always_hidden";
+        /** TagVisibilityChange */
+        TagVisibilityChange: {
+            visibility: components["schemas"]["TagVisibility"];
         };
         /**
          * UpdateKind
@@ -3142,7 +3144,7 @@ export interface operations {
             };
         };
     };
-    hide_tag_tags__tag_id__hidden_put: {
+    set_tag_visibility_tags__tag_id__visibility_put: {
         parameters: {
             query?: never;
             header?: never;
@@ -3153,7 +3155,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TagVisibility"];
+                "application/json": components["schemas"]["TagVisibilityChange"];
             };
         };
         responses: {

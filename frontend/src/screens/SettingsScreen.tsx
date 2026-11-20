@@ -1,14 +1,14 @@
 import { useState } from "react";
 
 import type { Settings, Tag } from "../api/client";
-import { useAddTag, useChangeSettings, useDefaultSettings, useHideTag, useChangeTag, useReorderTags, useRetag, useSettings, useTags } from "../api/queries";
+import { useAddTag, useChangeSettings, useDefaultSettings, useChangeTag, useReorderTags, useTagVisibility, useRetag, useSettings, useTags } from "../api/queries";
 import { SECTIONS } from "../app/routes";
 import { useThemeChoice, type ThemeChoice } from "../app/theme";
 import { plural } from "../domain/dates";
 import { moved } from "../domain/tags";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
-import { IconButton } from "../ui/IconButton";
+import { TagVisibilityMenu } from "./TagVisibilityMenu";
 import { InlineEdit } from "../ui/InlineEdit";
 import { Segmented, type SegmentedOption } from "../ui/Segmented";
 import { UpdatesSection } from "../updates/UpdatesSection";
@@ -194,7 +194,7 @@ function TagsSubsection() {
   return (
     <Subsection
       title="Tags"
-      hint={`Claude tags events only with these, up to four per event. Drag a tag to change the order on cards, click its name to rename it, and under the name tell Claude what the tag means. Click the eye to hide its events from the feed. An event leaves the feed only when all its tags are hidden; marked ones and ones that fit what you look for first stay. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
+      hint={`Claude tags events only with these, up to four per event. Drag a tag to change the order on cards, click its name to rename it, and under the name tell Claude what the tag means. Click the eye to hide a tag. An event leaves the feed when all its tags are hidden, or when it has a tag that is always hidden; marked ones and ones that fit what you look for first stay. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
     >
       <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (
@@ -239,8 +239,8 @@ interface TagRowProps {
 
 function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: TagRowProps) {
   const change = useChangeTag();
-  const hide = useHideTag();
-  const classes = ["tag-row", tag.hidden && "tag-row--hidden", dragging && "tag-row--dragging"].filter(Boolean).join(" ");
+  const visibility = useTagVisibility();
+  const classes = ["tag-row", tag.visibility !== "shown" && "tag-row--hidden", dragging && "tag-row--dragging"].filter(Boolean).join(" ");
   return (
     <li
       className={classes}
@@ -289,14 +289,8 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
           </span>
         )}
       </span>
-      <IconButton
-        icon={tag.hidden ? "eyeOff" : "eye"}
-        label={tag.hidden ? "Blocked: events whose every tag is hidden leave the feed. Show them again" : "Hide events with this tag from the feed when all their tags are hidden"}
-        aria-pressed={tag.hidden}
-        className="tag-row__visibility"
-        onClick={() => hide.mutate({ id: tag.id, hidden: !tag.hidden })}
-      />
-      {(change.error || hide.error) && <span className="error-text tag-row__error">{errorText(change.error ?? hide.error)}</span>}
+      <TagVisibilityMenu tag={tag} onChange={(next) => visibility.mutate({ id: tag.id, visibility: next })} />
+      {(change.error || visibility.error) && <span className="error-text tag-row__error">{errorText(change.error ?? visibility.error)}</span>}
     </li>
   );
 }
