@@ -2206,7 +2206,7 @@ export interface components {
             is_fallback: boolean;
             /**
              * Hidden
-             * @description Blacklisted: the feed leaves out cards with this tag unless the user marked them
+             * @description Blacklisted: the feed leaves out cards whose every tag is hidden, unless the user marked them or they fit the priority wish
              */
             hidden: boolean;
         };
