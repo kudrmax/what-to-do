@@ -8,6 +8,7 @@ event are declared once, in EventFacts, and shared by what Claude extracts and b
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, time
 from datetime import date as Day
@@ -651,6 +652,26 @@ class PhotoText(PhotoTextBase, table=True):
     read_with: str = Field(description="Fingerprint of the transcription rules")
 
 
+class TagVisibility(StrEnum):
+    """How a tag keeps events out of the feed."""
+
+    SHOWN = "shown"
+    HIDDEN = "hidden"
+    ALWAYS_HIDDEN = "always_hidden"
+
+
+@dataclass(frozen=True)
+class HiddenTags:
+    """Hidden tags leave out an event only together, an always hidden one leaves it out alone."""
+
+    hidden: frozenset[str] = frozenset()
+    always: frozenset[str] = frozenset()
+
+    def block(self, tags: Iterable[str]) -> bool:
+        tags = set(tags)
+        return bool(tags) and (bool(tags & self.always) or tags <= self.hidden | self.always)
+
+
 class TagBase(SQLModel):
     name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Dance"]})
     description: str = Field(
@@ -667,13 +688,16 @@ class Tag(TagBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     position: int = 0
     is_fallback: bool = False
-    hidden: bool = Field(default=False, sa_column_kwargs={"server_default": "0"})
+    visibility: TagVisibility = Field(default=TagVisibility.SHOWN, sa_column_kwargs={"server_default": TagVisibility.SHOWN.name})
 
 
 class TagPublic(TagBase, Public):
     id: int
     is_fallback: bool = Field(description="Put by Claude when no tag fits; always last")
-    hidden: bool = Field(description="Blacklisted: the feed leaves out cards whose every tag is hidden, unless the user marked them or they fit the priority wish")
+    visibility: TagVisibility = Field(
+        description="Hidden tags leave a card out of the feed when every tag it has is hidden; an always hidden tag leaves "
+        "out every card that has it. Cards the user marked or that fit the priority wish stay whatever their tags"
+    )
 
 
 class TagChange(SQLModel):
@@ -681,8 +705,8 @@ class TagChange(SQLModel):
     description: str | None = Field(default=None, description="A new meaning, or null to keep it; empty clears it")
 
 
-class TagVisibility(SQLModel):
-    hidden: bool
+class TagVisibilityChange(SQLModel):
+    visibility: TagVisibility
 
 
 class TagOrder(SQLModel):

@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.26.0"
+  "version": "1.27.0"
  },
  "paths": {
   "/settings": {
@@ -962,14 +962,14 @@
     }
    }
   },
-  "/tags/{tag_id}/hidden": {
+  "/tags/{tag_id}/visibility": {
    "put": {
     "tags": [
      "tags"
     ],
-    "summary": "Hide Tag",
-    "description": "Blacklists a tag or takes it off the list. Cards marked by the user are shown whatever their tags.",
-    "operationId": "hide_tag_tags__tag_id__hidden_put",
+    "summary": "Set Tag Visibility",
+    "description": "Shows a tag, hides it, or hides it always. Cards marked by the user are shown whatever their tags.",
+    "operationId": "set_tag_visibility_tags__tag_id__visibility_put",
     "parameters": [
      {
       "name": "tag_id",
@@ -986,7 +986,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/TagVisibility"
+        "$ref": "#/components/schemas/TagVisibilityChange"
        }
       }
      }
@@ -1174,7 +1174,7 @@
      "events"
     ],
     "summary": "Feed",
-    "description": "The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.\nUnmarked cards with a blacklisted tag are left out.",
+    "description": "The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.\nUnmarked cards whose every tag is hidden, or that have an always hidden tag, are left out.",
     "operationId": "feed_events_get",
     "parameters": [
      {
@@ -4867,10 +4867,9 @@
       "title": "Is Fallback",
       "description": "Put by Claude when no tag fits; always last"
      },
-     "hidden": {
-      "type": "boolean",
-      "title": "Hidden",
-      "description": "Blacklisted: the feed leaves out cards whose every tag is hidden, unless the user marked them or they fit the priority wish"
+     "visibility": {
+      "$ref": "#/components/schemas/TagVisibility",
+      "description": "Hidden tags leave a card out of the feed when every tag it has is hidden; an always hidden tag leaves out every card that has it. Cards the user marked or that fit the priority wish stay whatever their tags"
      }
     },
     "type": "object",
@@ -4879,22 +4878,31 @@
      "description",
      "id",
      "is_fallback",
-     "hidden"
+     "visibility"
     ],
     "title": "TagPublic"
    },
    "TagVisibility": {
+    "type": "string",
+    "enum": [
+     "shown",
+     "hidden",
+     "always_hidden"
+    ],
+    "title": "TagVisibility",
+    "description": "How a tag keeps events out of the feed."
+   },
+   "TagVisibilityChange": {
     "properties": {
-     "hidden": {
-      "type": "boolean",
-      "title": "Hidden"
+     "visibility": {
+      "$ref": "#/components/schemas/TagVisibility"
      }
     },
     "type": "object",
     "required": [
-     "hidden"
+     "visibility"
     ],
-    "title": "TagVisibility"
+    "title": "TagVisibilityChange"
    },
    "UpdateKind": {
     "type": "string",

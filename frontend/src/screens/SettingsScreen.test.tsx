@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -66,8 +66,8 @@ describe("settings", () => {
   });
 
   it("saves what a tag means for Claude", async () => {
-    const api = setup([{ id: 1, name: "Квиз", description: "", is_fallback: false, hidden: true }]);
-    const change = vi.spyOn(api, "changeTag").mockResolvedValue({ id: 1, name: "Квиз", description: "вопросы ведущего", is_fallback: false, hidden: true });
+    const api = setup([{ id: 1, name: "Квиз", description: "", is_fallback: false, visibility: "hidden" }]);
+    const change = vi.spyOn(api, "changeTag").mockResolvedValue({ id: 1, name: "Квиз", description: "вопросы ведущего", is_fallback: false, visibility: "hidden" });
 
     fireEvent.click(await screen.findByRole("button", { name: "Add what it means" }));
     const field = screen.getByLabelText("What “Квиз” means");
@@ -75,6 +75,24 @@ describe("settings", () => {
     fireEvent.keyDown(field, { key: "Enter" });
 
     await waitFor(() => expect(change).toHaveBeenCalledWith(1, { description: "вопросы ведущего" }));
+  });
+
+  it("hides a tag always from the eye's menu", async () => {
+    const kids = { id: 1, name: "Детям", description: "", is_fallback: false, visibility: "hidden" } as const;
+    const api = setup([kids]);
+    const change = vi.spyOn(api, "setTagVisibility").mockResolvedValue({ ...kids, visibility: "always_hidden" });
+
+    fireEvent.click(await screen.findByRole("button", { name: "“Детям”: Hidden. Change" }));
+    const menu = screen.getByRole("menu", { name: "Show events tagged “Детям”" });
+    const choices = within(menu).getAllByRole("menuitemradio");
+    expect(choices.map((c) => [c.querySelector(".tag-visibility__title")?.textContent, c.getAttribute("aria-checked")])).toEqual([
+      ["Shown", "false"],
+      ["Hidden", "true"],
+      ["Always hidden", "false"],
+    ]);
+    fireEvent.click(within(menu).getByRole("menuitemradio", { name: /Always hidden/ }));
+
+    await waitFor(() => expect(change).toHaveBeenCalledWith(1, "always_hidden"));
   });
 
   it("says what a re-tagging costs and starts it", async () => {

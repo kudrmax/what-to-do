@@ -8,7 +8,7 @@ from enum import StrEnum
 from dateutil.rrule import rrulestr
 from sqlmodel import Field, SQLModel
 
-from where_to_go.models import City, Event, EventKind, EventPublic, Plan, Public
+from where_to_go.models import City, Event, EventKind, EventPublic, HiddenTags, Plan, Public
 from where_to_go.repositories import EventRepository, SourceRepository
 from where_to_go.search import SearchQuery
 
@@ -31,7 +31,7 @@ class FeedFilter:
     start: date
     end: date | None = None
     tags: frozenset[str] = frozenset()
-    hidden_tags: frozenset[str] = frozenset()
+    hidden_tags: HiddenTags = HiddenTags()
     source_ids: frozenset[int] = frozenset()
     only_timed: bool = False
     hide_multiday: bool = False
@@ -62,8 +62,7 @@ class FeedFilter:
 
 
     def _blocked(self, event: Event) -> bool:
-        """A card is blocked only when every tag it has is hidden and it fits what the user looks for first."""
-        return not event.is_priority and bool(event.tags) and set(event.tags) <= self.hidden_tags
+        return not event.is_priority and self.hidden_tags.block(event.tags)
 
 
 def searchable(event: Event) -> list[str | None]:

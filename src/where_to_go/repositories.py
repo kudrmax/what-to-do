@@ -35,7 +35,9 @@ from where_to_go.models import (
     Setting,
     Source,
     SourceKind,
+    HiddenTags,
     Tag,
+    TagVisibility,
     PageFacts,
     TelegramPostLink,
     TelegramUrls,
@@ -471,15 +473,19 @@ class TagRepository:
             s.refresh(tag)
             return tag
 
-    def hidden(self) -> frozenset[str]:
-        return frozenset(t.name for t in self.all() if t.hidden)
+    def hidden(self) -> HiddenTags:
+        tags = self.all()
+        return HiddenTags(
+            hidden=frozenset(t.name for t in tags if t.visibility is TagVisibility.HIDDEN),
+            always=frozenset(t.name for t in tags if t.visibility is TagVisibility.ALWAYS_HIDDEN),
+        )
 
-    def set_hidden(self, tag_id: int, hidden: bool) -> Tag:
+    def set_visibility(self, tag_id: int, visibility: TagVisibility) -> Tag:
         with self._db.session() as s:
             tag = s.get(Tag, tag_id)
             if tag is None:
                 raise KeyError(tag_id)
-            tag.hidden = hidden
+            tag.visibility = visibility
             s.add(tag)
             s.commit()
             s.refresh(tag)

@@ -53,7 +53,7 @@ from where_to_go.models import (
     TagChange,
     TagOrder,
     TagPublic,
-    TagVisibility,
+    TagVisibilityChange,
 )
 from where_to_go.phone_page.github import PublishError
 from where_to_go.phone_page.service import PhonePageState
@@ -452,11 +452,11 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             raise HTTPException(409, "A refresh is running: re-tag when it is done")
         return c.retag.start()
 
-    @app.put("/tags/{tag_id}/hidden", response_model=TagPublic, tags=[ApiTag.TAGS])
-    def hide_tag(tag_id: int, body: TagVisibility, c: ContainerDep):
-        """Blacklists a tag or takes it off the list. Cards marked by the user are shown whatever their tags."""
+    @app.put("/tags/{tag_id}/visibility", response_model=TagPublic, tags=[ApiTag.TAGS])
+    def set_tag_visibility(tag_id: int, body: TagVisibilityChange, c: ContainerDep):
+        """Shows a tag, hides it, or hides it always. Cards marked by the user are shown whatever their tags."""
         try:
-            return c.tags.set_hidden(tag_id, body.hidden)
+            return c.tags.set_visibility(tag_id, body.visibility)
         except KeyError:
             raise HTTPException(404, "Tag not found") from None
 
@@ -523,7 +523,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         ] = "",
     ):
         """The feed: cards laid out on days, sorted by day, then time; unknown time and multiday events go last in a day.
-        Unmarked cards with a blacklisted tag are left out."""
+        Unmarked cards whose every tag is hidden, or that have an always hidden tag, are left out."""
         today = datetime.now(ZoneInfo(city.timezone)).date()
         first = start or (c.feed.earliest(city.id) if end or collection is not None else None) or today
         criteria = FeedFilter(
