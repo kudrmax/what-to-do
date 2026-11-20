@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Tag } from "../api/client";
 import { moved, orderTags } from "./tags";
 
-const tag = (id: number, name: string, is_fallback = false): Tag => ({ id, name, is_fallback, hidden: false });
+const tag = (id: number, name: string, is_fallback = false): Tag => ({ id, name, description: "", is_fallback, hidden: false });
 const settings = [tag(1, "Кино"), tag(2, "Концерт"), tag(3, "Лекция"), tag(4, "не распознано", true)];
 
 describe("orderTags", () => {

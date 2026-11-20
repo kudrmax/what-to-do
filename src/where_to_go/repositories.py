@@ -453,12 +453,19 @@ class TagRepository:
                 s.add(Tag(name=fallback, position=position, is_fallback=True))
             s.commit()
 
-    def add(self, name: str) -> Tag:
+    def get(self, tag_id: int) -> Tag:
+        with self._db.session() as s:
+            tag = s.get(Tag, tag_id)
+            if tag is None:
+                raise KeyError(tag_id)
+            return tag
+
+    def add(self, name: str, description: str = "") -> Tag:
         with self._db.session() as s:
             if any(t.name.casefold() == name.casefold() for t in s.exec(select(Tag))):
                 raise ValueError(f"There is a tag \"{name}\" already")
             position = max((t.position for t in s.exec(select(Tag).where(Tag.is_fallback == False))), default=-1) + 1  # noqa: E712
-            tag = Tag(name=name, position=position)
+            tag = Tag(name=name, description=description, position=position)
             s.add(tag)
             s.commit()
             s.refresh(tag)
@@ -489,6 +496,17 @@ class TagRepository:
                 s.add(ordinary[tag_id])
             s.commit()
         return self.all()
+
+    def describe(self, tag_id: int, description: str) -> Tag:
+        with self._db.session() as s:
+            tag = s.get(Tag, tag_id)
+            if tag is None:
+                raise KeyError(tag_id)
+            tag.description = description
+            s.add(tag)
+            s.commit()
+            s.refresh(tag)
+            return tag
 
     def rename(self, tag_id: int, name: str) -> Tag:
         """Renames a tag on every card and every post reading, so a card built again keeps the new name."""
@@ -687,6 +705,19 @@ class EventRepository:
 
     def create(self, city_id: int, facts: EventFacts) -> Event:
         return self.save(Event(city_id=city_id, **facts.facts()))
+
+    def retag(self, event_id: int, tags: list[str]) -> None:
+        """Gives a card new tags, and its announcements too, so a card built again from them keeps the tags."""
+        with self._db.session() as s:
+            event = s.get(Event, event_id)
+            if event is None:
+                raise KeyError(event_id)
+            event.tags = tags
+            s.add(event)
+            for mention in s.exec(select(Mention).where(Mention.event_id == event_id)).unique():
+                mention.data = mention.data.model_copy(update={"tags": tags})
+                s.add(mention)
+            s.commit()
 
     def save(self, event: Event) -> Event:
         with self._db.session() as s:

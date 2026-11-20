@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -20,6 +21,7 @@ class ExtractionContext:
     tags: list[str]
     fallback_tag: str
     priority_wish: str = ""
+    meanings: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def language(self) -> str:
@@ -33,7 +35,7 @@ class ExtractionContext:
         instructions = self.prompt.format(
             city=self.city.label,
             language=self.language,
-            tags=", ".join(f'"{t}"' for t in self.tags),
+            tags=TagList(self.tags, self.meanings).lines(),
             fallback=self.fallback_tag,
         )
         return f"{instructions}\n\n{self._priority()}"
@@ -46,6 +48,21 @@ class ExtractionContext:
             f"<wish>\n{self.priority_wish}\n</wish>\n"
             "- Set is_priority to true for every event that clearly fits this wish, false for the rest."
         )
+
+
+@dataclass(frozen=True)
+class TagList:
+    """The allowed tags as Claude reads them: one per line, with the user's meaning after a dash."""
+
+    names: Sequence[str]
+    meanings: Mapping[str, str]
+
+    def lines(self) -> str:
+        return "\n".join(self._line(name) for name in self.names)
+
+    def _line(self, name: str) -> str:
+        meaning = self.meanings.get(name, "").strip()
+        return f'  "{name}" — {meaning}' if meaning else f'  "{name}"'
 
 
 @dataclass(frozen=True)

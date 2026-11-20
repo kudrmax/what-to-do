@@ -143,6 +143,7 @@ class PostReader:
             tags=[t.name for t in tags if not t.is_fallback],
             fallback_tag=self._tags.fallback(),
             priority_wish=settings.priority_wish,
+            meanings={t.name: t.description for t in tags if t.description},
         )
 
     async def read(self, batch: list[Post], sources: dict[int, Source], context: ExtractionContext) -> None:

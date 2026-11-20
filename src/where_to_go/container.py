@@ -25,6 +25,7 @@ from where_to_go.phone_page.service import PagesPublisher, PhonePageService
 from where_to_go.phone_page.snapshot import SnapshotBuilder
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
+from where_to_go.retagging import EventRetagger, RetagService
 from where_to_go.claude_login import ClaudeSignInFlow
 from where_to_go.launcher.paths import ProjectPaths
 from where_to_go.releases import Releases, ReleaseSource
@@ -84,6 +85,7 @@ class Container:
     feed: Feed
     post_reader: PostReader
     refresh: RefreshService
+    retag: RetagService
     releases: Releases
     claude_sign_in: ClaudeSignInFlow
     statistics: Statistics
@@ -218,6 +220,7 @@ class Container:
             feed=feed,
             post_reader=post_reader,
             refresh=refresh,
+            retag=RetagService(EventRetagger(extraction_llm, cities, events, tags)),
             releases=Releases.build(project, data_dir, release_source),
             statistics=Statistics(db),
             claude_sign_in=ClaudeSignInFlow(),
@@ -228,6 +231,7 @@ class Container:
     async def close(self) -> None:
         await self.phone_page.stop()
         await self.refresh.stop()
+        await self.retag.stop()
         self.claude_sign_in.stop()
         await self.http.aclose()
         await self.instagram_http.aclose()

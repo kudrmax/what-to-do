@@ -1,25 +1,38 @@
 import { useState } from "react";
 
-/** A value shown as text; a click turns it into a field with the old value selected, Enter or leaving saves. */
-export function InlineEdit({ value, label, onSave, className = "" }: { value: string; label: string; onSave: (next: string) => void; className?: string }) {
+interface InlineEditProps {
+  value: string;
+  label: string;
+  onSave: (next: string) => void;
+  className?: string;
+  tip?: string;
+  /** Shown instead of an empty value; an empty value can then be saved too. */
+  placeholder?: string;
+}
+
+/** Text that turns into a field on click; Enter or leaving the field saves, Esc cancels. */
+export function InlineEdit({ value, label, onSave, className = "", tip = "Rename", placeholder }: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   if (!editing) {
+    const empty = !value && placeholder !== undefined;
     return (
-      <button type="button" className={`inline-edit ${className}`} data-tip="Rename" onClick={() => (setDraft(value), setEditing(true))}>
-        {value}
+      <button type="button" className={`inline-edit ${empty ? "inline-edit--empty" : ""} ${className}`} data-tip={tip} onClick={() => (setDraft(value), setEditing(true))}>
+        {empty ? placeholder : value}
       </button>
     );
   }
   const save = () => {
     setEditing(false);
-    if (draft.trim() && draft.trim() !== value) onSave(draft.trim());
+    const next = draft.trim();
+    if (next !== value && (next || placeholder !== undefined)) onSave(next);
   };
   return (
     <input
       className="input inline-edit__input"
       aria-label={label}
       value={draft}
+      placeholder={placeholder}
       autoFocus
       onFocus={(e) => e.target.select()}
       onChange={(e) => setDraft(e.target.value)}

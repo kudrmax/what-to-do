@@ -1,9 +1,10 @@
 import { useState } from "react";
 
 import type { Settings, Tag } from "../api/client";
-import { useAddTag, useChangeSettings, useDefaultSettings, useHideTag, useRenameTag, useReorderTags, useSettings, useTags } from "../api/queries";
+import { useAddTag, useChangeSettings, useDefaultSettings, useHideTag, useChangeTag, useReorderTags, useRetag, useSettings, useTags } from "../api/queries";
 import { SECTIONS } from "../app/routes";
 import { useThemeChoice, type ThemeChoice } from "../app/theme";
+import { plural } from "../domain/dates";
 import { moved } from "../domain/tags";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
@@ -193,7 +194,7 @@ function TagsSubsection() {
   return (
     <Subsection
       title="Tags"
-      hint={`Claude tags events only with these. Drag a tag to change the order on cards, click its name to rename it, click the eye to hide its events from the feed. An event leaves the feed only when all its tags are hidden; marked ones and ones that fit what you look for first stay. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
+      hint={`Claude tags events only with these, up to four per event. Drag a tag to change the order on cards, click its name to rename it, and under the name tell Claude what the tag means. Click the eye to hide its events from the feed. An event leaves the feed only when all its tags are hidden; marked ones and ones that fit what you look for first stay. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
     >
       <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (
@@ -222,6 +223,7 @@ function TagsSubsection() {
         <input className="input tag-add__input" aria-label="New tag" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ New tag" />
       </form>
       {(add.error || reorder.error) && <p className="error-text">{errorText(add.error ?? reorder.error)}</p>}
+      <Retag />
     </Subsection>
   );
 }
@@ -236,7 +238,7 @@ interface TagRowProps {
 }
 
 function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: TagRowProps) {
-  const rename = useRenameTag();
+  const change = useChangeTag();
   const hide = useHideTag();
   const classes = ["tag-row", tag.hidden && "tag-row--hidden", dragging && "tag-row--dragging"].filter(Boolean).join(" ");
   return (
@@ -271,8 +273,21 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
           <Icon name="grip" size={16} />
         </button>
       )}
-      <span className="tag-row__name">
-        <InlineEdit value={tag.name} label={`New name for “${tag.name}”`} onSave={(name) => rename.mutate({ id: tag.id, name })} />
+      <span className="tag-row__text">
+        <span className="tag-row__name">
+          <InlineEdit value={tag.name} label={`New name for “${tag.name}”`} onSave={(name) => change.mutate({ id: tag.id, change: { name } })} />
+        </span>
+        {!tag.is_fallback && (
+          <span className="tag-row__meaning">
+            <InlineEdit
+              value={tag.description}
+              label={`What “${tag.name}” means`}
+              tip="What this tag means for Claude"
+              placeholder="Add what it means"
+              onSave={(description) => change.mutate({ id: tag.id, change: { description } })}
+            />
+          </span>
+        )}
       </span>
       <IconButton
         icon={tag.hidden ? "eyeOff" : "eye"}
@@ -281,8 +296,46 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
         className="tag-row__visibility"
         onClick={() => hide.mutate({ id: tag.id, hidden: !tag.hidden })}
       />
-      {(rename.error || hide.error) && <span className="error-text tag-row__error">{errorText(rename.error ?? hide.error)}</span>}
+      {(change.error || hide.error) && <span className="error-text tag-row__error">{errorText(change.error ?? hide.error)}</span>}
     </li>
+  );
+}
+
+/** Gives the upcoming events tags from the current list again, once the list or the meanings changed. */
+function Retag() {
+  const retag = useRetag();
+  const status = retag.status;
+  if (!status) return null;
+  const finished = !retag.running && status.finished_at;
+  const count = (n: number, one: string, other: string) => `${n} ${plural(n, one, other)}`;
+  return (
+    <div className="retag">
+      <div className="retag__text">
+        <span className="retag__title">Re-tag upcoming events</span>
+        <span className="retag__hint">
+          {retag.running
+            ? `Claude is reading ${count(status.cards_to_retag, "event", "events")} again.`
+            : `Claude reads ${count(status.upcoming, "upcoming event", "upcoming events")} again and tags them from this list, with the meanings: ${count(status.claude_calls, "Claude call", "Claude calls")}. Marks and plans stay.`}
+        </span>
+        {finished && status.errors.length === 0 && (
+          <span className="retag__done" role="status">
+            <Icon name="check" size={14} />
+            {`${count(status.cards_retagged, "event", "events")} re-tagged, ${status.cards_changed} with new tags`}
+          </span>
+        )}
+        {finished &&
+          status.errors.map((error) => (
+            <span key={error} className="error-text">
+              {error}
+            </span>
+          ))}
+        {retag.error && <span className="error-text">{errorText(retag.error)}</span>}
+      </div>
+      <button type="button" className="button button--small retag__button" onClick={retag.start} disabled={retag.running || status.upcoming === 0} aria-busy={retag.running}>
+        {retag.running && <Icon name="refresh" size={14} strokeWidth={2.2} className="retag__spin" />}
+        {retag.running ? `${status.cards_retagged} of ${status.cards_to_retag}` : "Re-tag"}
+      </button>
+    </div>
   );
 }
 

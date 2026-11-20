@@ -219,7 +219,7 @@ class EventFacts(SQLModel):
         "or the entry is a donation of any size",
     )
     currency: str | None = Field(default=None, description="ISO 4217 code of the price, e.g. GBP or EUR; null when price is null or 0")
-    tags: list[str] = json_field(list[str], default_factory=list, description="One or two tags from the allowed list")
+    tags: list[str] = json_field(list[str], default_factory=list, description="One to four tags from the allowed list: every tag whose meaning fits the event")
     is_priority: bool = Field(
         default=False,
         sa_column_kwargs={"server_default": "0"},
@@ -653,6 +653,12 @@ class PhotoText(PhotoTextBase, table=True):
 
 class TagBase(SQLModel):
     name: str = Field(unique=True, min_length=1, schema_extra={"examples": ["Dance"]})
+    description: str = Field(
+        default="",
+        sa_column_kwargs={"server_default": ""},
+        description="What the tag means, in the user's words; Claude reads it to decide which events get the tag",
+        schema_extra={"examples": ["Dance classes and dance parties, not ballet"]},
+    )
 
 
 class Tag(TagBase, table=True):
@@ -668,6 +674,11 @@ class TagPublic(TagBase, Public):
     id: int
     is_fallback: bool = Field(description="Put by Claude when no tag fits; always last")
     hidden: bool = Field(description="Blacklisted: the feed leaves out cards whose every tag is hidden, unless the user marked them or they fit the priority wish")
+
+
+class TagChange(SQLModel):
+    name: str | None = Field(default=None, min_length=1, description="A new name, or null to keep it")
+    description: str | None = Field(default=None, description="A new meaning, or null to keep it; empty clears it")
 
 
 class TagVisibility(SQLModel):

@@ -363,10 +363,11 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Rename Tag
-         * @description Renames a tag everywhere, on existing cards too; the fallback tag as well. 422: another tag has this name.
+         * Change Tag
+         * @description Renames a tag everywhere, on existing cards too, the fallback tag as well, or changes what it means for Claude.
+         *     A new meaning applies to posts read from now on and to a re-tagging. 422: another tag has this name.
          */
-        patch: operations["rename_tag_tags__tag_id__patch"];
+        patch: operations["change_tag_tags__tag_id__patch"];
         trace?: never;
     };
     "/tags/order": {
@@ -383,6 +384,31 @@ export interface paths {
          */
         put: operations["reorder_tags_tags_order_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tags/retag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retag Status
+         * @description Progress of the current or last re-tagging, and how many cards and Claude calls a new one would take.
+         */
+        get: operations["retag_status_tags_retag_get"];
+        put?: never;
+        /**
+         * Start Retag
+         * @description Claude tags every upcoming card of every city again with the current tags and their meanings, in the
+         *     background; poll `GET /tags/retag` while `running` is true. 409: a refresh is running.
+         */
+        post: operations["start_retag_tags_retag_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -698,7 +724,7 @@ export interface paths {
         /**
          * Start Refresh
          * @description Starts a refresh of the active city's sources (only that city's) in the background and returns at once.
-         *     A second call while one runs returns the running one.
+         *     A second call while one runs returns the running one. 409: cards are being re-tagged.
          */
         post: operations["start_refresh_refresh_post"];
         delete?: never;
@@ -1036,7 +1062,14 @@ export interface components {
              *     Channels
              *     - For every post list in "channels" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.
              *
-             *     The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
+             *     The description language is {language}.
+             *
+             *     Tags
+             *     - Give every event every allowed tag that fits it, one to four: what kind of event it is, and also its format or genre when a tag says so. A jazz concert is both a concert and jazz.
+             *     - A tag's meaning, when given after a dash, decides which events get it, over its name.
+             *     - Allowed tags:
+             *     {tags}
+             *     - If none fits, use exactly "{fallback}".
              *     Each field's meaning is in the schema.
              */
             extraction_prompt: string;
@@ -1425,7 +1458,7 @@ export interface components {
             currency: string | null;
             /**
              * Tags
-             * @description One or two tags from the allowed list
+             * @description One to four tags from the allowed list: every tag whose meaning fits the event
              */
             tags: string[];
             /**
@@ -1559,7 +1592,7 @@ export interface components {
             currency?: string | null;
             /**
              * Tags
-             * @description One or two tags from the allowed list
+             * @description One to four tags from the allowed list: every tag whose meaning fits the event
              */
             tags?: string[];
             /**
@@ -1960,6 +1993,48 @@ export interface components {
             /** Running */
             readonly running: boolean;
         };
+        /** RetagProgress */
+        RetagProgress: {
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Upcoming
+             * @description Cards still ahead in every city: what a re-tagging would read
+             * @default 0
+             */
+            upcoming: number;
+            /**
+             * Cards To Retag
+             * @default 0
+             */
+            cards_to_retag: number;
+            /**
+             * Cards Retagged
+             * @description Cards Claude has read so far, changed or not
+             * @default 0
+             */
+            cards_retagged: number;
+            /**
+             * Cards Changed
+             * @default 0
+             */
+            cards_changed: number;
+            /**
+             * Claude Calls
+             * @description Calls a re-tagging makes: one per batch of cards
+             * @default 0
+             */
+            claude_calls: number;
+            /**
+             * Errors
+             * @description Human-readable, ready to show
+             */
+            errors: string[];
+            /** Running */
+            readonly running: boolean;
+        };
         /**
          * SettingsChange
          * @description Only the fields that are sent change.
@@ -2174,6 +2249,26 @@ export interface components {
              * @example Dance
              */
             name: string;
+            /**
+             * Description
+             * @description What the tag means, in the user's words; Claude reads it to decide which events get the tag
+             * @default
+             * @example Dance classes and dance parties, not ballet
+             */
+            description: string;
+        };
+        /** TagChange */
+        TagChange: {
+            /**
+             * Name
+             * @description A new name, or null to keep it
+             */
+            name?: string | null;
+            /**
+             * Description
+             * @description A new meaning, or null to keep it; empty clears it
+             */
+            description?: string | null;
         };
         /** TagCount */
         TagCount: {
@@ -2197,6 +2292,13 @@ export interface components {
              * @example Dance
              */
             name: string;
+            /**
+             * Description
+             * @description What the tag means, in the user's words; Claude reads it to decide which events get the tag
+             * @default
+             * @example Dance classes and dance parties, not ballet
+             */
+            description: string;
             /** Id */
             id: number;
             /**
@@ -2932,7 +3034,7 @@ export interface operations {
             };
         };
     };
-    rename_tag_tags__tag_id__patch: {
+    change_tag_tags__tag_id__patch: {
         parameters: {
             query?: never;
             header?: never;
@@ -2943,7 +3045,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TagBase"];
+                "application/json": components["schemas"]["TagChange"];
             };
         };
         responses: {
@@ -2996,6 +3098,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retag_status_tags_retag_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetagProgress"];
+                };
+            };
+        };
+    };
+    start_retag_tags_retag_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetagProgress"];
                 };
             };
         };
