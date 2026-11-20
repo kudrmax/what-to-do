@@ -2,6 +2,15 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.26.0 — 2026-11-20
+
+A hidden tag no longer takes away events you would want to see.
+
+### Improvements
+- An event leaves the feed only when all its tags are hidden. Improv games tagged **Games** and **Theatre** stay in the feed even when **Theatre** is hidden.
+- Events that fit **What I look for first** are never hidden by tags, so a talk club at a theatre still shows up.
+![](docs/images/changelog/1.26.0/hidden-tags.png)
+
 ## 1.25.1 — 2026-11-19
 
 The app opens even when another program sits on its port.
