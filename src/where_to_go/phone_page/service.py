@@ -16,6 +16,7 @@ from where_to_go.models import Public
 from where_to_go.phone_page.cipher import SnapshotCipher
 from where_to_go.phone_page.config import PhonePageConfig, PhonePageConfigRepository
 from where_to_go.phone_page.github import MARKER, PublishError
+from where_to_go.phone_page.secrets import SecretStoreError
 from where_to_go.phone_page.snapshot import PhoneSnapshot
 
 log = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ class PhonePageService:
     def state(self) -> PhonePageState:
         config = self._config.load()
         return PhonePageState(
-            enabled=config.enabled,
+            enabled=config.active,
             repository=config.repository,
             has_token=bool(config.token),
             has_password=bool(config.password),
@@ -119,7 +120,7 @@ class PhonePageService:
             await self._publisher.ensure_empty_or_ours(candidate.repository, candidate.token)
             published = await self._publish(candidate)
             page_url = await self._publisher.ensure_pages(candidate.repository, candidate.token)
-            self._config.update(
+            self._save(
                 enabled=True,
                 repository=candidate.repository,
                 token=candidate.token,
@@ -129,6 +130,12 @@ class PhonePageService:
                 **published,
             )
         return self.state()
+
+    def _save(self, **change: object) -> None:
+        try:
+            self._config.update(**change)
+        except SecretStoreError as error:
+            raise PublishError(str(error)) from None
 
     def _candidate(self, repository: str, token: str | None, password: str | None) -> PhonePageConfig:
         """The stored config with the new values; `None` keeps the stored secret, a new password gets a new salt."""
@@ -160,7 +167,7 @@ class PhonePageService:
     async def publish_now(self) -> PhonePageState:
         async with self._lock:
             config = self._config.load()
-            if not config.enabled:
+            if not config.active:
                 raise PublishError(TURNED_OFF)
             await self._publish_safely(config)
         return self.state()
@@ -170,7 +177,7 @@ class PhonePageService:
             return
         async with self._lock:
             config = self._config.load()
-            if not config.enabled or self._too_soon(config):
+            if not config.active or self._too_soon(config):
                 return
             await self._publish_safely(config, forced=False)
 

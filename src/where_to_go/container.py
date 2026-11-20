@@ -21,12 +21,14 @@ from where_to_go.originals import OriginalPosts
 from where_to_go.phone_page.cipher import SnapshotCipher
 from where_to_go.phone_page.config import PhonePageConfigRepository
 from where_to_go.phone_page.github import GitHubPagesPublisher
+from where_to_go.phone_page.secrets import SecretStore
 from where_to_go.phone_page.service import PagesPublisher, PhonePageService
 from where_to_go.phone_page.snapshot import SnapshotBuilder
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
 from where_to_go.retagging import EventRetagger, RetagService
 from where_to_go.claude_login import ClaudeSignInFlow
+from where_to_go.launcher.config import InstanceConfig
 from where_to_go.launcher.paths import ProjectPaths
 from where_to_go.releases import Releases, ReleaseSource
 from where_to_go.repositories import (
@@ -104,6 +106,8 @@ class Container:
         release_source: ReleaseSource | None = None,
         phone_publisher: PagesPublisher | None = None,
         phone_bundle: Path | None = None,
+        phone_token: SecretStore | None = None,
+        primary_data_dir: Path | None = None,
         instagram_pause: float = 1.0,
     ) -> Container:
         project = project or ProjectPaths.here()
@@ -175,7 +179,8 @@ class Container:
         )
         feed = Feed(events, sources)
         originals = OriginalPosts(photo_texts)
-        phone_config = PhonePageConfigRepository(db)
+        phone_config = PhonePageConfigRepository(db, phone_token)
+        phone_config.adopt_legacy_token(owner=_same_folder(data_dir, primary_data_dir or InstanceConfig.default_data_dir()))
         phone_page = PhonePageService(
             config=phone_config,
             builder=SnapshotBuilder(
@@ -236,3 +241,8 @@ class Container:
         await self.http.aclose()
         await self.instagram_http.aclose()
         self.db.close()
+
+
+def _same_folder(one: Path, other: Path) -> bool:
+    """The platform's own data folder belongs to the installed app; any other folder holds a copy or a test."""
+    return one.expanduser().resolve() == other.expanduser().resolve()

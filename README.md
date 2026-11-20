@@ -76,7 +76,7 @@ In **Settings**, describe in your own words what you look for, for example "even
 
 ### Your plans on the phone
 
-The app runs on your computer, but your plans can go with you. Turn on **Settings → Phone page** and the app keeps a copy of **Want to go** on a GitHub Pages site of your own: the same cards, filters and event window, read-only. The site is public, so everything on it is encrypted with a password you choose; the phone asks for it once. The app updates the page by itself while it runs, at most once every 10 minutes. You need a free GitHub account: the section walks you through creating an empty repository, a token limited to it and turning Pages on.
+The app runs on your computer, but your plans can go with you. Turn on **Settings → Phone page** and the app keeps a copy of **Want to go** on a GitHub Pages site of your own: the same cards, filters and event window, read-only. The site is public, so everything on it is encrypted with a password you choose; the phone asks for it once. The app updates the page by itself while it runs, at most once every 10 minutes. You need a free GitHub account: the section walks you through creating an empty repository, a token limited to it and turning Pages on. The token stays in the macOS Keychain of this computer, tied to the app's data folder: a copy of the data, for example in a test copy of the app, never carries it and never publishes.
 
 ### Sources you control
 
