@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.29.1 — 2026-11-20
+
+The app measures how fast it answers, to find where it slows down.
+
+### Improvements
+- The app log records how long the feed takes to load and show, how long a mark takes from the click to the updated cards, and every moment the window freezes for longer than 150 ms.
+
 ## 1.29.0 — 2026-11-20
 
 Cards show every photo of their event, not just one.
