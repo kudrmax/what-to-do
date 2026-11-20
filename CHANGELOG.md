@@ -2,6 +2,22 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.27.0 — 2026-11-20
+
+Tell Claude what each tag means, and give the events in your feed their tags again.
+
+### Tag meanings
+Under every tag in **Settings → Your feed → Tags** there is a line for what the tag means, such as "quizzes where teams answer the host's questions; bingo too". Claude reads it when it tags new posts, so a tag goes where you mean it, not where its name suggests.
+![](docs/images/changelog/1.27.0/tag-meanings.png)
+
+### Re-tag upcoming events
+After you change the tags or their meanings, **Re-tag** under the list gives every upcoming event its tags again. It says beforehand how many events it reads and how many Claude calls that takes. Your marks and plans stay.
+![](docs/images/changelog/1.27.0/retag.png)
+
+### Improvements
+- An event can now get up to four tags, so a jazz concert is both a concert and jazz, and a talk club at a theatre is both theatre and talk.
+- Refresh and re-tagging don't run at the same time.
+
 ## 1.26.0 — 2026-11-20
 
 A hidden tag no longer takes away events you would want to see.
