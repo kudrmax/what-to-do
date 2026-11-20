@@ -343,6 +343,7 @@ class EventCard(EventFacts, Mark):
         list[int], default_factory=list, sa_column_kwargs={"server_default": "[]"}, description="The user's collections it is in"
     )
     image_path: str | None = Field(default=None, exclude=True)
+    image_paths: list[str] = json_field(list[str], default_factory=list, sa_column_kwargs={"server_default": "[]"}, exclude=True)
 
     @property
     def is_kept(self) -> bool:
@@ -374,6 +375,11 @@ class EventPublic(EventCard, Public):
     @property
     def image_url(self) -> str | None:
         return f"{IMAGE_ROUTE}/{self.image_path}" if self.image_path else None
+
+    @computed_field(description="Photos of the event, the main one first; the card shows the first five")
+    @property
+    def image_urls(self) -> list[str]:
+        return [f"{IMAGE_ROUTE}/{path}" for path in self.image_paths]
 
     @computed_field
     @property

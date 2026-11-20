@@ -6,7 +6,7 @@ import { useCardLanguage } from "../api/useActiveCity";
 import { useReadOnly } from "../app/readOnly";
 import { formatPrice } from "../domain/price";
 import { orderTags } from "../domain/tags";
-import { EventPhoto } from "./EventPhoto";
+import { EventPhotoGrid } from "./EventPhotoGrid";
 import { EventTime } from "./EventTime";
 import { PriorityBadge } from "./PriorityBadge";
 import { CollectionButton } from "./CollectionButton";
@@ -44,7 +44,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
     >
       {!readOnly && <CardCollectionButton event={event} keep={keepToMarks} />}
       <div className="card__layout">
-      <EventPhoto path={event.image_url} className="card__photo" />
+      <EventPhotoGrid paths={event.image_urls?.length ? event.image_urls : [event.image_url]} className="card__photo" />
       <div className="card__body">
         <EventCardSummary event={event} shownTags={shownTags} />
         {!readOnly && (

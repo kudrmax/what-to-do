@@ -39,6 +39,7 @@ function card(overrides: Partial<EventCard> = {}): EventCard {
     conflicts: [],
     source_ids: [1],
     image_url: null,
+    image_urls: [],
     place: null,
     map_url: null,
     ...overrides,

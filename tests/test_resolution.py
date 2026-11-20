@@ -88,3 +88,15 @@ def test_one_date_of_a_recurring_event_keeps_its_schedule():
 def test_a_date_off_the_schedule_still_wins_as_the_newer_one():
     event = resolve([weekly(1), mention(2, day=date(2026, 11, 20), published=LATE)])
     assert (event.kind, event.start_date) == (EventKind.SINGLE, date(2026, 11, 20))
+
+
+def with_pictures(m, paths, index):
+    m.post.image_paths, m.image_index = paths, index
+    return m
+
+
+def test_the_card_keeps_the_photos_of_its_posts_and_only_its_line_of_a_digest():
+    own = with_pictures(mention(1, description="Подробное описание вечера"), ["a.jpg", "b.jpg"], 0)
+    digest = with_pictures(mention(2, published=LATE), ["x.jpg", "y.jpg"], 1)
+    event = resolver.resolve(resolve([own]).model_copy(), [own, digest], frozenset({2}))
+    assert event.image_paths == ["a.jpg", "b.jpg", "y.jpg"]

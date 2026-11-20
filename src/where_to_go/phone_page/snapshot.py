@@ -77,7 +77,7 @@ class SnapshotBuilder:
         occurrences = _answers(Occurrence, self._feed.occurrences(city, criteria))
         event_ids = dict.fromkeys(o["event"]["id"] for o in occurrences)
         mentions = {str(i): _answers(MentionPublic, self._originals.present(self._mentions.of_event(i))) for i in event_ids}
-        urls = [o["event"]["image_url"] for o in occurrences] + [p["url"] for found in mentions.values() for m in found for p in m["photos"]]
+        urls = [url for o in occurrences for url in [o["event"]["image_url"], *o["event"]["image_urls"]]] + [p["url"] for found in mentions.values() for m in found for p in m["photos"]]
         images, files = self._image_files(urls)
         snapshot = PhoneSnapshot(
             made_at=now,

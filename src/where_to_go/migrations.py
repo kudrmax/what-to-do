@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 from sqlalchemy.engine import Connection
 
+from where_to_go.card_photos import CardPhotos, PostPictures
 from where_to_go.reading_rules import ReadingRules
 
 LEGACY_CARD_LANGUAGE = "русский"
@@ -32,7 +33,25 @@ def _tag_visibility_from_hidden(connection: Connection) -> None:
         connection.exec_driver_sql("UPDATE tags SET visibility = 'HIDDEN' WHERE hidden")
 
 
+def _photos_of_cards(connection: Connection) -> None:
+    """Cards made before 1.29 get the photos of their posts, as the resolver picks them for new cards."""
+    rows = connection.exec_driver_sql(
+        """
+        SELECT m.event_id, e.image_path, p.image_paths, m.image_index,
+               (SELECT COUNT(*) FROM mentions other WHERE other.post_id = m.post_id) > 1
+        FROM mentions m JOIN posts p ON p.id = m.post_id JOIN events e ON e.id = m.event_id
+        ORDER BY m.event_id, p.published_at
+        """
+    ).all()
+    cards: dict[int, tuple[str | None, list[PostPictures]]] = {}
+    for event_id, main, paths, index, shared in rows:
+        cards.setdefault(event_id, (main, []))[1].append(PostPictures(json.loads(paths), index, bool(shared)))
+    for event_id, (main, posts) in cards.items():
+        connection.exec_driver_sql("UPDATE events SET image_paths = ? WHERE id = ?", (json.dumps(CardPhotos.pick(main, posts)), event_id))
+
+
 AFTER_NEW_COLUMN: dict[str, Callable[[Connection], None]] = {
     "cities.card_language": _card_language_from_settings,
     "tags.visibility": _tag_visibility_from_hidden,
+    "events.image_paths": _photos_of_cards,
 }
