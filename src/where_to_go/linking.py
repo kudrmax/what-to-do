@@ -88,7 +88,8 @@ class EventCards:
         if not mentions:
             self._events.delete(event_id)
             return
-        self._events.save(self._resolver.resolve(self._events.get(event_id), mentions))
+        shared = self._mentions.shared_posts(m.post_id for m in mentions)
+        self._events.save(self._resolver.resolve(self._events.get(event_id), mentions, shared))
 
 
 class DetailsLinks:

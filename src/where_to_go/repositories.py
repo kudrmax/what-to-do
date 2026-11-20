@@ -612,6 +612,12 @@ class MentionRepository:
             s.delete(s.get(Mention, mention_id))
             s.commit()
 
+    def shared_posts(self, post_ids: Iterable[int]) -> frozenset[int]:
+        """Of these posts, the ones behind more than one event."""
+        with self._db.session() as s:
+            query = select(Mention.post_id).where(col(Mention.post_id).in_(list(post_ids))).group_by(Mention.post_id).having(func.count() > 1)
+            return frozenset(s.exec(query))
+
     def of_event(self, event_id: int) -> list[Mention]:
         with self._db.session() as s:
             query = select(Mention).join(Post).where(Mention.event_id == event_id).order_by(Post.published_at)

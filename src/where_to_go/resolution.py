@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import TypeVar
 
+from where_to_go.card_photos import CardPhotos, PostPictures
 from where_to_go.models import Conflict, ConflictField, Event, EventFacts, EventKind, Mention, UpdateKind
 
 T = TypeVar("T")
@@ -25,7 +26,7 @@ class EventResolver:
     def __init__(self, fallback_tag: Callable[[], str]) -> None:
         self._fallback_tag = fallback_tag
 
-    def resolve(self, card: Event, mentions: list[Mention]) -> Event:
+    def resolve(self, card: Event, mentions: list[Mention], shared_posts: frozenset[int] = frozenset()) -> Event:
         if not mentions:
             raise ValueError("a card needs at least one mention")
         newest = sorted(mentions, key=lambda m: (m.data.from_organizer, m.published_at), reverse=True)
@@ -40,6 +41,7 @@ class EventResolver:
         facts["is_priority"] = any(m.data.is_priority for m in mentions)
         card.sqlmodel_update(EventFacts.model_validate(facts).facts())
         card.image_path = self._first(fullest, lambda m: m.image_path)
+        card.image_paths = CardPhotos.pick(card.image_path, [PostPictures(m.post.image_paths, m.image_index, m.post_id in shared_posts) for m in mentions])
         card.is_cancelled = self._is_cancelled(mentions)
         card.conflicts = self._conflicts(schedule)
         card.source_ids = sorted({m.source_id for m in mentions})

@@ -1493,6 +1493,11 @@ export interface components {
             /** Image Url */
             readonly image_url: string | null;
             /**
+             * Image Urls
+             * @description Photos of the event, the main one first; the card shows the first five
+             */
+            readonly image_urls: string[];
+            /**
              * Place
              * @description The venue and the address as one line, or whichever is known.
              */
