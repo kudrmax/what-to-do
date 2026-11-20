@@ -2,6 +2,13 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.28.1 — 2026-11-20
+
+Add to Calendar works in the macOS app.
+
+### Fixed
+- **Add to Calendar** in the macOS app did nothing. Now it opens the event in Calendar, ready to be added.
+
 ## 1.28.0 — 2026-11-20
 
 A tag can now hide its events whatever their other tags are.
