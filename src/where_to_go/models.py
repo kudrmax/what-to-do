@@ -667,7 +667,7 @@ class Tag(TagBase, table=True):
 class TagPublic(TagBase, Public):
     id: int
     is_fallback: bool = Field(description="Put by Claude when no tag fits; always last")
-    hidden: bool = Field(description="Blacklisted: the feed leaves out cards with this tag unless the user marked them")
+    hidden: bool = Field(description="Blacklisted: the feed leaves out cards whose every tag is hidden, unless the user marked them or they fit the priority wish")
 
 
 class TagVisibility(SQLModel):

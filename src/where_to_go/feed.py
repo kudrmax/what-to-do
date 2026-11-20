@@ -48,7 +48,7 @@ class FeedFilter:
             return False
         if self.collection is not None and self.collection not in event.collection_ids:
             return False
-        if event.plan is None and self.collection is None and self.hidden_tags & set(event.tags):
+        if event.plan is None and self.collection is None and self._blocked(event):
             return False
         if self.source_ids and not self.source_ids & set(event.source_ids):
             return False
@@ -59,6 +59,11 @@ class FeedFilter:
         if self.only_priority and not event.is_priority:
             return False
         return not self.plans or PlanFilter(event.plan or PlanFilter.NONE) in self.plans
+
+
+    def _blocked(self, event: Event) -> bool:
+        """A card is blocked only when every tag it has is hidden and it fits what the user looks for first."""
+        return not event.is_priority and bool(event.tags) and set(event.tags) <= self.hidden_tags
 
 
 def searchable(event: Event) -> list[str | None]:

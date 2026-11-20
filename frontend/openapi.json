@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.24.0"
+  "version": "1.25.1"
  },
  "paths": {
   "/settings": {
@@ -4697,7 +4697,7 @@
      "hidden": {
       "type": "boolean",
       "title": "Hidden",
-      "description": "Blacklisted: the feed leaves out cards with this tag unless the user marked them"
+      "description": "Blacklisted: the feed leaves out cards whose every tag is hidden, unless the user marked them or they fit the priority wish"
      }
     },
     "type": "object",

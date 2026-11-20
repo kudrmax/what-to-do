@@ -156,3 +156,23 @@ def test_collection_shows_a_regular_event_once_on_its_next_date():
     passed = replace(collection, today=date(2026, 12, 1))
     assert [o.date for o in feed.occurrences(CITY, passed)] == [date(2026, 11, 17)]
     assert [o.date for o in feed.occurrences(CITY, replace(collection, today=date(2026, 11, 1)))] == [date(2026, 11, 10)]
+
+
+def test_hidden_tags_leave_out_a_card_only_when_every_tag_is_hidden():
+    feed = Feed(
+        Events(
+            event(id=1, tags=["Театр"]),
+            event(id=2, tags=["Театр", "Игры и квизы"]),
+            event(id=3, tags=["Театр", "Детям"]),
+            event(id=4, tags=["Лекция"]),
+        ),
+        Sources(),
+    )
+    criteria = replace(WEEK, hidden_tags=frozenset({"Театр", "Детям"}))
+    assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [2, 4]
+
+
+def test_priority_card_is_never_hidden_by_tags():
+    feed = Feed(Events(event(id=1, tags=["Театр"], is_priority=True), event(id=2, tags=["Театр"])), Sources())
+    criteria = replace(WEEK, hidden_tags=frozenset({"Театр"}))
+    assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [1]

@@ -193,7 +193,7 @@ function TagsSubsection() {
   return (
     <Subsection
       title="Tags"
-      hint={`Claude tags events only with these. Drag a tag to change the order on cards, click its name to rename it, click the eye to hide its events from the feed; marked ones stay in Want to go. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
+      hint={`Claude tags events only with these. Drag a tag to change the order on cards, click its name to rename it, click the eye to hide its events from the feed. An event leaves the feed only when all its tags are hidden; marked ones and ones that fit what you look for first stay. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
     >
       <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (
@@ -276,7 +276,7 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
       </span>
       <IconButton
         icon={tag.hidden ? "eyeOff" : "eye"}
-        label={tag.hidden ? "Blocked: events with this tag are hidden from the feed. Show them again" : "Hide events with this tag from the feed"}
+        label={tag.hidden ? "Blocked: events whose every tag is hidden leave the feed. Show them again" : "Hide events with this tag from the feed when all their tags are hidden"}
         aria-pressed={tag.hidden}
         className="tag-row__visibility"
         onClick={() => hide.mutate({ id: tag.id, hidden: !tag.hidden })}
