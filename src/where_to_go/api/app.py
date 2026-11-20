@@ -16,7 +16,6 @@ from sqlmodel import Field, SQLModel
 
 from where_to_go.about import APP_NAME, VERSION
 from where_to_go.api import releases as release_routes
-from where_to_go.api import timings as timing_routes
 from where_to_go.api.errors import validation_error
 from where_to_go.api.origin import SameOriginOnly
 from where_to_go.calendar_file import EventCalendarFile
@@ -240,8 +239,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         version=VERSION,
         description=DESCRIPTION,
         openapi_tags=[{"name": tag.value, "description": text} for tag, text in TAG_HELP.items()]
-        + [{"name": release_routes.TAG, "description": release_routes.TAG_HELP}]
-        + [{"name": timing_routes.TAG, "description": timing_routes.TAG_HELP}],
+        + [{"name": release_routes.TAG, "description": release_routes.TAG_HELP}],
         lifespan=lifespan,
     )
     app.add_middleware(SameOriginOnly)
@@ -722,7 +720,6 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             raise HTTPException(409, str(error)) from None
 
     app.include_router(release_routes.router)
-    app.include_router(timing_routes.router)
     return app
 
 

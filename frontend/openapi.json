@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.29.0"
+  "version": "1.28.0"
  },
  "paths": {
   "/settings": {
@@ -2307,41 +2307,6 @@
      }
     }
    }
-  },
-  "/timings": {
-   "post": {
-    "tags": [
-     "timings"
-    ],
-    "summary": "Record Timing",
-    "description": "Writes one measurement of the interface to the app log, so a slow click can be found later.",
-    "operationId": "record_timing_timings_post",
-    "requestBody": {
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/InterfaceTiming"
-       }
-      }
-     },
-     "required": true
-    },
-    "responses": {
-     "204": {
-      "description": "Successful Response"
-     },
-     "422": {
-      "description": "Validation Error",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      }
-     }
-    }
-   }
   }
  },
  "components": {
@@ -3562,44 +3527,6 @@
      "count"
     ],
     "title": "InterestCount"
-   },
-   "InterfaceTiming": {
-    "properties": {
-     "action": {
-      "type": "string",
-      "maxLength": 100,
-      "title": "Action",
-      "description": "What the user did, e.g. mark"
-     },
-     "screen": {
-      "type": "string",
-      "maxLength": 200,
-      "title": "Screen",
-      "description": "The address the interface was at"
-     },
-     "phases": {
-      "additionalProperties": {
-       "type": "number"
-      },
-      "type": "object",
-      "maxProperties": 20,
-      "title": "Phases",
-      "description": "Milliseconds from the user's action to the end of each phase"
-     },
-     "blocked": {
-      "type": "number",
-      "title": "Blocked",
-      "description": "The longest time the interface could not answer, in milliseconds"
-     }
-    },
-    "type": "object",
-    "required": [
-     "action",
-     "screen",
-     "phases",
-     "blocked"
-    ],
-    "title": "InterfaceTiming"
    },
    "Mark": {
     "properties": {
@@ -5257,10 +5184,6 @@
   {
    "name": "releases",
    "description": "The installed version, its changelog and updating to a newer release"
-  },
-  {
-   "name": "timings",
-   "description": "How long the interface took to answer the user, written to the app log"
   }
  ]
 }

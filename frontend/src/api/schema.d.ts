@@ -1006,26 +1006,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/timings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record Timing
-         * @description Writes one measurement of the interface to the app log, so a slow click can be found later.
-         */
-        post: operations["record_timing_timings_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1680,31 +1660,6 @@ export interface components {
             interest: number | null;
             /** Count */
             count: number;
-        };
-        /** InterfaceTiming */
-        InterfaceTiming: {
-            /**
-             * Action
-             * @description What the user did, e.g. mark
-             */
-            action: string;
-            /**
-             * Screen
-             * @description The address the interface was at
-             */
-            screen: string;
-            /**
-             * Phases
-             * @description Milliseconds from the user's action to the end of each phase
-             */
-            phases: {
-                [key: string]: number;
-            };
-            /**
-             * Blocked
-             * @description The longest time the interface could not answer, in milliseconds
-             */
-            blocked: number;
         };
         /**
          * Mark
@@ -4126,37 +4081,6 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    record_timing_timings_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InterfaceTiming"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
