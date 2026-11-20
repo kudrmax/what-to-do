@@ -9,9 +9,15 @@ import { MultiSelectChip } from "../ui/Chips";
 import { ApiContext } from "../api/queries";
 import { ReadOnlyContext } from "../app/readOnly";
 import { EventCardView } from "./EventCardView";
+import { useOpenEvent } from "./navigation";
 import { EventTime } from "./EventTime";
 import { SearchField } from "./SearchField";
 import { useEventFilters } from "./useEventFilters";
+
+/** A card the way a list gives it: with the list's way to open an event. */
+function Card(props: Omit<Parameters<typeof EventCardView>[0], "onOpen">) {
+  return <EventCardView {...props} onOpen={useOpenEvent()} />;
+}
 
 function card(overrides: Partial<EventCard> = {}): EventCard {
   return {
@@ -74,13 +80,13 @@ function setup(children: ReactNode, path = "/", readOnly = false) {
 
 describe("event card", () => {
   it("opens the event from anywhere on the card", () => {
-    setup(<EventCardView event={card()} day="2026-11-13" />);
+    setup(<Card event={card()} day="2026-11-13" />);
     fireEvent.click(screen.getByText("Командный квиз"));
     expect(screen.getByTestId("where").textContent).toBe("/event/7?day=2026-11-13");
   });
 
   it("marks without opening, and a second click on the same mark clears it", async () => {
-    const { mark } = setup(<EventCardView event={card({ interest: 4 })} day="2026-11-13" />);
+    const { mark } = setup(<Card event={card({ interest: 4 })} day="2026-11-13" />);
     fireEvent.click(screen.getByRole("button", { name: "Going for sure" }));
     await waitFor(() => expect(mark).toHaveBeenLastCalledWith(7, { interest: 4, plan: "sure" }));
     fireEvent.click(screen.getByRole("button", { name: "Interesting" }));
@@ -89,12 +95,12 @@ describe("event card", () => {
   });
 
   it("offers a note to the developer", () => {
-    setup(<EventCardView event={card()} day="2026-11-13" />);
+    setup(<Card event={card()} day="2026-11-13" />);
     expect(screen.getByRole("button", { name: "Note to developer" })).toBeInTheDocument();
   });
 
   it("read-only has no marks and no note to the developer, and still opens the event", () => {
-    setup(<EventCardView event={card({ interest: 4, plan: "sure" })} day="2026-11-13" />, "/", true);
+    setup(<Card event={card({ interest: 4, plan: "sure" })} day="2026-11-13" />, "/", true);
     expect(screen.queryByRole("group", { name: "Interest" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Status" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Note to developer" })).not.toBeInTheDocument();
@@ -104,13 +110,13 @@ describe("event card", () => {
   });
 
   it("marks an event that fits the wish from settings", () => {
-    setup(<EventCardView event={card({ is_priority: true })} day="2026-11-13" />);
+    setup(<Card event={card({ is_priority: true })} day="2026-11-13" />);
     expect(screen.getByRole("link").className).toContain("card--priority");
     expect(screen.getByText("For you")).toBeTruthy();
   });
 
   it("shows the price as words and the tag the list is filtered by", () => {
-    setup(<EventCardView event={card()} day="2026-11-13" shownTags={["Встреча"]} />);
+    setup(<Card event={card()} day="2026-11-13" shownTags={["Встреча"]} />);
     expect(screen.getByText("Free")).toBeInTheDocument();
     expect(screen.getByText("Встреча")).toBeInTheDocument();
     expect(screen.queryByText("Игры и квизы")).not.toBeInTheDocument();

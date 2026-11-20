@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from "react";
+import { memo, type KeyboardEvent, type MouseEvent } from "react";
 
 import type { EventCard } from "../api/client";
 import { usePrefetchMentions, useTags } from "../api/queries";
@@ -13,22 +13,24 @@ import { CollectionButton } from "./CollectionButton";
 import { useCollectionsOn } from "./useCollectionsOn";
 import { DevNoteButton } from "./DevNoteButton";
 import { InterestPicker, PlanPicker } from "./MarkPickers";
-import { useOpenEvent } from "./navigation";
+import type { OpenEvent } from "./navigation";
 import "./EventCardView.css";
 
 interface Props {
   event: EventCard;
   day: string;
   /** Tags the list is filtered by: the card shows the one it matched rather than just its first tag. */
-  shownTags?: string[];
+  shownTags?: readonly string[];
+  onOpen: OpenEvent;
 }
 
-/** A card in a list. A click anywhere opens the event; the marks below work on their own. */
-export function EventCardView({ event, day, shownTags = [] }: Props) {
+const NO_TAGS: readonly string[] = [];
+
+/** A card in a list. A click anywhere opens the event; the marks below work on their own. It is drawn again only when its own event changes. */
+export const EventCardView = memo(function EventCardView({ event, day, shownTags = NO_TAGS, onOpen }: Props) {
   const readOnly = useReadOnly();
-  const open = useOpenEvent();
   const prefetch = usePrefetchMentions();
-  const show = () => open(event.id, day);
+  const show = () => onOpen(event.id, day);
   const keepToMarks = (e: MouseEvent | KeyboardEvent) => e.stopPropagation();
 
   return (
@@ -60,7 +62,7 @@ export function EventCardView({ event, day, shownTags = [] }: Props) {
       </div>
     </article>
   );
-}
+});
 
 /** The heart in the card's corner; the card under it leaves the corner free while it is shown. */
 function CardCollectionButton({ event, keep }: { event: EventCard; keep: (e: MouseEvent | KeyboardEvent) => void }) {
@@ -74,7 +76,7 @@ function CardCollectionButton({ event, keep }: { event: EventCard; keep: (e: Mou
 }
 
 /** What a card says about its event: time, badges, title and description. Every view of the feed shows exactly this. */
-export function EventCardSummary({ event, shownTags = [] }: { event: EventCard; shownTags?: string[] }) {
+export const EventCardSummary = memo(function EventCardSummary({ event, shownTags = NO_TAGS }: { event: EventCard; shownTags?: readonly string[] }) {
   const tags = orderTags(event.tags, useTags().data);
   const tag = tags.find((t) => shownTags.includes(t)) ?? tags[0];
   const price = event.is_cancelled ? null : formatPrice(event.price, event.currency);
@@ -95,4 +97,4 @@ export function EventCardSummary({ event, shownTags = [] }: { event: EventCard; 
       </p>
     </>
   );
-}
+});

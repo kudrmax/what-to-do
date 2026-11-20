@@ -1,3 +1,4 @@
+import { dateFormat } from "./formatters";
 import { conventions } from "./locale";
 
 /** Calendar days as "YYYY-MM-DD" strings: the backend's format, free of time-zone shifts. */
@@ -18,11 +19,11 @@ function utc(day: IsoDay): Date {
 }
 
 function dayFormat(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat(conventions().locale, { ...options, timeZone: "UTC" });
+  return dateFormat(conventions().locale, { ...options, timeZone: "UTC" });
 }
 
 export function todayIn(timeZone: string, now: Date = new Date()): IsoDay {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return dateFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
 export function addDays(day: IsoDay, count: number): IsoDay {
@@ -87,7 +88,7 @@ function rangeDash(before?: Intl.DateTimeRangeFormatPart, after?: Intl.DateTimeR
 function timeFormat(): Intl.DateTimeFormat {
   const { locale, hourCycle } = conventions();
   const twelve = hourCycle === "h12" || hourCycle === "h11";
-  return new Intl.DateTimeFormat(locale, { hour: twelve ? "numeric" : "2-digit", minute: "2-digit", hourCycle, timeZone: "UTC" });
+  return dateFormat(locale, { hour: twelve ? "numeric" : "2-digit", minute: "2-digit", hourCycle, timeZone: "UTC" });
 }
 
 /** A wall-clock time as the region writes it: "19:00:00" → "19:00" or "7:00 PM". */
@@ -110,7 +111,7 @@ export function ago(moment: string, now: Date = new Date()): string {
 /** A moment in the person's own time: "9 November at 18:40" or "November 9 at 6:40 PM". */
 export function momentText(moment: string): string {
   const { locale, hourCycle } = conventions();
-  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hourCycle }).format(new Date(moment));
+  return dateFormat(locale, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hourCycle }).format(new Date(moment));
 }
 
 /** A moment's day in the person's own time: "9 November". */
