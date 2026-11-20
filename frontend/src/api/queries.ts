@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
+import { timings } from "../app/timings";
 import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange, TagVisibility } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
@@ -60,7 +61,15 @@ export const useCities = () => useApiQuery(keys.cities, (api) => api.cities());
 export const useSources = (enabled = true) => useApiQuery(keys.sources, (api) => api.sources(), enabled);
 export const useStats = (enabled = true) => useApiQuery(keys.stats, (api) => api.stats(), enabled);
 export const useTags = () => useApiQuery(keys.tags, (api) => api.tags());
-export const useFeed = (query: FeedQuery, enabled = true) => useApiQuery([...keys.feed, query], (api) => api.feed(query), enabled);
+export const useFeed = (query: FeedQuery, enabled = true) => useApiQuery([...keys.feed, query], (api) => timedFeed(api, query), enabled);
+
+async function timedFeed(api: Api, query: FeedQuery): Promise<Occurrence[]> {
+  const measurement = timings.start("feed");
+  const feed = await api.feed(query);
+  measurement.phase("loaded");
+  void measurement.finish();
+  return feed;
+}
 /** An event opens at once with the card already in a loaded feed, and is then refreshed from the server. */
 export function useEvent(id: number) {
   const api = useApi();
@@ -90,7 +99,25 @@ export function usePrefetchMentions() {
   return (id: number) => client.prefetchQuery({ queryKey: mentionsKey(id), queryFn: () => api.mentions(id) });
 }
 
-export const useSetMark = () => useApiMutation((api, { id, mark }: { id: number; mark: Mark }) => api.mark(id, mark), STALE.cards);
+/** A mark is measured from the click until the page shows the reloaded cards. */
+export function useSetMark() {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, mark }: { id: number; mark: Mark }) => {
+      const measurement = timings.start("mark");
+      try {
+        const saved = await api.mark(id, mark);
+        measurement.phase("saved");
+        await Promise.all(STALE.cards.map((queryKey) => client.invalidateQueries({ queryKey })));
+        measurement.phase("reloaded");
+        return saved;
+      } finally {
+        void measurement.finish();
+      }
+    },
+  });
+}
 export const useSetCollections = () =>
   useApiMutation((api, { id, collectionIds }: { id: number; collectionIds: number[] }) => api.setCollections(id, collectionIds), STALE.collections);
 export const useCollections = (enabled = true) => useApiQuery(keys.collections, (api) => api.collections(), enabled);
