@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import type { FeedQuery } from "../api/client";
@@ -41,6 +41,19 @@ function withRemembered(params: URLSearchParams): URLSearchParams {
   return next;
 }
 
+/** The same filters give the same object, so the lists they are passed to are not drawn again for nothing. */
+function filtersOf(params: URLSearchParams): Shared {
+  const flag = (name: keyof Shared) => params.get(name) === "true";
+  return {
+    tags: params.getAll("tags"),
+    sources: params.getAll("sources").map(Number),
+    only_timed: flag("only_timed"),
+    hide_multiday: flag("hide_multiday"),
+    only_priority: flag("only_priority"),
+    search: params.get("search") ?? "",
+  };
+}
+
 /** The filters every list of events shares. They live in the address, under the API's own names, and are remembered across screens and launches. */
 export function useEventFilters() {
   const [address, setParams] = useSearchParams();
@@ -55,15 +68,8 @@ export function useEventFilters() {
     remember(next);
     setParams(next, { replace: true });
   };
-  const flag = (name: keyof Shared) => params.get(name) === "true";
-  const query: Shared = {
-    tags: params.getAll("tags"),
-    sources: params.getAll("sources").map(Number),
-    only_timed: flag("only_timed"),
-    hide_multiday: flag("hide_multiday"),
-    only_priority: flag("only_priority"),
-    search: params.get("search") ?? "",
-  };
+  const current = params.toString();
+  const query = useMemo(() => filtersOf(new URLSearchParams(current)), [current]);
   return {
     query,
     params,

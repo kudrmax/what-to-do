@@ -57,7 +57,7 @@ function setup(enabled: boolean, collections: Collection[], event = card()) {
         <MemoryRouter>
           <UpdatesProvider>
             <AppShell screenPath="/">
-              <EventCardView event={event} day="2026-11-13" />
+              <EventCardView event={event} day="2026-11-13" onOpen={() => {}} />
             </AppShell>
           </UpdatesProvider>
         </MemoryRouter>

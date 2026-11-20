@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
+import { CardCache, keepUnchangedCards } from "./cardCache";
 import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange, TagVisibility } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
@@ -60,7 +61,16 @@ export const useCities = () => useApiQuery(keys.cities, (api) => api.cities());
 export const useSources = (enabled = true) => useApiQuery(keys.sources, (api) => api.sources(), enabled);
 export const useStats = (enabled = true) => useApiQuery(keys.stats, (api) => api.stats(), enabled);
 export const useTags = () => useApiQuery(keys.tags, (api) => api.tags());
-export const useFeed = (query: FeedQuery, enabled = true) => useApiQuery([...keys.feed, query], (api) => api.feed(query), enabled);
+export function useFeed(query: FeedQuery, enabled = true) {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...keys.feed, query],
+    queryFn: () => api.feed(query),
+    enabled,
+    placeholderData: (previous) => previous,
+    structuralSharing: keepUnchangedCards,
+  });
+}
 /** An event opens at once with the card already in a loaded feed, and is then refreshed from the server. */
 export function useEvent(id: number) {
   const api = useApi();
@@ -90,9 +100,35 @@ export function usePrefetchMentions() {
   return (id: number) => client.prefetchQuery({ queryKey: mentionsKey(id), queryFn: () => api.mentions(id) });
 }
 
-export const useSetMark = () => useApiMutation((api, { id, mark }: { id: number; mark: Mark }) => api.mark(id, mark), STALE.cards);
+/**
+ * A change to one card shows at once in every feed and window that holds it; the server's answer then replaces it,
+ * and on an error the card goes back. The lists reload in the background, which leaves unchanged cards as they are.
+ */
+function useCardMutation<A extends { id: number }>(save: (api: Api, args: A) => Promise<EventCard>, apply: (card: EventCard, args: A) => EventCard, stale: QueryKey[]) {
+  const api = useApi();
+  const client = useQueryClient();
+  const cards = new CardCache(client, keys.feed, keys.event);
+  return useMutation({
+    mutationFn: (args: A) => save(api, args),
+    onMutate: async (args: A) => {
+      const saved = await cards.hold();
+      cards.change(args.id, (card) => apply(card, args));
+      return saved;
+    },
+    onSuccess: (card: EventCard) => cards.change(card.id, () => card),
+    onError: (_error, _args, saved) => saved && cards.restore(saved),
+    onSettled: () => Promise.all(stale.map((queryKey) => client.invalidateQueries({ queryKey }))),
+  });
+}
+
+export const useSetMark = () =>
+  useCardMutation((api, { id, mark }: { id: number; mark: Mark }) => api.mark(id, mark), (card, { mark }) => ({ ...card, ...mark }), STALE.cards);
 export const useSetCollections = () =>
-  useApiMutation((api, { id, collectionIds }: { id: number; collectionIds: number[] }) => api.setCollections(id, collectionIds), STALE.collections);
+  useCardMutation(
+    (api, { id, collectionIds }: { id: number; collectionIds: number[] }) => api.setCollections(id, collectionIds),
+    (card, { collectionIds }) => ({ ...card, collection_ids: collectionIds }),
+    STALE.collections,
+  );
 export const useCollections = (enabled = true) => useApiQuery(keys.collections, (api) => api.collections(), enabled);
 export const useAddCollection = () => useApiMutation((api, name: string) => api.addCollection(name), STALE.collections);
 export const useRenameCollection = () =>
