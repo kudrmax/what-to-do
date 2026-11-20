@@ -19,6 +19,7 @@ export type InstagramReading = Schemas["InstagramReading"];
 export type PotentialSource = Schemas["PotentialSourcePublic"];
 export type PotentialSourceOrigin = Schemas["PotentialSourceOrigin"];
 export type Tag = Schemas["TagPublic"];
+export type TagChange = Schemas["TagChange"];
 export type Collection = Schemas["CollectionPublic"];
 export type EventCard = Schemas["EventPublic"];
 export type Mention = Schemas["MentionPublic"];
@@ -97,10 +98,12 @@ export function createApi(baseUrl: string) {
       answer(client.PUT("/potential-sources/{potential_id}/processed", { params: { path: { potential_id: id } }, body: { processed } })),
 
     tags: () => answer(client.GET("/tags")),
-    addTag: (name: string) => answer(client.POST("/tags", { body: { name } })),
-    renameTag: (id: number, name: string) => answer(client.PATCH("/tags/{tag_id}", { params: { path: { tag_id: id } }, body: { name } })),
+    addTag: (name: string) => answer(client.POST("/tags", { body: { name, description: "" } })),
+    changeTag: (id: number, change: TagChange) => answer(client.PATCH("/tags/{tag_id}", { params: { path: { tag_id: id } }, body: change })),
     hideTag: (id: number, hidden: boolean) => answer(client.PUT("/tags/{tag_id}/hidden", { params: { path: { tag_id: id } }, body: { hidden } })),
     reorderTags: (ids: number[]) => answer(client.PUT("/tags/order", { body: { ids } })),
+    retagStatus: () => answer(client.GET("/tags/retag")),
+    retag: () => answer(client.POST("/tags/retag")),
 
     collections: () => answer(client.GET("/collections")),
     addCollection: (name: string) => answer(client.POST("/collections", { body: { name } })),

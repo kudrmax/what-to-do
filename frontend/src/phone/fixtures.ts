@@ -77,8 +77,8 @@ export function snapshot(occurrences: Occurrence[], madeAt = MADE_AT, mentions: 
     cities: [{ id: 1, name: "Belgrade", country: "Serbia", timezone: "Europe/Belgrade", card_language: "English" }],
     sources: [source(1, "jazz"), source(2, "puppets")],
     tags: [
-      { id: 1, name: "music", is_fallback: false, hidden: false },
-      { id: 2, name: "theatre", is_fallback: false, hidden: false },
+      { id: 1, name: "music", description: "", is_fallback: false, hidden: false },
+      { id: 2, name: "theatre", description: "", is_fallback: false, hidden: false },
     ],
     occurrences,
     mentions,

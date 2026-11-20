@@ -148,11 +148,37 @@
   cursor: default;
 }
 
-.tag-row__name {
+.tag-row__text {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
+  padding: 6px 0;
+}
+
+.tag-row__name {
   font-size: 14px;
   color: var(--text);
+}
+
+.tag-row__meaning {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.tag-row__meaning .inline-edit {
+  max-width: 100%;
+}
+
+.tag-row__meaning .inline-edit__input {
+  width: 100%;
+  height: 26px;
+  font-size: 12px;
+}
+
+.inline-edit--empty {
+  color: var(--text-faint);
 }
 
 .tag-row__name .inline-edit__input {
@@ -170,6 +196,62 @@
 
 .tag-add {
   margin-top: 12px;
+}
+
+.retag {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-control);
+}
+
+.retag__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.retag__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.retag__hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.retag__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.retag__button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-width: 84px;
+  justify-content: center;
+}
+
+.retag__spin {
+  animation: retag-spin 1s linear infinite;
+}
+
+@keyframes retag-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .tag-add__input {

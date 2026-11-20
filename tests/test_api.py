@@ -137,7 +137,7 @@ def test_feed_filters(client):
 def test_tags_settings_and_unknown_ids(client):
     client.post("/cities", json=BELGRADE)
     tags = client.get("/tags").json()
-    assert tags[-1] == {"id": tags[-1]["id"], "name": "Другое", "is_fallback": True, "hidden": False}
+    assert tags[-1] == {"id": tags[-1]["id"], "name": "Другое", "description": "", "is_fallback": True, "hidden": False}
     taken = client.patch(f"/tags/{tags[-1]['id']}", json={"name": "Концерт"})
     assert taken.status_code == 422 and "Концерт" in taken.json()["detail"]
     added = client.post("/tags", json={"name": "Танцы"}).json()

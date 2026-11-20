@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.25.1"
+  "version": "1.26.0"
  },
  "paths": {
   "/settings": {
@@ -826,9 +826,9 @@
     "tags": [
      "tags"
     ],
-    "summary": "Rename Tag",
-    "description": "Renames a tag everywhere, on existing cards too; the fallback tag as well. 422: another tag has this name.",
-    "operationId": "rename_tag_tags__tag_id__patch",
+    "summary": "Change Tag",
+    "description": "Renames a tag everywhere, on existing cards too, the fallback tag as well, or changes what it means for Claude.\nA new meaning applies to posts read from now on and to a re-tagging. 422: another tag has this name.",
+    "operationId": "change_tag_tags__tag_id__patch",
     "parameters": [
      {
       "name": "tag_id",
@@ -845,7 +845,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/TagBase"
+        "$ref": "#/components/schemas/TagChange"
        }
       }
      }
@@ -913,6 +913,48 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/tags/retag": {
+   "get": {
+    "tags": [
+     "tags"
+    ],
+    "summary": "Retag Status",
+    "description": "Progress of the current or last re-tagging, and how many cards and Claude calls a new one would take.",
+    "operationId": "retag_status_tags_retag_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RetagProgress"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "tags"
+    ],
+    "summary": "Start Retag",
+    "description": "Claude tags every upcoming card of every city again with the current tags and their meanings, in the\nbackground; poll `GET /tags/retag` while `running` is true. 409: a refresh is running.",
+    "operationId": "start_retag_tags_retag_post",
+    "responses": {
+     "202": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RetagProgress"
         }
        }
       }
@@ -1795,7 +1837,7 @@
      "refresh"
     ],
     "summary": "Start Refresh",
-    "description": "Starts a refresh of the active city's sources (only that city's) in the background and returns at once.\nA second call while one runs returns the running one.",
+    "description": "Starts a refresh of the active city's sources (only that city's) in the background and returns at once.\nA second call while one runs returns the running one. 409: cards are being re-tagged.",
     "operationId": "start_refresh_refresh_post",
     "responses": {
      "202": {
@@ -2309,7 +2351,7 @@
       "minLength": 1,
       "title": "Extraction Prompt",
       "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
-      "default": "You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nWebsites\n- A website post is the facts of one event page: name, start, end, place, price, organizer, then the page's description. Its \"channel\" is the website: an afisha, never the event's organizer, so from_organizer is false.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n- A poster shared by several events of a post, such as the poster of a lecture series, a festival or a programme, is the photo of every one of them.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}. Allowed tags: {tags}. If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
+      "default": "You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nWebsites\n- A website post is the facts of one event page: name, start, end, place, price, organizer, then the page's description. Its \"channel\" is the website: an afisha, never the event's organizer, so from_organizer is false.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n- A poster shared by several events of a post, such as the poster of a lecture series, a festival or a programme, is the photo of every one of them.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}.\n\nTags\n- Give every event every allowed tag that fits it, one to four: what kind of event it is, and also its format or genre when a tag says so. A jazz concert is both a concert and jazz.\n- A tag's meaning, when given after a dash, decides which events get it, over its name.\n- Allowed tags:\n{tags}\n- If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
      },
      "matching_prompt": {
       "type": "string",
@@ -3068,7 +3110,7 @@
       },
       "type": "array",
       "title": "Tags",
-      "description": "One or two tags from the allowed list"
+      "description": "One to four tags from the allowed list: every tag whose meaning fits the event"
      },
      "is_priority": {
       "type": "boolean",
@@ -3358,7 +3400,7 @@
       },
       "type": "array",
       "title": "Tags",
-      "description": "One or two tags from the allowed list"
+      "description": "One to four tags from the allowed list: every tag whose meaning fits the event"
      },
      "is_priority": {
       "type": "boolean",
@@ -4139,6 +4181,88 @@
     ],
     "title": "RefreshProgress"
    },
+   "RetagProgress": {
+    "properties": {
+     "started_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Started At"
+     },
+     "finished_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Finished At"
+     },
+     "upcoming": {
+      "type": "integer",
+      "title": "Upcoming",
+      "description": "Cards still ahead in every city: what a re-tagging would read",
+      "default": 0
+     },
+     "cards_to_retag": {
+      "type": "integer",
+      "title": "Cards To Retag",
+      "default": 0
+     },
+     "cards_retagged": {
+      "type": "integer",
+      "title": "Cards Retagged",
+      "description": "Cards Claude has read so far, changed or not",
+      "default": 0
+     },
+     "cards_changed": {
+      "type": "integer",
+      "title": "Cards Changed",
+      "default": 0
+     },
+     "claude_calls": {
+      "type": "integer",
+      "title": "Claude Calls",
+      "description": "Calls a re-tagging makes: one per batch of cards",
+      "default": 0
+     },
+     "errors": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Errors",
+      "description": "Human-readable, ready to show"
+     },
+     "running": {
+      "type": "boolean",
+      "title": "Running",
+      "readOnly": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "started_at",
+     "finished_at",
+     "upcoming",
+     "cards_to_retag",
+     "cards_retagged",
+     "cards_changed",
+     "claude_calls",
+     "errors",
+     "running"
+    ],
+    "title": "RetagProgress"
+   },
    "SettingsChange": {
     "properties": {
      "active_city_id": {
@@ -4632,6 +4756,15 @@
       "examples": [
        "Dance"
       ]
+     },
+     "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "What the tag means, in the user's words; Claude reads it to decide which events get the tag",
+      "default": "",
+      "examples": [
+       "Dance classes and dance parties, not ballet"
+      ]
      }
     },
     "type": "object",
@@ -4639,6 +4772,37 @@
      "name"
     ],
     "title": "TagBase"
+   },
+   "TagChange": {
+    "properties": {
+     "name": {
+      "anyOf": [
+       {
+        "type": "string",
+        "minLength": 1
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Name",
+      "description": "A new name, or null to keep it"
+     },
+     "description": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Description",
+      "description": "A new meaning, or null to keep it; empty clears it"
+     }
+    },
+    "type": "object",
+    "title": "TagChange"
    },
    "TagCount": {
     "properties": {
@@ -4685,6 +4849,15 @@
        "Dance"
       ]
      },
+     "description": {
+      "type": "string",
+      "title": "Description",
+      "description": "What the tag means, in the user's words; Claude reads it to decide which events get the tag",
+      "default": "",
+      "examples": [
+       "Dance classes and dance parties, not ballet"
+      ]
+     },
      "id": {
       "type": "integer",
       "title": "Id"
@@ -4703,6 +4876,7 @@
     "type": "object",
     "required": [
      "name",
+     "description",
      "id",
      "is_fallback",
      "hidden"

@@ -23,7 +23,14 @@ Photos
 Channels
 - For every post list in "channels" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.
 
-The description language is {language}. Allowed tags: {tags}. If none fits, use exactly "{fallback}".
+The description language is {language}.
+
+Tags
+- Give every event every allowed tag that fits it, one to four: what kind of event it is, and also its format or genre when a tag says so. A jazz concert is both a concert and jazz.
+- A tag's meaning, when given after a dash, decides which events get it, over its name.
+- Allowed tags:
+{tags}
+- If none fits, use exactly "{fallback}".
 Each field's meaning is in the schema."""
 
 PHOTOS = """You transcribe the photos of posts that announce events: posters, event cards, schedules, digests.

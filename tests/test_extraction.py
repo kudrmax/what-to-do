@@ -117,7 +117,7 @@ async def test_post_missing_from_the_answer_yields_nothing():
 async def test_prompt_gives_local_publication_time_tags_and_language():
     _, llm = await extract_one([])
     system, prompt = llm.calls[0]
-    assert '"Лекция", "Концерт"' in system and "русский" in system and "Белград" in system
+    assert '  "Лекция"\n  "Концерт"' in system and "русский" in system and "Белград" in system
     item = json.loads(prompt.split("\n", 1)[1])[0]
     assert item["published"] == "2026-11-09 18:30 (Monday)" and item["channel"] == "Афиша"
     assert item["photos"] == []
@@ -220,3 +220,8 @@ def test_a_new_wish_reads_the_recent_posts_again_and_no_wish_keeps_the_old_readi
     assert wishing("").rules == CONTEXT.rules
     assert len({CONTEXT.rules, wishing("Ищу друзей").rules, wishing("Хочу танцевать").rules}) == 3
     assert wishing("Ищу друзей").rules == wishing("Ищу друзей").rules
+
+
+async def test_tag_meanings_follow_their_tags_in_the_prompt():
+    meant = ExtractionContext(CONTEXT.city, CONTEXT.prompt, CONTEXT.tags, CONTEXT.fallback_tag, meanings={"Концерт": "живая музыка"})
+    assert '  "Лекция"\n  "Концерт" — живая музыка' in meant.system()

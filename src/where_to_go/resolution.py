@@ -7,7 +7,7 @@ from where_to_go.models import Conflict, ConflictField, Event, EventFacts, Event
 
 T = TypeVar("T")
 
-MAX_TAGS = 3
+MAX_TAGS = 4
 
 TEXT_FIELDS = ("title", "original_title", "description")
 SCHEDULE_FIELDS = ("kind", "start_date", "end_date", "rrule")

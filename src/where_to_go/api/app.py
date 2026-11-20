@@ -50,6 +50,7 @@ from where_to_go.models import (
     SourcePause,
     SourceStatusChange,
     TagBase,
+    TagChange,
     TagOrder,
     TagPublic,
     TagVisibility,
@@ -57,6 +58,7 @@ from where_to_go.models import (
 from where_to_go.phone_page.github import PublishError
 from where_to_go.phone_page.service import PhonePageState
 from where_to_go.refresh import RefreshProgress
+from where_to_go.retagging import RetagProgress
 from where_to_go.search import SearchQuery
 from where_to_go.settings import AppSettings, SettingsChange
 from where_to_go.statistics import CityStats
@@ -410,15 +412,20 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def add_tag(body: TagBase, c: ContainerDep):
         """Adds a tag. Claude uses it for posts read from now on. 409: there is a tag of this name already."""
         try:
-            return c.tags.add(body.name.strip())
+            return c.tags.add(body.name.strip(), body.description.strip())
         except ValueError as error:
             raise HTTPException(409, str(error)) from None
 
     @app.patch("/tags/{tag_id}", response_model=TagPublic, tags=[ApiTag.TAGS])
-    def rename_tag(tag_id: int, body: TagBase, c: ContainerDep):
-        """Renames a tag everywhere, on existing cards too; the fallback tag as well. 422: another tag has this name."""
+    def change_tag(tag_id: int, body: TagChange, c: ContainerDep):
+        """Renames a tag everywhere, on existing cards too, the fallback tag as well, or changes what it means for Claude.
+        A new meaning applies to posts read from now on and to a re-tagging. 422: another tag has this name."""
         try:
-            return c.tags.rename(tag_id, body.name.strip())
+            if body.name is not None:
+                c.tags.rename(tag_id, body.name.strip())
+            if body.description is not None:
+                c.tags.describe(tag_id, body.description.strip())
+            return c.tags.get(tag_id)
         except KeyError:
             raise HTTPException(404, "Tag not found") from None
         except ValueError as error:
@@ -431,6 +438,19 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
             return c.tags.reorder(body.ids)
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
+
+    @app.get("/tags/retag", response_model=RetagProgress, tags=[ApiTag.TAGS])
+    def retag_status(c: ContainerDep):
+        """Progress of the current or last re-tagging, and how many cards and Claude calls a new one would take."""
+        return c.retag.status()
+
+    @app.post("/tags/retag", response_model=RetagProgress, status_code=202, tags=[ApiTag.TAGS])
+    async def start_retag(c: ContainerDep):
+        """Claude tags every upcoming card of every city again with the current tags and their meanings, in the
+        background; poll `GET /tags/retag` while `running` is true. 409: a refresh is running."""
+        if c.refresh.progress.running:
+            raise HTTPException(409, "A refresh is running: re-tag when it is done")
+        return c.retag.start()
 
     @app.put("/tags/{tag_id}/hidden", response_model=TagPublic, tags=[ApiTag.TAGS])
     def hide_tag(tag_id: int, body: TagVisibility, c: ContainerDep):
@@ -611,7 +631,9 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     @app.post("/refresh", response_model=RefreshProgress, status_code=202, tags=[ApiTag.REFRESH])
     async def start_refresh(c: ContainerDep, city: CityDep):
         """Starts a refresh of the active city's sources (only that city's) in the background and returns at once.
-        A second call while one runs returns the running one."""
+        A second call while one runs returns the running one. 409: cards are being re-tagged."""
+        if c.retag.progress.running:
+            raise HTTPException(409, "Cards are being re-tagged: refresh when it is done")
         return c.refresh.start()
 
     @app.get("/refresh", response_model=RefreshProgress, tags=[ApiTag.REFRESH])

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
-import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag } from "./client";
+import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -22,6 +22,7 @@ const keys = {
   feed: ["feed"],
   event: ["event"],
   refresh: ["refresh"],
+  retag: ["tags", "retag"],
   claudeSignIn: ["claude-sign-in"],
   stats: ["stats"],
   phonePage: ["phone-page"],
@@ -133,7 +134,24 @@ export function useReorderTags() {
     onSettled: () => Promise.all(STALE.tags.map((queryKey) => client.invalidateQueries({ queryKey }))),
   });
 }
-export const useRenameTag = () => useApiMutation((api, { id, name }: { id: number; name: string }) => api.renameTag(id, name), STALE.tags);
+export const useChangeTag = () => useApiMutation((api, { id, change }: { id: number; change: TagChange }) => api.changeTag(id, change), STALE.tags);
+
+/** Re-tagging of the upcoming cards; polls while it runs and reloads the cards once it ends. */
+export function useRetag() {
+  const api = useApi();
+  const client = useQueryClient();
+  const status = useQuery({
+    queryKey: keys.retag,
+    queryFn: () => api.retagStatus(),
+    refetchInterval: (query) => (query.state.data?.running ? 1500 : false),
+  });
+  const start = useMutation({ mutationFn: () => api.retag(), onSuccess: (data) => client.setQueryData(keys.retag, data) });
+  const finishedAt = status.data?.running ? null : status.data?.finished_at;
+  useEffect(() => {
+    if (finishedAt) STALE.cards.forEach((queryKey) => client.invalidateQueries({ queryKey }));
+  }, [client, finishedAt]);
+  return { status: status.data, running: (status.data?.running ?? false) || start.isPending, start: () => start.mutate(), error: start.error };
+}
 
 /** Refresh status; polls while a refresh runs and reloads everything else once it ends. */
 export function useRefresh() {
