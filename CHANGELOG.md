@@ -2,6 +2,14 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.28.0 — 2026-11-20
+
+A tag can now hide its events whatever their other tags are.
+
+### Always hidden tags
+The eye next to a tag in **Settings → Your feed → Tags** opens three choices. **Shown** keeps its events in the feed. **Hidden** removes an event only when all its tags are hidden, so a talk club at a theatre stays. **Always hidden** removes every event with the tag, whatever else it is: set it on a tag like "for kids", and a kids' workshop leaves the feed too. An event that fits what you look for first is never hidden.
+![](docs/images/changelog/1.28.0/always-hidden.png)
+
 ## 1.27.1 — 2026-11-20
 
 A copy of your data can no longer publish your phone page.
