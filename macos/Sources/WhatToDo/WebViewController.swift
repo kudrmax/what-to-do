@@ -19,6 +19,7 @@ final class WebViewController: NSViewController {
     private lazy var theme = ThemeBridge(isAppFrame: isAppFrame)
     private lazy var webView: AppWebView = makeWebView()
     private let pageZoom = PageZoom()
+    private let downloads = DownloadOpener()
     private var titlebarInsets: TitlebarInsets?
 
     init(config: AppConfig) {
@@ -134,6 +135,7 @@ extension WebViewController: WKNavigationDelegate {
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
+        if navigationAction.shouldPerformDownload { return decisionHandler(.download) }
         guard let url = navigationAction.request.url,
               navigationAction.targetFrame?.isMainFrame != false,
               !config.isAppURL(url),
@@ -141,6 +143,23 @@ extension WebViewController: WKNavigationDelegate {
         else { return decisionHandler(.allow) }
         openExternally(url)
         decisionHandler(.cancel)
+    }
+
+    /// A response the web view cannot show (a calendar file without the download attribute) is downloaded, not dropped.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        decisionHandler(navigationResponse.canShowMIMEType ? .allow : .download)
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        downloads.take(download)
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        downloads.take(download)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
