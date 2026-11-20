@@ -2,6 +2,15 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.29.2 — 2026-11-20
+
+The app answers at once again: marks, opening a screen and opening an event no longer stall.
+
+### Fixed
+- A mark (interest from 1 to 5, Going, Maybe, Not going) shows the moment you click it, in the list, in an event and in Review. It used to wait for the whole feed to load and draw again.
+- Marking a card, opening or closing an event and changing a filter no longer draw every card in the feed again, only the cards that changed.
+- Upcoming, Want to go and Collections open at once even with hundreds of cards: the days further down are drawn as you scroll towards them.
+
 ## 1.29.0 — 2026-11-20
 
 Cards show every photo of their event, not just one.
