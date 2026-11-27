@@ -1,5 +1,6 @@
 """A copy of the data folder never carries the right to publish to the owner's GitHub."""
 
+import os
 import shlex
 import shutil
 import subprocess
@@ -17,6 +18,12 @@ from where_to_go.phone_page.secrets import KeychainSecret, SecretStoreError
 
 TOKEN = "ghp_owner_token"
 LEGACY = "ghp_token_from_an_old_database"
+
+pytestmark = pytest.mark.skipif(
+    os.name == "nt",
+    reason="the keychain exists on macOS only; Windows keeps the token in memory, and its data folder paths "
+    "carry backslashes that `security -i` cannot take as the keychain account",
+)
 
 
 class FakeSecurity:
