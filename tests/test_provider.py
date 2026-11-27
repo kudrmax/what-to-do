@@ -15,9 +15,8 @@ import respx
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from tests.helpers import FakeClaude, FakeLlm, add_city, judge_same_titles, photos_saying, raw_event
+from tests.helpers import FakeClaude, FakeCodexCli, FakeLlm, add_city, judge_same_titles, photos_saying, raw_event
 from tests.test_api import seeded
-from tests.test_codex_llm import FakeCodexCli
 from tests.test_launcher_cli import OneRunningServer, copy_at
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go.active_provider import ActiveProvider

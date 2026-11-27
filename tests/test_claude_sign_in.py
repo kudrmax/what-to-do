@@ -12,7 +12,7 @@ import pytest
 import respx
 from claude_agent_sdk import ResultMessage
 
-from tests.helpers import FakeClaude, add_city, fake_program, judge_same_titles, photos_saying
+from tests.helpers import FakeClaude, add_city, fake_program, judge_same_titles, photos_saying, wait_until
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go import llm as llm_module
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignInFlow
@@ -198,13 +198,6 @@ def login_cli(tmp_path) -> FakeClaude:
     arguments = tmp_path / "arguments.txt"
     recorder = f"import sys, runpy; open({str(arguments)!r}, 'w').write(' '.join(sys.argv[1:])); sys.argv = sys.argv[:1]; runpy.run_path({str(script)!r}, run_name='__main__')"
     return FakeClaude(path=fake_program(tmp_path / "bin", recorder))
-
-
-def wait_until(condition, timeout: float = 15) -> None:
-    deadline = time.monotonic() + timeout
-    while not condition():
-        assert time.monotonic() < deadline, "timed out"
-        time.sleep(0.05)
 
 
 def test_signing_in_from_the_app_runs_the_clis_login_and_shows_the_page_to_open_by_hand(tmp_path, flows) -> None:

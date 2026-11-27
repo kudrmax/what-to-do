@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 from openai_codex import TransportClosedError
 
-from tests.helpers import judge_same_titles
-from tests.test_codex_llm import FakeCodexCli
+from tests.helpers import FakeCodexCli, judge_same_titles, wait_until
 from where_to_go.api import create_app
 from where_to_go.codex_login import CODEX_MINIMUM, CODEX_SIGN_IN_HINT, ToolGuard
 from where_to_go.codex_sign_in import CodexLogin, CodexSignInFlow
@@ -27,13 +25,19 @@ class FakeHandle:
     def __init__(self) -> None:
         self.auth_url = AUTH_URL
         self.outcome: SimpleNamespace | None = None
+        self.dropped: Exception | None = None
         self.cancelled = 0
 
     def finish(self, success: bool = True, error: str | None = None) -> None:
         self.outcome = SimpleNamespace(success=success, error=error)
 
+    def drop(self, error: Exception) -> None:
+        self.dropped = error
+
     async def wait(self) -> SimpleNamespace:
         while self.outcome is None:
+            if self.dropped is not None:
+                raise self.dropped
             await asyncio.sleep(0.005)
         return self.outcome
 
@@ -42,11 +46,27 @@ class FakeHandle:
         self.finish(False, "Login was cancelled")
 
 
+class FakeProcess:
+    def __init__(self, ended: bool) -> None:
+        self.ended = ended
+
+    def poll(self) -> int | None:
+        return 0 if self.ended else None
+
+
 class FakeClient:
-    def __init__(self, signed_in: bool = False, account_error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        signed_in: bool = False,
+        account_error: Exception | None = None,
+        login_error: Exception | None = None,
+        server_ended: bool = False,
+    ) -> None:
         self.signed_in = signed_in
         self.account_error = account_error
+        self.login_error = login_error
         self.handles: list[FakeHandle] = []
+        self._client = SimpleNamespace(_sync=SimpleNamespace(_proc=FakeProcess(server_ended), _approval_handler=None))
 
     async def account(self) -> SimpleNamespace:
         if self.account_error is not None:
@@ -54,6 +74,8 @@ class FakeClient:
         return SimpleNamespace(account=SimpleNamespace(type="chatgpt") if self.signed_in else None, requires_openai_auth=True)
 
     async def login_chatgpt(self) -> FakeHandle:
+        if self.login_error is not None:
+            raise self.login_error
         self.handles.append(FakeHandle())
         return self.handles[-1]
 
@@ -126,13 +148,48 @@ async def test_a_codex_that_went_missing_before_the_server_started_is_not_instal
 
 
 async def test_a_server_that_stopped_leaves_the_login_unknown_and_is_replaced_next_time() -> None:
-    client = FakeClient(account_error=TransportClosedError("closed"))
+    client = FakeClient(account_error=TransportClosedError("closed"), server_ended=True)
     runtime = FakeRuntime(client)
 
     status = await CodexLogin(FakeCodexCli(), runtime).state()
 
     assert status.state is ReaderSignIn.UNKNOWN
     assert runtime.forgotten == [client]
+
+
+async def test_a_dropped_answer_from_a_running_server_keeps_that_server() -> None:
+    client = FakeClient(account_error=TransportClosedError("closed"), server_ended=False)
+    runtime = FakeRuntime(client)
+
+    status = await CodexLogin(FakeCodexCli(), runtime).state()
+
+    assert status.state is ReaderSignIn.UNKNOWN
+    assert runtime.forgotten == []
+
+
+async def test_a_server_that_stopped_before_the_sign_in_started_is_replaced_next_time() -> None:
+    client = FakeClient(login_error=TransportClosedError("closed"))
+    runtime = FakeRuntime(client)
+    opened: list[str] = []
+    flow = CodexSignInFlow(runtime, opener=opened.append)
+
+    await flow.start()
+
+    assert flow.progress() == SignInProgress(running=False, page_url=None, error="Couldn't start signing in: closed")
+    assert runtime.forgotten == [client]
+    assert opened == []
+
+
+async def test_a_server_that_stopped_while_the_sign_in_waited_is_replaced_next_time() -> None:
+    runtime = FakeRuntime()
+    flow = CodexSignInFlow(runtime, opener=lambda url: None)
+    await flow.start()
+
+    runtime.the_client.handles[0].drop(TransportClosedError("closed"))
+    await settle(lambda: not flow.progress().running)
+
+    assert flow.progress() == SignInProgress(running=False, page_url=None, error="Signing in didn't finish: closed")
+    assert runtime.forgotten == [runtime.the_client]
 
 
 async def test_signing_in_opens_the_page_and_keeps_its_address_while_it_waits() -> None:
@@ -198,13 +255,6 @@ async def test_a_codex_that_is_not_ready_says_so_instead_of_signing_in() -> None
     assert opened == []
 
 
-def wait_until(condition) -> None:
-    deadline = time.monotonic() + 5
-    while not condition():
-        assert time.monotonic() < deadline, "the condition never held"
-        time.sleep(0.01)
-
-
 def codex_container(tmp_path, cli: FakeCodexCli, runtime: FakeRuntime, opened: list[str]) -> Container:
     container = Container.build(tmp_path / "data", matching_llm=judge_same_titles(), codex=cli, codex_runtime=runtime)
     container.codex_sign_in = CodexSignInFlow(runtime, opener=opened.append)
@@ -255,3 +305,13 @@ def test_the_api_starts_the_sign_in_and_shows_when_it_is_done(tmp_path) -> None:
     assert again == started
     assert opened == [AUTH_URL]
     assert (after["state"], after["signing_in"], after["page_url"], after["error"]) == ("signed_in", False, None, None)
+
+
+def test_closing_the_app_stops_a_waiting_sign_in(tmp_path) -> None:
+    runtime = FakeRuntime()
+    container = codex_container(tmp_path, FakeCodexCli(), runtime, [])
+    with TestClient(create_app(lambda: container)) as client:
+        assert client.post("/codex/sign-in").json()["signing_in"] is True
+
+    assert runtime.the_client.handles[0].cancelled == 1
+    assert container.codex_sign_in.progress().running is False

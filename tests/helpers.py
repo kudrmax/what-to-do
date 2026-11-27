@@ -7,9 +7,11 @@ import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime, time
 from pathlib import Path
+from time import monotonic, sleep
 from typing import Any
 
 from where_to_go.claude_login import CLAUDE_MINIMUM
+from where_to_go.codex_login import CODEX_MINIMUM
 from where_to_go.installed_cli import CliStatus, FoundCli
 from where_to_go.llm import LlmImage
 from where_to_go.models import EventKind, ExtractedEvent, Mention, Post, Source, UpdateKind
@@ -29,6 +31,22 @@ def fake_program(directory: Path, code: str, name: str = "claude") -> Path:
     path = directory / f"{name}.cmd"
     path.write_text(f'@"{sys.executable}" "{script}" %*\n', encoding="utf-8")
     return path
+
+
+def wait_until(condition: Callable[[], object], timeout: float = 15) -> None:
+    deadline = monotonic() + timeout
+    while not condition():
+        assert monotonic() < deadline, "the condition never held"
+        sleep(0.01)
+
+
+class FakeCodexCli:
+    def __init__(self, status: CliStatus = CliStatus.READY, path: Path | None = Path("/fake/codex"), version: str | None = "0.172.0") -> None:
+        missing = status is CliStatus.MISSING
+        self.found = FoundCli(status, None if missing else path, None if missing else version, CODEX_MINIMUM, None if missing else "codex update")
+
+    def find(self) -> FoundCli:
+        return self.found
 
 
 class FakeClaude:

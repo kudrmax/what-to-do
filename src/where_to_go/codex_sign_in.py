@@ -9,7 +9,7 @@ from typing import Any
 
 from openai_codex import AsyncChatgptLoginHandle, AsyncCodex, TransportClosedError
 
-from where_to_go.codex_llm import CodexRuntime
+from where_to_go.codex_llm import CodexRuntime, server_ended
 from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
 from where_to_go.llm import CodexRefusedError, CodexUnavailableError, LlmError
 from where_to_go.reader_sign_in import ReaderSignIn, SignInProgress
@@ -49,7 +49,8 @@ class CodexLogin:
         try:
             answer = await client.account()
         except (TransportClosedError, OSError):
-            await self._runtime.forget(client)
+            if server_ended(client):
+                await self._runtime.forget(client)
             return CodexStatus(ReaderSignIn.UNKNOWN, found)
         except Exception:
             return CodexStatus(ReaderSignIn.UNKNOWN, found)
@@ -80,9 +81,17 @@ class CodexSignInFlow:
             self._error = None
             try:
                 client = await self._runtime.client()
-                handle = await client.login_chatgpt()
             except LlmError as error:
                 self._error = str(error)
+                return
+            except Exception as error:
+                self._error = f"Couldn't start signing in: {error}"
+                return
+            try:
+                handle = await client.login_chatgpt()
+            except (TransportClosedError, OSError) as error:
+                self._error = f"Couldn't start signing in: {error}"
+                await self._runtime.forget(client)
                 return
             except Exception as error:
                 self._error = f"Couldn't start signing in: {error}"

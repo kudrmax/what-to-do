@@ -19,7 +19,7 @@ from openai_codex.generated.v2_all import (
     TurnCompletedNotification,
 )
 
-from tests.helpers import fake_program
+from tests.helpers import FakeCodexCli, fake_program
 from where_to_go.codex_llm import CodexJsonLlm, CodexRuntime, decline, decline_every_request, server_ended, start_codex
 from where_to_go.codex_login import CODEX_MINIMUM, CodexHome, ToolGuard
 from where_to_go.installed_cli import CliStatus, FoundCli
@@ -35,15 +35,6 @@ from where_to_go.llm import (
 
 SCHEMA = {"type": "object", "properties": {"title": {"type": "string"}}, "required": ["title"]}
 TURN = "turn-1"
-
-
-class FakeCodexCli:
-    def __init__(self, status: CliStatus = CliStatus.READY, path: Path | None = Path("/fake/codex"), version: str | None = "0.172.0") -> None:
-        missing = status is CliStatus.MISSING
-        self.found = FoundCli(status, None if missing else path, None if missing else version, CODEX_MINIMUM, None if missing else "codex update")
-
-    def find(self) -> FoundCli:
-        return self.found
 
 
 class FakeGuard:
