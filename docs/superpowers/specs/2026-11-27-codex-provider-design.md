@@ -57,15 +57,29 @@ on Codex with that subscription, switched in Settings. No API key either way: bo
   `photo_model`, `extraction_model`, `matching_model` stay as the Claude choices (no migration, no rename of stored keys).
 - `CodexModel` enum offered in Settings: Luna `gpt-6-luna`, Terra `gpt-6.1-terra`, Sol `gpt-6.2-sol`, Astra
   `gpt-6.2-astra` (all in `codex debug models`, all take images). `CodexEffort`: low, medium, high.
-- `CodexJsonLlm` next to `ClaudeJsonLlm`, same `JsonLlm` protocol: one ephemeral, read-only thread per call in an empty
-  temporary working folder, no approvals, system text as the thread's instructions (prepended to the prompt if the SDK
-  has no such option), images as local image inputs, `output_schema` from the call. Signed-out answers raise a
-  provider-neutral `SignedOutError` (today's `ClaudeSignedOutError` generalised).
+- `CodexJsonLlm` next to `ClaudeJsonLlm`, same `JsonLlm` protocol: one ephemeral thread per call in an empty
+  temporary working folder; system text as `base_instructions`; `output_schema`, `model`, `effort` per turn.
+  - **Never pass `sandbox=`** to `thread_start` or a turn: any `sandbox_mode` replaces the `answer-only` profile and
+    reopens reading `:root` (checked with `prompt-input -c sandbox_mode="read-only"`).
+  - **Always `approval_mode=ApprovalMode.deny_all`** (`never`): the SDK default `auto_review` plus its default handler
+    accepts every command and file change (`client.py:833-839`).
+  - **Images as `ImageInput(url="data:<mime>;base64,...")`** built from `LlmImage.data`: no temporary files, no paths
+    in the prompt, no silent "could not read the local image".
+  - Errors through `turn()` + `stream()`, reading `TurnError.codex_error_info`: `unauthorized` raises a
+    provider-neutral `SignedOutError` (today's `ClaudeSignedOutError` generalised), `usageLimitExceeded` a readable
+    "ChatGPT plan limit reached, resets at ..." refresh error. `run()` would drop that info into a bare `RuntimeError`.
+- **One long-lived `AsyncCodex` per app** (each instance starts its own `codex app-server`), started on the first
+  Codex call, closed on shutdown; the parallel photo, post and re-tag calls run as threads on it. The builder confirms
+  concurrent turns on one client work; if not, a small pool.
 - `ProviderJsonLlm`: what the container wires for each step. Reads `llm_provider` on every call and hands the call to
   the Claude or the Codex reader of that step. The three steps keep their own model lambdas.
 - Sign-in: `CodexLogin` (signed in / signed out / unknown via `account()`) and `CodexSignInFlow` (starts
-  `login_chatgpt()`, opens `auth_url` in the browser, keeps it for "open by hand", waits). API mirrors today's:
-  `GET/POST /codex/sign-in`. The refresh error and the sign-in box follow the active provider.
+  `login_chatgpt()`, opens `auth_url` in the browser, keeps it for "open by hand", waits; `stop()` cancels the login
+  handle). API mirrors today's: `GET/POST /codex/sign-in`. The refresh error and the sign-in box follow the active
+  provider.
+- Claude-specific names outside the reader: `RefreshStatus.claude_signed_out` (`refresh.py:78`, read by
+  `RefreshButton.tsx:15`) becomes `signed_out` plus `provider`; the launcher's Claude hint (`launcher/cli.py:256-260`)
+  and the settings descriptions (`settings.py:33-49`) name the active provider.
 
 ### Interface
 
@@ -89,8 +103,12 @@ Duplicate merging       same
 
 ### Bundle
 
-`build-dmg.sh` checks for and keeps the Codex runtime from `openai-codex-cli-bin` as it does for the Claude CLI,
-including its signature. The disk image grows by the size of that binary.
+`openai-codex-cli-bin` holds three binaries, all signed by OpenAI: `codex` 291 MB (120 MB compressed),
+`codex-code-mode-host` 67 MB (25), `codex-exec-server` 63 MB (24). Today's disk images are 256 MB (Apple Silicon) and
+271 MB (Intel). Bundling all three adds about 170 MB to every download, Claude users included; `codex` alone about
+120 MB, if the app works without the other two (to be proven: `code_mode_host` is off).
+
+Max's decision pending: bundle Codex in every download, or download it on the first switch to Codex.
 
 ### Choosing the Codex defaults
 
@@ -150,26 +168,29 @@ Both go into `config.toml` of the app's own Codex home. Guards in the test suite
 - `codex debug prompt-input` with the app's home lists zero tools and no skills; a Codex update that adds a new tool
   turned on by default fails this test before it ships.
 - `codex sandbox` with the app's profile cannot read a file in the home folder or reach the network.
-- After Max signs in: one live trap call, a post asking to read a planted file, whose answer must not contain it.
-
-Still to check by the builder: the SDK (app-server) applies the same home config as the CLI commands above; the
-system text goes in as `base_instructions`, replacing Codex's own coding-agent instructions.
+- `thread/start` through the SDK with the app's home returns `approval_policy: "never"` and no network.
+- **Before merge, after Max signs in (required):** a live trap call through the app's own `CodexJsonLlm`: a post asking
+  to read a planted file. The answer must not contain it and the turn's items must hold no `commandExecution` or
+  `fileChange`. The offline checks cover the CLI; only this covers the app-server path the app uses.
 
 ## Calls made while writing this (Max checks them)
 
 - **Codex gets no tools and cannot read the disk** (settled before planning, see "No tools" below).
-- **The app has its own Codex home** (`CODEX_HOME` in the app's data folder), like `setting_sources=[]` for Claude:
-  Max's own Codex config, MCP servers and AGENTS.md never reach the app's calls, and that home's config is where tools
-  are turned off. Cost: signing in to ChatGPT once more, from the app.
+- **The app has its own Codex home** outside the data folder (`~/Library/Application Support/What To Do/codex`), like
+  `setting_sources=[]` for Claude: Max's own Codex config, MCP servers and AGENTS.md never reach the app's calls, and
+  that home's config is where tools are turned off. Outside the data folder so the ChatGPT login and Codex's own
+  databases never travel with backups, data copies or the phone page; copies share the one login, as with Claude.
+  `features.memories = false` explicitly. Cost: signing in to ChatGPT once more, from the app.
 - **The release waits for the comparison.** Defaults ship already chosen; no interim defaults, no second release to
   change them.
 - **Intel builds keep working:** `openai-codex-cli-bin` 0.172.0 has wheels for macOS arm64 and x86_64.
 
 ## Left to the builder
 
-- Exact SDK calls (async API, how the system text is passed, what `account()` returns when signed out), checked
-  against the installed SDK.
-- How Codex reports a hit usage limit, and turning that into a readable refresh error.
+- Exact SDK calls (what `account()` returns when signed out), checked against the installed SDK.
+- The share of the Plus limit left: the raw `account/rateLimits/read` request (no SDK wrapper), for the comparison.
+- Codex's leftover developer messages (sandbox, `<multi_agent_role>`) stay even with tools off; the comparison shows
+  whether they hurt the JSON answers.
 - Which texts name the provider, as listed above.
 
 ## Release
