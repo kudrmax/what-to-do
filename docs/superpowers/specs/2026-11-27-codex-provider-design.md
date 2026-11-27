@@ -73,13 +73,24 @@ on Codex with that subscription, switched in Settings. No API key either way: bo
   concurrent turns on one client work; if not, a small pool.
 - `ProviderJsonLlm`: what the container wires for each step. Reads `llm_provider` on every call and hands the call to
   the Claude or the Codex reader of that step. The three steps keep their own model lambdas.
-- Sign-in: `CodexLogin` (signed in / signed out / unknown via `account()`) and `CodexSignInFlow` (starts
-  `login_chatgpt()`, opens `auth_url` in the browser, keeps it for "open by hand", waits; `stop()` cancels the login
-  handle). API mirrors today's: `GET/POST /codex/sign-in`. The refresh error and the sign-in box follow the active
-  provider.
-- Claude-specific names outside the reader: `RefreshStatus.claude_signed_out` (`refresh.py:78`, read by
-  `RefreshButton.tsx:15`) becomes `signed_out` plus `provider`; the launcher's Claude hint (`launcher/cli.py:256-260`)
-  and the settings descriptions (`settings.py:33-49`) name the active provider.
+- Sign-in: `CodexLogin` (not installed / too old / signed in / signed out / unknown; installed state from
+  `InstalledCli`, login from `account()`) and `CodexSignInFlow` (starts `login_chatgpt()`, opens `auth_url` in the
+  browser, keeps it for "open by hand", waits; `stop()` cancels the login handle). API mirrors Claude's
+  `GET/POST /claude/sign-in` (same view shape: state, version, minimum, update_command): `GET/POST /codex/sign-in`.
+- Since 1.30.0 (master) the Claude side already has: generic `InstalledCli` (`installed_cli.py`), `claude_cli()`,
+  `ClaudeNotReadyError` base, `RefreshProgress.claude_unavailable`, the install/update/sign-in box under Refresh
+  (`ClaudeSignIn.tsx`, `ui/CommandLine`, `useCopy`). Codex reuses them:
+  - `codex_cli()` in a `codex_login.py`: `InstalledCli("codex", minimum="0.172.0", ...)` (the SDK's pinned runtime;
+    builder confirms an installed newer CLI speaks the SDK's app-server protocol). Places: PATH first, then
+    `~/.local/bin`, `~/.codex/bin` (builder checks where `https://chatgpt.com/codex/install.sh` installs by reading the
+    script, never running it), `/opt/homebrew/bin`, `/usr/local/bin`, Volta/nvm npm folders. Update command from the
+    finder: `brew upgrade --cask codex` for the cask, else `codex update`.
+  - Install commands shown: `curl -fsSL https://chatgpt.com/codex/install.sh | sh` and `brew install --cask codex`
+    (https://github.com/openai/codex README, 2026-11-27).
+  - `ReaderNotReadyError` (base of both providers' signed-out / unavailable errors); `RefreshProgress.claude_unavailable`
+    becomes `reader_unavailable` plus `reader: claude | codex`, frontend follows. The box under Refresh shows the
+    active reader's state with its name, commands and sign-in button.
+- The launcher's start-up warning and the settings descriptions (`settings.py`) name the active provider.
 
 ### Interface
 
@@ -105,11 +116,10 @@ Duplicate merging       same
 
 **Codex is installed by the user, like Claude Code after the previous release** (Max's decision; see
 `2026-11-27-external-claude-design.md`). The disk image carries no Codex binaries: `build-dmg.sh` removes
-`codex_cli_bin`'s binaries (291 + 67 + 63 MB) and checks they are gone. `CodexConfig(codex_bin=...)` points at the
-`codex` found by the same `InstalledCli` finder (places: `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, npm
-global bin, PATH), with a minimum version the builder sets from the SDK's app-server protocol (the SDK pins runtime
-0.172.0). Missing or too old Codex with Codex chosen: the install box names Codex and its install command.
-Dev runs use the installed `codex` too, never the wheel's copy.
+`codex_cli_bin`'s binaries (291 + 67 + 63 MB) and checks they are gone; the smoke test checks the same.
+`CodexConfig(codex_bin=...)` points at the `codex` found by `codex_cli()`. Missing or too old Codex with Codex chosen:
+the box names Codex and its commands. Dev runs use the installed `codex` too, never the wheel's copy. Max installs
+Codex himself when the build reaches the live checks (`brew install --cask codex`), then signs in from the app.
 
 ### Choosing the Codex defaults
 
@@ -165,7 +175,17 @@ Two layers, both proven offline:
    ```
    Checked: under it `cat ~/.zshrc` and `ls ~` give "Operation not permitted", `curl` cannot resolve a host.
 
-Both go into `config.toml` of the app's own Codex home. Guards in the test suite, no login needed:
+Both go into `config.toml` of the app's own Codex home.
+
+**Runtime guard (the user's Codex is not the one tested):** the app runs the `codex` the user installed, which may be
+newer than 0.172.0 and may bring a new tool turned on by default. So before the first call with a given `codex`
+(path + modification time, cached like the version), the app runs `codex debug prompt-input` with its own home and
+refuses to call Codex if the model would get any tool or a skills list. The refusal is a readable refresh error
+("This Codex version offers tools What To Do cannot turn off; update What To Do"), never a silent call. No login and
+no model call are needed for this check.
+
+Guards in the test suite (they use the `codex` from the `openai-codex-cli-bin` wheel in the dev environment and CI; no
+login needed):
 - `codex debug prompt-input` with the app's home lists zero tools and no skills; a Codex update that adds a new tool
   turned on by default fails this test before it ships.
 - `codex sandbox` with the app's profile cannot read a file in the home folder or reach the network.
@@ -184,7 +204,8 @@ Both go into `config.toml` of the app's own Codex home. Guards in the test suite
   `features.memories = false` explicitly. Cost: signing in to ChatGPT once more, from the app.
 - **The release waits for the comparison.** Defaults ship already chosen; no interim defaults, no second release to
   change them.
-- **Intel builds keep working:** `openai-codex-cli-bin` 0.172.0 has wheels for macOS arm64 and x86_64.
+- **The installed Codex is checked for tools before use** (runtime guard above): an update of Codex can never quietly
+  give the model a tool.
 
 ## Left to the builder
 
