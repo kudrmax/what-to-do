@@ -134,3 +134,20 @@ async def test_the_cli_is_looked_up_on_every_call(monkeypatch):
     await llm.complete_json("s", "p", {})
     await llm.complete_json("s", "p", {})
     assert claude.calls == 2
+
+
+async def test_the_cli_is_looked_up_off_the_event_loop(monkeypatch):
+    import threading
+
+    query, _ = fake_query(result(structured_output={}))
+    monkeypatch.setattr(llm_module, "query", query)
+    looked_up_in: list[threading.Thread] = []
+
+    class Recording(FakeClaude):
+        def find(self):
+            looked_up_in.append(threading.current_thread())
+            return super().find()
+
+    await ClaudeJsonLlm(lambda: "m", Recording()).complete_json("s", "p", {})
+
+    assert looked_up_in and looked_up_in[0] is not threading.current_thread()

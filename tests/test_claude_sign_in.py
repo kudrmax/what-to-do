@@ -18,7 +18,7 @@ from where_to_go import llm as llm_module
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, ClaudeSignInFlow, SignInProgress
 from where_to_go.container import Container
 from where_to_go.installed_cli import CliStatus, InstalledCli
-from where_to_go.llm import ClaudeJsonLlm, ClaudeSignedOutError, LlmError
+from where_to_go.llm import ClaudeJsonLlm, ClaudeSignedOutError, ClaudeUnavailableError, LlmError
 from where_to_go.models import Source
 from where_to_go.refresh import Stage
 
@@ -109,18 +109,30 @@ async def test_a_call_without_a_login_says_how_to_sign_in(monkeypatch, messages,
     assert isinstance(raised.value, LlmError)
 
 
-class SignedOut:
-    def __init__(self) -> None:
+class NotReady:
+    def __init__(self, error: Exception) -> None:
         self.calls = 0
+        self._error = error
 
     async def complete_json(self, system, prompt, schema, images=()):
         self.calls += 1
-        raise ClaudeSignedOutError
+        raise self._error
 
 
 @respx.mock
-async def test_a_refresh_without_a_login_says_so_once(tmp_path) -> None:
-    extraction = SignedOut()
+@pytest.mark.parametrize(
+    ("error", "line"),
+    [
+        (ClaudeSignedOutError(), SIGN_IN_HINT),
+        (ClaudeUnavailableError(FakeClaude(CliStatus.MISSING).found), "Install Claude Code to read posts"),
+        (
+            ClaudeUnavailableError(FakeClaude(CliStatus.TOO_OLD, version="2.1.200").found),
+            "Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer",
+        ),
+    ],
+)
+async def test_a_refresh_without_a_usable_claude_code_says_so_once(tmp_path, error: Exception, line: str) -> None:
+    extraction = NotReady(error)
     container = Container.build(tmp_path, extraction_llm=extraction, matching_llm=judge_same_titles(), photo_llm=photos_saying(), http=httpx.AsyncClient())
     city = add_city(container, "Белград", "Europe/Belgrade")
     container.sources.add(Source(city_id=city.id, handle="kafana", title="Кафана"))
@@ -131,10 +143,30 @@ async def test_a_refresh_without_a_login_says_so_once(tmp_path) -> None:
     progress = await container.refresh.wait()
 
     assert progress.stage is Stage.DONE
-    assert progress.claude_signed_out
-    assert progress.errors == [SIGN_IN_HINT]
+    assert progress.claude_unavailable
+    assert progress.errors == [line]
     assert extraction.calls > 1
     await container.close()
+
+
+@pytest.mark.parametrize(
+    ("claude", "expected"),
+    [
+        (FakeClaude(CliStatus.MISSING), {"state": "not_installed", "version": None, "minimum": "2.1.321", "update_command": None}),
+        (FakeClaude(CliStatus.TOO_OLD, version="2.1.200"), {"state": "too_old", "version": "2.1.200", "minimum": "2.1.321", "update_command": "claude update"}),
+    ],
+)
+def test_the_api_says_claude_code_is_missing_or_too_old(tmp_path, claude: FakeClaude, expected: dict) -> None:
+    from fastapi.testclient import TestClient
+
+    from where_to_go.api import create_app
+
+    container = Container.build(tmp_path / "data", matching_llm=judge_same_titles(), claude=claude)
+    with TestClient(create_app(lambda: container)) as client:
+        answer = client.get("/claude/sign-in").json()
+
+    assert {key: answer[key] for key in expected} == expected
+    assert claude.calls == 1
 
 
 SIGN_IN_PAGE = "https://claude.com/cai/oauth/authorize?code=true&client_id=c&state=s"
@@ -284,8 +316,8 @@ def test_the_api_starts_the_sign_in_and_takes_the_code(tmp_path, monkeypatch) ->
 
     from where_to_go.api import create_app
 
-    monkeypatch.setattr(ClaudeLogin, "check", lambda self: ClaudeSignIn.SIGNED_OUT)
-    container = Container.build(tmp_path / "data", matching_llm=judge_same_titles())
+    monkeypatch.setattr(ClaudeLogin, "state_of", lambda self, found: ClaudeSignIn.SIGNED_OUT)
+    container = Container.build(tmp_path / "data", matching_llm=judge_same_titles(), claude=FakeClaude())
     container.claude_sign_in = ClaudeSignInFlow(login_cli(tmp_path))
     with TestClient(create_app(lambda: container)) as client:
         assert client.post("/claude/sign-in/code", json={"code": "good"}).status_code == 409
@@ -297,4 +329,13 @@ def test_the_api_starts_the_sign_in_and_takes_the_code(tmp_path, monkeypatch) ->
         wait_until(lambda: not client.get("/claude/sign-in").json()["signing_in"])
 
     assert started["state"] == "signed_out"
-    assert waiting == {"state": "signed_out", "hint": SIGN_IN_HINT, "signing_in": True, "page_url": SIGN_IN_PAGE, "error": None}
+    assert waiting == {
+        "state": "signed_out",
+        "hint": SIGN_IN_HINT,
+        "signing_in": True,
+        "page_url": SIGN_IN_PAGE,
+        "error": None,
+        "version": "2.1.325",
+        "minimum": "2.1.321",
+        "update_command": "claude update",
+    }

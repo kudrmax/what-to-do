@@ -96,3 +96,26 @@ def test_changed_cards_add_up_across_batches_read_at_once(client, monkeypatch):
     client.post("/tags/retag")
     status = finished(client)
     assert (status["claude_calls"], status["cards_changed"]) == (2, 2)
+
+
+def test_retagging_without_a_usable_claude_code_says_so_once(tmp_path, monkeypatch):
+    from tests.helpers import FakeClaude
+    from where_to_go.installed_cli import CliStatus
+    from where_to_go.llm import ClaudeUnavailableError
+    from where_to_go.retagging import EventRetagger
+
+    missing = FakeClaude(CliStatus.MISSING).found
+
+    class Unavailable:
+        async def complete_json(self, system, prompt, schema, images=()):
+            raise ClaudeUnavailableError(missing)
+
+    monkeypatch.setattr(EventRetagger, "BATCH_SIZE", 1)
+    app = create_app(lambda: Container.build(tmp_path, extraction_llm=Unavailable(), matching_llm=judge_same_titles(), photo_llm=photos_saying()))
+    with TestClient(app) as client:
+        seeded(client, ("a", raw_event("Джазовый вечер", "2099-01-02")), ("a", raw_event("Квиз", "2099-01-03")))
+        client.post("/tags/retag")
+        status = finished(client)
+
+    assert status["claude_calls"] == 2
+    assert status["errors"] == ["Install Claude Code to read posts"]

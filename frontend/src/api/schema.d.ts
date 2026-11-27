@@ -1287,7 +1287,7 @@ export interface components {
          * ClaudeSignIn
          * @enum {string}
          */
-        ClaudeSignIn: "signed_in" | "signed_out" | "unknown";
+        ClaudeSignIn: "signed_in" | "signed_out" | "unknown" | "not_installed" | "too_old";
         /** ClaudeSignInView */
         ClaudeSignInView: {
             state: components["schemas"]["ClaudeSignIn"];
@@ -1309,6 +1309,21 @@ export interface components {
              * @description Why the last sign-in from the app failed
              */
             error?: string | null;
+            /**
+             * Version
+             * @description The installed Claude Code's version; none when it is missing
+             */
+            version?: string | null;
+            /**
+             * Minimum
+             * @description The oldest Claude Code version the app works with
+             */
+            minimum: string;
+            /**
+             * Update Command
+             * @description The command that updates the installed Claude Code; none when it is missing
+             */
+            update_command?: string | null;
         };
         /** CollectionBase */
         CollectionBase: {
@@ -1990,11 +2005,11 @@ export interface components {
              */
             errors: string[];
             /**
-             * Claude Signed Out
-             * @description Claude Code has no login: nothing was read; the user must sign in first
+             * Claude Unavailable
+             * @description Claude Code is missing, too old or signed out: nothing was read
              * @default false
              */
-            claude_signed_out: boolean;
+            claude_unavailable: boolean;
             /** Running */
             readonly running: boolean;
         };

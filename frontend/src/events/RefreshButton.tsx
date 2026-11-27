@@ -12,7 +12,7 @@ const SIGN_IN_ERROR = "Sign in to Claude Code";
 /** Starts a refresh, shows its stage while it runs and what went wrong when it ends. */
 export function RefreshButton() {
   const refresh = useRefresh();
-  const signedOut = !refresh.running && (refresh.status?.claude_signed_out ?? false);
+  const signedOut = !refresh.running && (refresh.status?.claude_unavailable ?? false);
   const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(signedOut && error.startsWith(SIGN_IN_ERROR)));
   const { city } = useActiveCity();
   const label = refresh.running ? refreshLabel(refresh.status) : "Refresh";

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
@@ -58,7 +59,7 @@ class ClaudeJsonLlm:
     async def complete_json(
         self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
     ) -> dict[str, Any]:
-        found = self._cli.find()
+        found = await asyncio.to_thread(self._cli.find)
         if found.status is not CliStatus.READY or found.path is None:
             raise ClaudeUnavailableError(found)
         options = ClaudeAgentOptions(

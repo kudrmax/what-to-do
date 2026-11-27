@@ -274,3 +274,4 @@ def test_start_up_warns_when_claude_code_is_missing_or_too_old(tmp_path: Path, m
     Cli(paths, InstanceConfig.load(paths, environ={}), out=said.append)._warn_if_signed_out()
 
     assert said == [warning]
+    assert claude.calls == 1

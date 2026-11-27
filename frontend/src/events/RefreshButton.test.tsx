@@ -27,13 +27,13 @@ function finished(overrides: Partial<RefreshStatus>): RefreshStatus {
     posts_read: 0,
     events_touched: 0,
     errors: [],
-    claude_signed_out: false,
+    claude_unavailable: false,
     running: false,
     ...overrides,
   };
 }
 
-const SIGNED_OUT: ClaudeSignIn = { state: "signed_out", hint: SIGN_IN, signing_in: false, page_url: null, error: null };
+const SIGNED_OUT: ClaudeSignIn = { state: "signed_out", hint: SIGN_IN, signing_in: false, page_url: null, error: null, version: "2.1.325", minimum: "2.1.321", update_command: "claude update" };
 const PAGE = "https://claude.com/cai/oauth/authorize?code=true";
 
 function setup(progress: RefreshStatus, signIn: ClaudeSignIn = SIGNED_OUT) {
@@ -54,7 +54,7 @@ function setup(progress: RefreshStatus, signIn: ClaudeSignIn = SIGNED_OUT) {
 
 describe("refresh errors", () => {
   it("offers to sign in to Claude instead of the raw error", async () => {
-    setup(finished({ errors: ["Кафана: couldn't read it", SIGN_IN], claude_signed_out: true }));
+    setup(finished({ errors: ["Кафана: couldn't read it", SIGN_IN], claude_unavailable: true }));
 
     const note = await screen.findByRole("alert");
     expect(note).toHaveTextContent("Sign in to Claude to read the posts");
@@ -66,7 +66,7 @@ describe("refresh errors", () => {
   });
 
   it("signs in through the browser and takes the code when the browser didn't open", async () => {
-    const { start, submit } = setup(finished({ claude_signed_out: true }));
+    const { start, submit } = setup(finished({ claude_unavailable: true }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign in to Claude" }));
 
@@ -80,21 +80,21 @@ describe("refresh errors", () => {
   });
 
   it("says why the pasted code didn't work", async () => {
-    setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
+    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
 
     expect(await screen.findByText("Invalid code. Please make sure the full code was copied.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open the sign-in page" })).toBeTruthy();
   });
 
   it("says when the sign-in is done", async () => {
-    setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, state: "signed_in" });
+    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
 
     expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
   });
 
   it("tells why the last sign-in failed", async () => {
-    setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
+    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
 
     expect(await screen.findByText("Login failed: That code wasn't accepted.")).toBeTruthy();
   });

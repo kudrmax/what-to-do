@@ -109,6 +109,9 @@ class ClaudeSignInView(BaseModel):
     signing_in: bool = Field(default=False, description="A sign-in started from the app waits for the browser")
     page_url: str | None = Field(default=None, description="The sign-in page to open by hand; it shows a code to paste")
     error: str | None = Field(default=None, description="Why the last sign-in from the app failed")
+    version: str | None = Field(default=None, description="The installed Claude Code's version; none when it is missing")
+    minimum: str = Field(description="The oldest Claude Code version the app works with")
+    update_command: str | None = Field(default=None, description="The command that updates the installed Claude Code; none when it is missing")
 
 
 class SignInCodeRequest(BaseModel):
@@ -643,8 +646,16 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     def sign_in_view(c: Container) -> ClaudeSignInView:
         progress = c.claude_sign_in.progress()
+        found = c.claude.find()
         return ClaudeSignInView(
-            state=ClaudeLogin(c.claude).check(), hint=SIGN_IN_HINT, signing_in=progress.running, page_url=progress.page_url, error=progress.error
+            state=ClaudeLogin(c.claude).state_of(found),
+            hint=SIGN_IN_HINT,
+            signing_in=progress.running,
+            page_url=progress.page_url,
+            error=progress.error,
+            version=found.version,
+            minimum=found.minimum,
+            update_command=found.update_command,
         )
 
     @app.get("/claude/sign-in", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])

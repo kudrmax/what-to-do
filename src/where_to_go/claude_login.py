@@ -89,7 +89,9 @@ class ClaudeLogin:
         self._cli = cli
 
     def check(self) -> ClaudeSignIn:
-        found = self._cli.find()
+        return self.state_of(self._cli.find())
+
+    def state_of(self, found: FoundCli) -> ClaudeSignIn:
         if found.status is not CliStatus.READY or found.path is None:
             return self.UNAVAILABLE.get(found.status, ClaudeSignIn.UNKNOWN)
         environ = ClaudeCliEnvironment.cleaned(os.environ)
