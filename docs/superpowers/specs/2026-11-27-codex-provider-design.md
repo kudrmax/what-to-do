@@ -170,10 +170,19 @@ Two layers, both proven offline:
    [permissions.answer-only.filesystem]
    ":root" = "deny"
    ":minimal" = "read"
+   "/opt/homebrew/Caskroom/codex/0.172.0/bin" = "read"
    [permissions.answer-only.network]
    enabled = false
    ```
    Checked: under it `cat ~/.zshrc` and `ls ~` give "Operation not permitted", `curl` cannot resolve a host.
+
+   The third filesystem line is the folder of the real file of the Codex the app starts, written per Codex found
+   (here the Homebrew one). Codex starts its own program again inside this sandbox to read its instruction files;
+   through Homebrew's link `/opt/homebrew/bin/codex` that failed with "sandbox-exec: execvp() ... Operation not
+   permitted", and the tool guard could not check. So the app resolves the link, starts the real file, and lets the
+   sandbox read that one folder and nothing wider: a Codex lying right in `/`, the home folder or above it is refused,
+   and a path with a control character is refused instead of being written into the config. An update of Codex
+   (a new Caskroom version folder) rewrites the line before the next start.
 
 Both go into `config.toml` of the app's own Codex home.
 

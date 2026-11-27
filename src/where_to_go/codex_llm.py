@@ -25,7 +25,7 @@ from openai_codex.generated.v2_all import (
 )
 from pydantic import BaseModel
 
-from where_to_go.codex_login import CodexHome, ToolGuard
+from where_to_go.codex_login import CodexHome, ToolGuard, UnsafeCodexPath
 from where_to_go.installed_cli import CliStatus, InstalledCli
 from where_to_go.llm import (
     CodexRefusedError,
@@ -133,13 +133,16 @@ class CodexRuntime:
         if refusal is not None:
             raise CodexRefusedError(refusal)
         async with self._lock:
-            if self._client is not None and self._started_with != found.path:
+            try:
+                program = await asyncio.to_thread(self._home.prepare, found.path)
+            except UnsafeCodexPath as error:
+                raise CodexRefusedError(str(error)) from error
+            if self._client is not None and self._started_with != program:
                 await self._close(self._client)
                 self._client = None
             if self._client is None:
-                await asyncio.to_thread(self._home.prepare)
-                self._client = self._client_factory(launch_config(found.path, self._home, self.workdir))
-                self._started_with = found.path
+                self._client = self._client_factory(launch_config(program, self._home, self.workdir))
+                self._started_with = program
                 self._signed_in = None
             return self._client
 

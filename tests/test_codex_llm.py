@@ -217,10 +217,48 @@ async def test_client_starts_the_found_codex_with_the_app_home(tmp_path):
     await reader(rt).complete_json("s", "p", SCHEMA)
     config = clients.made[0].config
     environ, command = launched(config)
-    assert command == [str(Path("/somewhere/codex")), "app-server", "--listen", "stdio://"]
+    real = Path(os.path.realpath(Path("/somewhere/codex")))
+    assert command == [str(real), "app-server", "--listen", "stdio://"]
     assert environ["CODEX_HOME"] == str(tmp_path / "codex")
     assert config.cwd == rt.workdir
-    assert (tmp_path / "codex" / "config.toml").read_text(encoding="utf-8") == CodexHome.CONFIG
+    assert (tmp_path / "codex" / "config.toml").read_text(encoding="utf-8") == CodexHome(tmp_path / "codex").config_for(real)
+    await rt.close()
+
+
+@pytest.mark.skipif(WINDOWS, reason="Homebrew links do not exist on Windows")
+async def test_client_starts_the_real_file_behind_a_link_with_the_home_prepared_for_it(tmp_path):
+    real = fake_program(tmp_path / "Caskroom" / "codex" / "0.172.0" / "bin", "", name="codex")
+    link = tmp_path / "homebrew" / "bin" / "codex"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(real)
+    clients = FakeClients(answer({"title": "a"}), answer({"title": "b"}))
+    rt = runtime(clients, tmp_path, cli=FakeCodexCli(path=link))
+    llm = reader(rt)
+    await llm.complete_json("s", "p", SCHEMA)
+    _, command = launched(clients.made[0].config)
+    config = (tmp_path / "codex" / "config.toml").read_text(encoding="utf-8")
+    assert command[0] == os.path.realpath(real)
+    assert config == CodexHome(tmp_path / "codex").config_for(Path(os.path.realpath(real)))
+
+    updated = fake_program(tmp_path / "Caskroom" / "codex" / "0.173.0" / "bin", "", name="codex")
+    link.unlink()
+    link.symlink_to(updated)
+    await llm.complete_json("s", "p", SCHEMA)
+    _, command = launched(clients.made[1].config)
+    assert len(clients.made) == 2
+    assert command[0] == os.path.realpath(updated)
+    assert os.path.realpath(updated.parent) in (tmp_path / "codex" / "config.toml").read_text(encoding="utf-8")
+    assert os.path.realpath(real.parent) not in (tmp_path / "codex" / "config.toml").read_text(encoding="utf-8")
+    await rt.close()
+
+
+async def test_client_refuses_a_codex_it_cannot_let_into_the_sandbox(tmp_path):
+    clients = FakeClients(answer({"title": "a"}))
+    rt = runtime(clients, tmp_path, cli=FakeCodexCli(path=tmp_path / "new\nline" / "codex"))
+    with pytest.raises(CodexRefusedError) as raised:
+        await reader(rt).complete_json("s", "p", SCHEMA)
+    assert str(raised.value) == CodexHome.UNWRITABLE_PATH
+    assert clients.made == []
     await rt.close()
 
 

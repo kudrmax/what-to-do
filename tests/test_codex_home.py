@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import tomllib
 from collections.abc import Mapping
@@ -13,7 +15,15 @@ import pytest
 from codex_cli_bin import bundled_codex_path
 
 from tests.helpers import fake_program
-from where_to_go.codex_login import CODEX_INSTALL_COMMANDS, CODEX_MINIMUM, CodexHome, ToolGuard, codex_cli, codex_places
+from where_to_go.codex_login import (
+    CODEX_INSTALL_COMMANDS,
+    CODEX_MINIMUM,
+    CodexHome,
+    ToolGuard,
+    UnsafeCodexPath,
+    codex_cli,
+    codex_places,
+)
 from where_to_go.installed_cli import CliStatus
 from where_to_go.launcher.config import InstanceConfig
 
@@ -48,9 +58,9 @@ def tool_lists(item: object) -> list[list]:
     return []
 
 
-def sandboxed(home: CodexHome, workdir: Path, *command: str) -> subprocess.CompletedProcess[str]:
+def sandboxed(home: CodexHome, workdir: Path, *command: str, codex: Path | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(bundled_codex_path()), "sandbox", "-P", "answer-only", "-C", str(workdir), "--", *command],
+        [str(codex or bundled_codex_path()), "sandbox", "-P", "answer-only", "-C", str(workdir), "--", *command],
         capture_output=True,
         text=True,
         timeout=SANDBOX_TIMEOUT_S,
@@ -80,9 +90,28 @@ class CountingRun:
         return self.output
 
 
+def filesystem(home: CodexHome) -> dict[str, str]:
+    return tomllib.loads((home.folder / "config.toml").read_text(encoding="utf-8"))["permissions"]["answer-only"]["filesystem"]
+
+
+def homebrew_like(tmp_path: Path, program: Path, version: str = "0.172.0") -> tuple[Path, Path]:
+    """The real file in a versioned cask folder and a link to it on PATH, as Homebrew installs Codex."""
+    real = tmp_path / "Caskroom" / "codex" / version / "bin" / program.name
+    real.parent.mkdir(parents=True)
+    try:
+        os.link(program, real)
+    except OSError:
+        shutil.copy2(program, real)
+    link = tmp_path / "homebrew" / "bin" / program.name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.unlink(missing_ok=True)
+    link.symlink_to(real)
+    return link, real
+
+
 def test_config_turns_every_tool_off(tmp_path: Path) -> None:
     home = CodexHome(tmp_path / "home")
-    home.prepare()
+    home.prepare(bundled_codex_path())
     workdir = tmp_path / "empty"
     workdir.mkdir()
 
@@ -133,7 +162,7 @@ def test_without_the_config_the_guard_sees_the_tools(tmp_path: Path) -> None:
 @pytest.mark.skipif(sys.platform != "darwin", reason="the answer-only profile is checked with macOS seatbelt")
 def test_sandbox_profile_reads_nothing_and_has_no_network(tmp_path: Path) -> None:
     home = CodexHome(tmp_path / "home")
-    home.prepare()
+    home.prepare(bundled_codex_path())
     workdir = tmp_path / "empty"
     workdir.mkdir()
     secret = tmp_path / "elsewhere" / "passwords.txt"
@@ -153,11 +182,12 @@ def test_sandbox_profile_reads_nothing_and_has_no_network(tmp_path: Path) -> Non
 
 def test_prepare_writes_the_config_and_overwrites_drift(tmp_path: Path) -> None:
     home = CodexHome(tmp_path / "home")
+    codex = fake_program(tmp_path / "bin", "", name="codex")
 
-    assert home.prepare() == tmp_path / "home"
+    assert home.prepare(codex) == Path(os.path.realpath(codex))
     written = (tmp_path / "home" / "config.toml").read_text(encoding="utf-8")
     (tmp_path / "home" / "config.toml").write_text('web_search = "live"\n', encoding="utf-8")
-    home.prepare()
+    home.prepare(codex)
 
     config = tomllib.loads((tmp_path / "home" / "config.toml").read_text(encoding="utf-8"))
     assert (tmp_path / "home" / "config.toml").read_text(encoding="utf-8") == written
@@ -167,8 +197,133 @@ def test_prepare_writes_the_config_and_overwrites_drift(tmp_path: Path) -> None:
     assert config["features"]["shell_tool"] is False
     assert all(value is False for value in config["features"].values())
     assert config["default_permissions"] == "answer-only"
-    assert config["permissions"]["answer-only"]["filesystem"] == {":root": "deny", ":minimal": "read"}
+    assert config["permissions"]["answer-only"]["filesystem"] == {
+        ":root": "deny",
+        ":minimal": "read",
+        os.path.realpath(codex.parent): "read",
+    }
     assert config["permissions"]["answer-only"]["network"] == {"enabled": False}
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Homebrew links do not exist on Windows")
+def test_prepare_lets_in_only_the_folder_of_the_real_file(tmp_path: Path) -> None:
+    link, real = homebrew_like(tmp_path, fake_program(tmp_path / "download", "", name="codex"))
+    home = CodexHome(tmp_path / "home")
+
+    assert home.prepare(link) == Path(os.path.realpath(real))
+
+    assert filesystem(home) == {":root": "deny", ":minimal": "read", os.path.realpath(real.parent): "read"}
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Homebrew links do not exist on Windows")
+def test_prepare_follows_a_codex_update_to_its_new_folder(tmp_path: Path) -> None:
+    program = fake_program(tmp_path / "download", "", name="codex")
+    link, old = homebrew_like(tmp_path, program, "0.172.0")
+    home = CodexHome(tmp_path / "home")
+    home.prepare(link)
+
+    _, new = homebrew_like(tmp_path, program, "0.173.0")
+    home.prepare(link)
+
+    assert filesystem(home) == {":root": "deny", ":minimal": "read", os.path.realpath(new.parent): "read"}
+    assert os.path.realpath(old.parent) not in filesystem(home)
+
+
+@pytest.mark.parametrize("name", ['say "hi"', "back\\slash", "both \\\" and \\", "caf\u00e9 \u00fcml\u00e4ut"])
+def test_config_quotes_the_folder(tmp_path: Path, name: str) -> None:
+    program = tmp_path / name / "codex"
+
+    config = tomllib.loads(CodexHome(tmp_path / "home").config_for(program))
+
+    assert config["permissions"]["answer-only"]["filesystem"] == {":root": "deny", ":minimal": "read", str(program.parent): "read"}
+
+
+@pytest.mark.parametrize("name", ["new\nline", "carriage\rreturn", "bell\x07", "delete\x7f"])
+def test_a_folder_with_a_control_character_is_refused_and_the_config_stays_strict(tmp_path: Path, name: str) -> None:
+    home = CodexHome(tmp_path / "home")
+
+    with pytest.raises(UnsafeCodexPath) as raised:
+        home.prepare(tmp_path / name / "codex")
+
+    assert str(raised.value) == CodexHome.UNWRITABLE_PATH
+    assert (home.folder / "config.toml").read_text(encoding="utf-8") == CodexHome.CONFIG
+
+
+@pytest.mark.parametrize("where", ["root", "user home", "above user home"])
+def test_a_codex_whose_folder_holds_the_user_home_is_refused(tmp_path: Path, where: str) -> None:
+    user_home = tmp_path / "Users" / "someone"
+    folder = {"root": Path(tmp_path.anchor), "user home": user_home, "above user home": user_home.parent}[where]
+    home = CodexHome(tmp_path / "home", user_home=user_home)
+
+    with pytest.raises(UnsafeCodexPath) as raised:
+        home.config_for(folder / "codex")
+
+    assert str(folder) in str(raised.value)
+
+
+def test_a_codex_inside_the_user_home_is_let_in_by_its_own_folder(tmp_path: Path) -> None:
+    user_home = tmp_path / "someone"
+    program = user_home / ".local" / "bin" / "codex"
+
+    config = tomllib.loads(CodexHome(tmp_path / "home", user_home=user_home).config_for(program))
+
+    assert config["permissions"]["answer-only"]["filesystem"][str(program.parent)] == "read"
+
+
+def test_guard_refuses_readably_a_codex_lying_in_the_user_home(tmp_path: Path) -> None:
+    user_home = tmp_path / "someone"
+    codex = fake_program(user_home, "", name="codex")
+    run = CountingRun(safe_output())
+    home = CodexHome(tmp_path / "home", user_home=user_home)
+
+    refusal = ToolGuard(home, run=run).check(codex)
+
+    assert refusal is not None and "would have to let the model read that whole folder" in refusal
+    assert run.calls == []
+    assert filesystem(home) == {":root": "deny", ":minimal": "read"}
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Homebrew links do not exist on Windows")
+def test_guard_runs_the_real_file_with_the_home_prepared_for_it(tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+    code = (
+        "import json, os, sys\n"
+        f"json.dump({{'program': sys.argv[0], 'config': open(os.path.join(os.environ['CODEX_HOME'], 'config.toml')).read()}}, open({str(record)!r}, 'w'))\n"
+        f"print({safe_output()!r})"
+    )
+    link, real = homebrew_like(tmp_path, fake_program(tmp_path / "download", code, name="codex"))
+    home = CodexHome(tmp_path / "home")
+
+    assert ToolGuard(home).check(link) is None
+
+    seen = json.loads(record.read_text(encoding="utf-8"))
+    assert seen["program"] == os.path.realpath(real)
+    assert seen["config"] == home.config_for(Path(os.path.realpath(real)))
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Homebrew and the answer-only profile are checked with macOS seatbelt")
+def test_homebrew_codex_passes_the_guard_and_its_sandbox_still_reads_nothing(tmp_path: Path) -> None:
+    """Outside the temporary folder, where the sandbox lets nothing run, as in /opt/homebrew."""
+    with tempfile.TemporaryDirectory(dir="/private/tmp") as outside:
+        link, real = homebrew_like(Path(outside), bundled_codex_path())
+        home = CodexHome(tmp_path / "home")
+        workdir = tmp_path / "empty"
+        workdir.mkdir()
+        secret = tmp_path / "elsewhere" / "passwords.txt"
+        secret.parent.mkdir()
+        secret.write_text("hunter2\n", encoding="utf-8")
+
+        assert ToolGuard(home).check(link) is None
+        program = home.prepare(link)
+        read = sandboxed(home, workdir, "/bin/cat", str(secret), codex=program)
+        listing = sandboxed(home, workdir, "/bin/ls", str(program.parent), codex=program)
+
+    assert program == Path(os.path.realpath(real))
+    assert read.returncode != 0
+    assert "hunter2" not in read.stdout
+    assert "Operation not permitted" in read.stderr
+    assert listing.returncode == 0, listing.stderr
+    assert "codex" in listing.stdout.split()
 
 
 def test_environ_points_codex_at_the_apps_home(tmp_path: Path) -> None:
@@ -284,9 +439,10 @@ def test_guard_refuses_readably_when_the_home_cannot_be_written(tmp_path: Path) 
 def test_prepare_leaves_no_draft_behind(tmp_path: Path) -> None:
     home = CodexHome(tmp_path / "home")
 
-    home.prepare()
+    codex = fake_program(tmp_path / "bin", "", name="codex")
+    home.prepare(codex)
     (home.folder / "config.toml").write_text("", encoding="utf-8")
-    home.prepare()
+    home.prepare(codex)
 
     assert sorted(path.name for path in home.folder.iterdir()) == ["config.toml"]
 

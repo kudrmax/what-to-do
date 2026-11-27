@@ -5,6 +5,7 @@ import os
 import subprocess
 import tempfile
 import threading
+import unicodedata
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 
@@ -34,8 +35,18 @@ def codex_places(environ: Mapping[str, str], home: Path) -> list[Path]:
 def codex_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None, codex_home: CodexHome | None = None) -> InstalledCli:
     """Even `codex --version` writes into its home, so the version is asked with the app's home, never ~/.codex."""
     folder = home or Path.home()
-    asked_with = (codex_home or CodexHome.default()).environ(environ)
-    return InstalledCli("codex", CODEX_MINIMUM, extra_dirs=lambda: codex_places(environ, folder), environ=asked_with)
+    app_home = codex_home or CodexHome.default()
+    return InstalledCli(
+        "codex",
+        CODEX_MINIMUM,
+        extra_dirs=lambda: codex_places(environ, folder),
+        environ=app_home.environ(environ),
+        program_for=app_home.program_for_version,
+    )
+
+
+class UnsafeCodexPath(Exception):
+    """The real file of the Codex found can't be let into the sandbox without letting in much more."""
 
 
 class CodexHome:
@@ -83,6 +94,8 @@ extends = ":read-only"
 [permissions.answer-only.network]
 enabled = false
 """
+    MINIMAL_READ = '":minimal" = "read"\n'
+    UNWRITABLE_PATH = "Codex is installed at a path What To Do cannot put into its settings safely; reinstall Codex with its installer or Homebrew"
     VARIABLE = "CODEX_HOME"
     PROXIES = ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY")
     WINDOWS = ("SYSTEMROOT", "WINDIR", "PATHEXT", "COMSPEC", "TEMP", "TMP", "USERPROFILE")
@@ -91,25 +104,66 @@ enabled = false
     )
     INSTRUCTION_FILES = ("AGENTS.md", "AGENTS.override.md")
 
-    def __init__(self, folder: Path) -> None:
+    def __init__(self, folder: Path, user_home: Path | None = None) -> None:
         self.folder = folder
+        self._user_home = user_home
 
     @classmethod
     def default(cls) -> CodexHome:
         return cls(Path(user_data_dir(STATE_DIR_NAME, appauthor=False)) / "codex")
 
-    def prepare(self) -> Path:
-        self.folder.mkdir(parents=True, exist_ok=True)
-        config = self.folder / "config.toml"
+    def prepare(self, codex: Path) -> Path:
+        """Writes the config for this Codex and returns the real file to start. Codex starts its own file again inside
+        the sandbox to read its instructions, so the folder of that real file, and nothing wider, is readable there.
+        A path that can't be let in safely leaves the strict config without that folder and is refused."""
+        program = Path(os.path.realpath(codex))
         try:
-            if config.read_text(encoding="utf-8") == self.CONFIG:
-                return self.folder
+            config = self.config_for(program)
+        except UnsafeCodexPath:
+            self._write(self.CONFIG)
+            raise
+        self._write(config)
+        return program
+
+    def program_for_version(self, codex: Path) -> Path:
+        """`codex --version` needs no sandbox: a home that can't be prepared still lets the version be asked, and the
+        tool guard then refuses with the reason."""
+        try:
+            return self.prepare(codex)
+        except (UnsafeCodexPath, OSError):
+            return Path(os.path.realpath(codex))
+
+    def config_for(self, program: Path) -> str:
+        folder = program.parent
+        if any(unicodedata.category(character) in ("Cc", "Cs") for character in str(folder)):
+            raise UnsafeCodexPath(self.UNWRITABLE_PATH)
+        if self._too_wide(folder):
+            raise UnsafeCodexPath(
+                f"Codex is installed right in {folder}; What To Do would have to let the model read that whole folder, "
+                "so reinstall Codex with its installer or Homebrew"
+            )
+        entry = f'{self._toml_string(str(folder))} = "read"\n'
+        return self.CONFIG.replace(self.MINIMAL_READ, self.MINIMAL_READ + entry)
+
+    def _too_wide(self, folder: Path) -> bool:
+        user_home = Path(os.path.realpath(self._user_home or Path.home()))
+        return folder == Path(folder.anchor) or user_home.is_relative_to(folder)
+
+    @staticmethod
+    def _toml_string(text: str) -> str:
+        return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    def _write(self, config: str) -> None:
+        self.folder.mkdir(parents=True, exist_ok=True)
+        target = self.folder / "config.toml"
+        try:
+            if target.read_text(encoding="utf-8") == config:
+                return
         except OSError:
             pass
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=self.folder, prefix="config.toml.", delete=False) as draft:
-            draft.write(self.CONFIG)
-        os.replace(draft.name, config)
-        return self.folder
+            draft.write(config)
+        os.replace(draft.name, target)
 
     def instruction_files(self) -> list[Path]:
         """Codex hands the model the AGENTS files of its home: the app's calls must have none."""
@@ -163,8 +217,10 @@ class ToolGuard:
             except OSError:
                 return self.CANNOT_CHECK
             try:
-                self._home.prepare()
+                program = self._home.prepare(resolved)
                 instructions = self._home.instruction_files()
+            except UnsafeCodexPath as error:
+                return str(error)
             except OSError:
                 return self.CANNOT_CHECK
             if instructions:
@@ -172,7 +228,7 @@ class ToolGuard:
             if key in self._verdicts:
                 return self._verdicts[key]
             try:
-                verdict = self.refusal(self._run(codex, self._home.environ(os.environ)))
+                verdict = self.refusal(self._run(program, self._home.environ(os.environ)))
             except ReadsCannotBeLimited:
                 verdict = self.CANNOT_LIMIT_READS
             if verdict != self.CANNOT_CHECK:
