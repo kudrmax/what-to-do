@@ -118,4 +118,4 @@ def test_retagging_without_a_usable_claude_code_says_so_once(tmp_path, monkeypat
         status = finished(client)
 
     assert status["claude_calls"] == 2
-    assert status["errors"] == ["Install Claude Code: What To Do reads with it"]
+    assert status["errors"] == ["Install Claude Code: What To Do needs it to read posts"]

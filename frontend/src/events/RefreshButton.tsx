@@ -1,4 +1,4 @@
-import { useRefresh } from "../api/queries";
+import { useClaudeSignInStatus, useRefresh } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { refreshLabel, timeLeft } from "../domain/refresh";
 import { Icon } from "../ui/Icon";
@@ -6,7 +6,7 @@ import { InlineCode } from "../ui/InlineCode";
 import { ClaudeSignIn } from "./ClaudeSignIn";
 import "./RefreshButton.css";
 
-/** The backend's own lines for Claude Code missing, too old or signed out; the box below replaces them. */
+/** The backend's own lines for Claude Code missing, too old or signed out; the box below replaces them once it knows which. */
 const CLAUDE_UNAVAILABLE_ERRORS = ["Install Claude Code", "Update Claude Code", "Sign in to Claude Code"];
 
 const saysClaudeUnavailable = (error: string) => CLAUDE_UNAVAILABLE_ERRORS.some((start) => error.startsWith(start));
@@ -14,8 +14,10 @@ const saysClaudeUnavailable = (error: string) => CLAUDE_UNAVAILABLE_ERRORS.some(
 /** Starts a refresh, shows its stage while it runs and what went wrong when it ends. */
 export function RefreshButton() {
   const refresh = useRefresh();
+  const signIn = useClaudeSignInStatus();
   const claudeUnavailable = !refresh.running && (refresh.status?.claude_unavailable ?? false);
-  const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(claudeUnavailable && saysClaudeUnavailable(error)));
+  const boxShown = claudeUnavailable && signIn.data !== undefined;
+  const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(boxShown && saysClaudeUnavailable(error)));
   const { city } = useActiveCity();
   const label = refresh.running ? refreshLabel(refresh.status) : "Refresh";
   const left = refresh.running ? timeLeft(refresh.status) : null;

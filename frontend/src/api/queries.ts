@@ -207,15 +207,21 @@ export function useRefresh() {
   return { status: status.data, running: (status.data?.running ?? false) || start.isPending, start: () => start.mutate() };
 }
 
-/** Signing in to Claude from the app: polls while the browser has the sign-in page. */
-export function useClaudeSignIn() {
+/** Whether Claude Code is installed, new enough and signed in; polls while the browser has the sign-in page. */
+export function useClaudeSignInStatus() {
   const api = useApi();
-  const client = useQueryClient();
-  const status = useQuery({
+  return useQuery({
     queryKey: keys.claudeSignIn,
     queryFn: () => api.claudeSignIn(),
     refetchInterval: (query) => (query.state.data?.signing_in ? 2000 : false),
   });
+}
+
+/** Signing in to Claude from the app. */
+export function useClaudeSignIn() {
+  const api = useApi();
+  const client = useQueryClient();
+  const status = useClaudeSignInStatus();
   const update = (data: Awaited<ReturnType<Api["claudeSignIn"]>>) => client.setQueryData(keys.claudeSignIn, data);
   const start = useMutation({ mutationFn: () => api.startClaudeSignIn(), onSuccess: update });
   const submit = useMutation({ mutationFn: (code: string) => api.submitClaudeSignInCode(code), onSuccess: update });

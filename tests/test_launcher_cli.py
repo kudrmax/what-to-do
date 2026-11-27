@@ -262,7 +262,7 @@ def test_the_port_command_prints_only_the_port_and_moves_off_a_taken_one(tmp_pat
 @pytest.mark.parametrize(
     ("claude", "warning"),
     [
-        (FakeClaude(CliStatus.MISSING), "Install Claude Code: What To Do reads with it."),
+        (FakeClaude(CliStatus.MISSING), "Install Claude Code: What To Do needs it to read posts."),
         (FakeClaude(CliStatus.TOO_OLD, version="2.1.200"), "Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer. Run: claude update"),
     ],
 )
