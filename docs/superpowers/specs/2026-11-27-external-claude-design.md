@@ -17,80 +17,106 @@ built to take a second program.
 ## Goals
 
 - The disk image loses the bundled CLI (expected about 110 MB instead of 256).
-- The app finds an installed Claude Code even when started from Finder, where the terminal's PATH is not set.
-- Missing or too old Claude Code gives a clear message with the install or update command, never a cryptic error.
-- Dev runs (`uv run`) behave the same as the built app: they also use the installed `claude`, not the copy inside the
+- The app finds an installed Claude Code even when started from Finder, where PATH holds only system folders
+  (`ServerHome.swift:35-40`, `AppDelegate.swift:25`).
+- Missing or too old Claude Code gives a clear message with the right install or update command, never a cryptic error.
+- Dev runs (`uv run`, git checkouts on macOS, Linux, Windows) also use the installed `claude`, never the copy inside the
   `claude-agent-sdk` wheel.
 
 ## Non-goals
 
 - Installing Claude Code from the app.
+- Using the CLI that the Claude desktop app keeps for itself (`~/Library/Application Support/Claude/claude-code/<ver>/`):
+  a private part of another app, replaced on its own schedule. A Desktop-only user sees the install box (builder's
+  call, Max may overrule).
 - Codex (next release).
 
 ## Anti-goals
 
 - A user who has Claude Code installed and signed in notices anything except a smaller download.
-- The app silently using a different `claude` from the one the user updates.
+- The app using a different `claude` from the one `which claude` shows in the user's terminal.
 
 ## Facts (checked 2026-11-27)
 
-- `claude-agent-sdk` takes `ClaudeAgentOptions(cli_path=...)`; without it, it prefers its `_bundled/claude`, then
-  `shutil.which("claude")` (`subprocess_cli.py:237-264`).
-- The SDK itself refuses a CLI older than 2.0.0 and needs 2.1.248 for verbatim prompts
-  (`MINIMUM_CLAUDE_CODE_VERSION`, `VERBATIM_PROMPTS_MINIMUM_CLAUDE_CODE_VERSION`). The wheel bundles 2.1.321.
-- Max's Claude Code: `/opt/homebrew/bin/claude` (Homebrew cask), 2.1.325.
-- Today the app finds the CLI in `ClaudeLogin.find_cli` (bundled first, then PATH); `build-dmg.sh:60` fails the build
-  when the bundled CLI is missing; the signing step skips it because it keeps Anthropic's signature.
+- `claude-agent-sdk` takes `ClaudeAgentOptions(cli_path=...)` and then skips its own search (`subprocess_cli.py:803-804`);
+  without it, it prefers `_bundled/claude`, then PATH.
+- The SDK's own version check only logs a warning, never refuses (`subprocess_cli.py:1164-1226`); it runs `claude -v`
+  on every call, even with `cli_path`.
+- The wheel bundles CLI 2.1.321 (`_cli_version.py`). Max's Claude Code: `/opt/homebrew/bin/claude` ->
+  `Caskroom/claude-code@latest/2.1.325`, a native binary that runs with an empty environment.
+- Homebrew installs do not update themselves; `claude update` on them answers "up to date"
+  (https://code.claude.com/docs/en/setup). The npm package installs the native binary too.
+- The login lives in Claude Code's keychain entry, so it carries over to the user's installed CLI (README:251).
 
 ## Design
 
 ### Finding the program (built for two programs)
 
-- `InstalledCli`: finds one program by name in a fixed list of install places plus PATH, and reads its version.
-  - Places for `claude`: `~/.local/bin` (native installer), `/opt/homebrew/bin` and `/usr/local/bin` (Homebrew),
-    `~/.claude/local` (old local install), npm global bin (`~/.npm-global/bin`, `$(npm prefix -g)/bin` if npm exists),
-    then PATH. The first executable found wins.
-  - Version: `claude --version`, parsed `X.Y.Z`. Minimum for the app: 2.1.248 (the SDK's verbatim-prompts minimum).
-  - State: `missing`, `too_old` (with found version and minimum), `ready` (path, version).
-  - Looked up on each check (cheap), so installing while the app runs works without a restart.
-- `ClaudeJsonLlm` passes `cli_path` from `InstalledCli` on every call. Missing or too old raises
-  `ClaudeNotInstalledError` (an `LlmError`), handled like signed-out: nothing is read, the refresh says why.
-- `ClaudeLogin` and `ClaudeSignInFlow` use the same found path instead of `find_cli`.
+- `InstalledCli`, injected into everything that runs the CLI (`ClaudeJsonLlm`, `ClaudeLogin`, `ClaudeSignInFlow`, the
+  launcher warning), so tests pass a fake and never need a real `claude`:
+  - Search order: **PATH first** (matches the terminal for `uv run`), then fixed places: `~/.local/bin` (native
+    installer; `claude.exe` there on Windows), `/opt/homebrew/bin`, `/usr/local/bin`, `~/.claude/local/claude`, and the
+    npm global bins found by reusing `launcher/tools.py` (`_common_dirs`, `_nvm_dirs`), not by running npm.
+  - Version from `claude --version` (`X.Y.Z`), cached by path and file modification time, so a call costs no extra
+    process once known and an update is noticed.
+  - **Minimum 2.1.321**, the version the app is built and tested with (the bundled one so far); the app relies on
+    `--json-schema`, `--tools ""`, `--no-session-persistence`, `--setting-sources`, JSON `auth status`,
+    `auth login --claudeai`.
+  - State: `missing`, `too_old` (found version, minimum, update command), `ready` (path, version).
+  - Install method from the resolved path: inside `Caskroom/<cask>/` -> `brew upgrade --cask <cask>`; anything else ->
+    `claude update`.
+  - Looked up on each check, so installing while the app runs works without a restart.
+- `ClaudeJsonLlm` passes `cli_path` on every call. Missing or too old raises `ClaudeUnavailableError` (an `LlmError`).
+
+### States the app carries
+
+- `ClaudeSignIn` gains `not_installed` and `too_old`; `ClaudeLogin.check` returns them instead of `unknown`.
+- `ClaudeSignInView` (`api/app.py:107`) carries the state plus version, minimum and the install or update command;
+  frontend types regenerated.
+- The refresh report: `claude_signed_out` (`refresh.py:78`) becomes `claude_unavailable` with the reason
+  (signed out, not installed, too old); `RefreshButton.tsx:15` shows the box for any of them. Same rename in tests.
+- Re-tagging (`retagging.py:155`) stops on the new error as it does on signed-out: one message, not one per batch.
+- The old "Reinstall What To Do" text (`claude_login.py:135`) goes.
 
 ### What the user sees
 
-- The sign-in box under Refresh gains two earlier states. With Claude Code missing:
+Under Refresh, the existing sign-in box gains two earlier states.
 
-  ```
-  Install Claude Code to read the posts
-  What To Do reads posts with your Claude subscription through Claude Code.
-  [ curl -fsSL https://claude.ai/install.sh | bash ]  [Copy]
-  Or with Homebrew: brew install --cask claude-code
-  Then press Refresh.
-  ```
+Missing:
+```
+Install Claude Code to read the posts
+What To Do reads posts with your Claude subscription through Claude Code.
+  curl -fsSL https://claude.ai/install.sh | bash        [Copy]
+  or with Homebrew: brew install --cask claude-code@latest   [Copy]
+Then press Refresh.
+```
+Too old: "Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer" with the command for that install
+(`brew upgrade --cask claude-code@latest` or `claude update`) and Copy.
+Commands are checked against Anthropic's setup page when written.
 
-  Too old: "Update Claude Code: you have 2.0.10, What To Do needs 2.1.248 or newer", with `claude update`.
-  The builder checks both install commands against Anthropic's current docs before writing them.
-- Settings: nothing new.
-- The launcher's start-up warning (`launcher/cli.py:256-260`) also says "not installed" / "too old".
-- README Requirements: Claude Code installed, with the command; the line "the user needs nothing else" goes; FAQ
-  gets "Refresh says to install Claude Code".
-- Existing users without Claude Code see the install box after updating; the release notes say so first.
+Also:
+- The launcher's start-up warning (`launcher/cli.py:256-260`) covers not installed and too old.
+- README: Requirements get "Claude Code installed" with the commands (Windows and Linux git checkouts included); the
+  line that nothing else is needed goes; FAQ gets "Refresh says to install Claude Code".
+- Release notes open with: install Claude Code if you don't have it; the download is smaller.
 
-### Bundle
+### Bundle and CI
 
-- `build-dmg.sh` removes `claude_agent_sdk/_bundled` from the image instead of requiring it, and checks it is gone.
-- The signing comment about the Claude CLI's own signature goes.
-- Measure both images before and after; the release notes give the new size.
+- `build-dmg.sh` deletes `claude_agent_sdk/_bundled` from the image instead of requiring it (`:60`), and fails if it is
+  still there. The comment about keeping the CLI's own signature goes.
+- `smoke-test-bundle.sh:22` (run in `ci.yml:83`, `release-dmg.yml:54`) checks instead that `_bundled` is absent and
+  that `/api/claude/sign-in` answers a valid state, `not_installed` included (GitHub runners have no Claude Code).
+- Image sizes measured before and after; the release notes give the new size.
 
 ## Verification before master
 
-- Tests: finder (places order, PATH, versions, missing, too old), `ClaudeJsonLlm` passing `cli_path`, refresh and
-  sign-in states, the box in each state.
-- In the built app on a copy of the data: a refresh reads posts through Max's Homebrew `claude`; with the program
-  hidden from the finder (a test override of the places list, never touching Max's install) the install box shows.
+- Tests: finder (order, PATH first, fixed places, npm dirs, Windows name, version parse and cache, missing, too old,
+  update command per install method), `ClaudeJsonLlm` passing `cli_path`, refresh and re-tag stopping once, sign-in
+  view states, the box in each state.
+- In the built app, on a copy of the data: a refresh reads posts through Max's Homebrew `claude`; with a test override
+  of the search list (never touching Max's install) the install box and the too-old box show, each seen on screen.
 
 ## Left to the builder
 
-- Exact npm global path detection.
 - Parsing `claude --version` output variants.
+- Wording of the boxes within the layout above.
