@@ -1937,6 +1937,48 @@
     }
    }
   },
+  "/codex/sign-in": {
+   "get": {
+    "tags": [
+     "refresh"
+    ],
+    "summary": "Codex Sign In",
+    "description": "Whether Codex is installed, new enough, accepted by the tool check and signed in to ChatGPT, and how a sign-in started here goes.",
+    "operationId": "codex_sign_in_codex_sign_in_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CodexSignInView"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "refresh"
+    ],
+    "summary": "Start Codex Sign In",
+    "description": "Opens the ChatGPT sign-in page in the browser; poll `GET /codex/sign-in` until `state` is signed_in.",
+    "operationId": "start_codex_sign_in_codex_sign_in_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CodexSignInView"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/stats": {
    "get": {
     "tags": [
@@ -2784,21 +2826,10 @@
     ],
     "title": "ClaudeModel"
    },
-   "ClaudeSignIn": {
-    "type": "string",
-    "enum": [
-     "signed_in",
-     "signed_out",
-     "unknown",
-     "not_installed",
-     "too_old"
-    ],
-    "title": "ClaudeSignIn"
-   },
    "ClaudeSignInView": {
     "properties": {
      "state": {
-      "$ref": "#/components/schemas/ClaudeSignIn"
+      "$ref": "#/components/schemas/ReaderSignIn"
      },
      "hint": {
       "type": "string",
@@ -2820,7 +2851,7 @@
        }
       ],
       "title": "Page Url",
-      "description": "The sign-in page to open by hand; it shows a code to paste"
+      "description": "The sign-in page to open by hand while a sign-in waits"
      },
      "error": {
       "anyOf": [
@@ -2844,12 +2875,12 @@
        }
       ],
       "title": "Version",
-      "description": "The installed Claude Code's version; none when it is missing"
+      "description": "The installed reader's version; none when it is missing"
      },
      "minimum": {
       "type": "string",
       "title": "Minimum",
-      "description": "The oldest Claude Code version the app works with"
+      "description": "The oldest version of the reader the app works with"
      },
      "update_command": {
       "anyOf": [
@@ -2861,7 +2892,7 @@
        }
       ],
       "title": "Update Command",
-      "description": "The command that updates the installed Claude Code; none when it is missing"
+      "description": "The command that updates the installed reader; none when it is missing"
      }
     },
     "type": "object",
@@ -2870,7 +2901,8 @@
      "hint",
      "minimum"
     ],
-    "title": "ClaudeSignInView"
+    "title": "ClaudeSignInView",
+    "description": "Claude Code: a sign-in page opened by hand shows a code to paste."
    },
    "CodexEffort": {
     "type": "string",
@@ -2890,6 +2922,96 @@
      "gpt-6.2-astra"
     ],
     "title": "CodexModel"
+   },
+   "CodexSignInView": {
+    "properties": {
+     "state": {
+      "$ref": "#/components/schemas/ReaderSignIn"
+     },
+     "hint": {
+      "type": "string",
+      "title": "Hint"
+     },
+     "signing_in": {
+      "type": "boolean",
+      "title": "Signing In",
+      "description": "A sign-in started from the app waits for the browser",
+      "default": false
+     },
+     "page_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page Url",
+      "description": "The sign-in page to open by hand while a sign-in waits"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error",
+      "description": "Why the last sign-in from the app failed"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version",
+      "description": "The installed reader's version; none when it is missing"
+     },
+     "minimum": {
+      "type": "string",
+      "title": "Minimum",
+      "description": "The oldest version of the reader the app works with"
+     },
+     "update_command": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Update Command",
+      "description": "The command that updates the installed reader; none when it is missing"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message",
+      "description": "Why the app refuses this Codex; set when `state` is refused"
+     }
+    },
+    "type": "object",
+    "required": [
+     "state",
+     "hint",
+     "minimum"
+    ],
+    "title": "CodexSignInView",
+    "description": "Codex with ChatGPT: the sign-in page hands the login back by itself."
    },
    "CollectionBase": {
     "properties": {
@@ -4137,6 +4259,19 @@
      "url"
     ],
     "title": "PotentialSourcePublic"
+   },
+   "ReaderSignIn": {
+    "type": "string",
+    "enum": [
+     "signed_in",
+     "signed_out",
+     "unknown",
+     "not_installed",
+     "too_old",
+     "refused"
+    ],
+    "title": "ReaderSignIn",
+    "description": "Whether the reader the app calls is there and signed in; the same answers for Claude Code and Codex."
    },
    "RefreshProgress": {
     "properties": {

@@ -7,9 +7,8 @@ from pathlib import Path
 import httpx
 
 from where_to_go.about import USER_AGENT
-from where_to_go.active_provider import DATABASE_FILE
 from where_to_go.cities import CityCatalog
-from where_to_go.db import Database
+from where_to_go.db import DATABASE_FILE, Database
 from where_to_go.extraction import PostExtractor
 from where_to_go.feed import Feed
 from where_to_go.frames import VideoFrames
@@ -18,6 +17,7 @@ from where_to_go.linking import DetailsLinks, EventCards, EventLinker, PostMenti
 from where_to_go.linked_posts import LinkedPosts
 from where_to_go.codex_llm import CodexJsonLlm, CodexRuntime
 from where_to_go.codex_login import CodexHome, ToolGuard, codex_cli
+from where_to_go.codex_sign_in import CodexSignInFlow
 from where_to_go.llm import ClaudeJsonLlm, JsonLlm, ProviderJsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.originals import OriginalPosts
@@ -98,6 +98,7 @@ class Container:
     claude_sign_in: ClaudeSignInFlow
     codex: InstalledCli
     codex_runtime: CodexRuntime
+    codex_sign_in: CodexSignInFlow
     statistics: Statistics
     phone_config: PhonePageConfigRepository
     phone_page: PhonePageService
@@ -263,6 +264,7 @@ class Container:
             claude_sign_in=ClaudeSignInFlow(claude),
             codex=codex,
             codex_runtime=codex_runtime,
+            codex_sign_in=CodexSignInFlow(codex_runtime),
             phone_config=phone_config,
             phone_page=phone_page,
         )
@@ -272,6 +274,7 @@ class Container:
         await self.refresh.stop()
         await self.retag.stop()
         self.claude_sign_in.stop()
+        await self.codex_sign_in.stop()
         await self.codex_runtime.close()
         await self.http.aclose()
         await self.instagram_http.aclose()

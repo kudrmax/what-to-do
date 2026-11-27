@@ -19,7 +19,10 @@ from where_to_go.api import releases as release_routes
 from where_to_go.api.errors import validation_error
 from where_to_go.api.origin import SameOriginOnly
 from where_to_go.calendar_file import EventCalendarFile
-from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn
+from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin
+from where_to_go.codex_login import CODEX_SIGN_IN_HINT
+from where_to_go.codex_sign_in import CodexLogin
+from where_to_go.reader_sign_in import ReaderSignIn
 from where_to_go.cities import BusyCityError, CityError, DuplicateCityError
 from where_to_go.container import Container
 from where_to_go.feed import FeedFilter, Occurrence, PlanFilter
@@ -103,15 +106,25 @@ TAG_HELP = {
 }
 
 
-class ClaudeSignInView(BaseModel):
-    state: ClaudeSignIn
+class ReaderSignInView(BaseModel):
+    state: ReaderSignIn
     hint: str
     signing_in: bool = Field(default=False, description="A sign-in started from the app waits for the browser")
-    page_url: str | None = Field(default=None, description="The sign-in page to open by hand; it shows a code to paste")
+    page_url: str | None = Field(default=None, description="The sign-in page to open by hand while a sign-in waits")
     error: str | None = Field(default=None, description="Why the last sign-in from the app failed")
-    version: str | None = Field(default=None, description="The installed Claude Code's version; none when it is missing")
-    minimum: str = Field(description="The oldest Claude Code version the app works with")
-    update_command: str | None = Field(default=None, description="The command that updates the installed Claude Code; none when it is missing")
+    version: str | None = Field(default=None, description="The installed reader's version; none when it is missing")
+    minimum: str = Field(description="The oldest version of the reader the app works with")
+    update_command: str | None = Field(default=None, description="The command that updates the installed reader; none when it is missing")
+
+
+class ClaudeSignInView(ReaderSignInView):
+    """Claude Code: a sign-in page opened by hand shows a code to paste."""
+
+
+class CodexSignInView(ReaderSignInView):
+    """Codex with ChatGPT: the sign-in page hands the login back by itself."""
+
+    message: str | None = Field(default=None, description="Why the app refuses this Codex; set when `state` is refused")
 
 
 class SignInCodeRequest(BaseModel):
@@ -675,6 +688,32 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         if not c.claude_sign_in.submit_code(request.code):
             raise HTTPException(409, "No sign-in is waiting for a code. Press Sign in again")
         return sign_in_view(c)
+
+    async def codex_sign_in_view(c: Container) -> CodexSignInView:
+        progress = c.codex_sign_in.progress()
+        status = await CodexLogin(c.codex, c.codex_runtime).state()
+        return CodexSignInView(
+            state=status.state,
+            hint=CODEX_SIGN_IN_HINT,
+            signing_in=progress.running,
+            page_url=progress.page_url,
+            error=progress.error,
+            version=status.found.version,
+            minimum=status.found.minimum,
+            update_command=status.found.update_command,
+            message=status.message,
+        )
+
+    @app.get("/codex/sign-in", response_model=CodexSignInView, tags=[ApiTag.REFRESH])
+    async def codex_sign_in(c: ContainerDep):
+        """Whether Codex is installed, new enough, accepted by the tool check and signed in to ChatGPT, and how a sign-in started here goes."""
+        return await codex_sign_in_view(c)
+
+    @app.post("/codex/sign-in", response_model=CodexSignInView, tags=[ApiTag.REFRESH])
+    async def start_codex_sign_in(c: ContainerDep):
+        """Opens the ChatGPT sign-in page in the browser; poll `GET /codex/sign-in` until `state` is signed_in."""
+        await c.codex_sign_in.start()
+        return await codex_sign_in_view(c)
 
     # ---------- statistics ----------
 

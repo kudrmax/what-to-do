@@ -285,7 +285,8 @@ class Cli:
             self._out(f"Codex can't read posts: {refusal}.")
 
     def _warn_if_claude_not_ready(self) -> None:
-        from where_to_go.claude_login import CLAUDE_INSTALL_COMMAND, SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, claude_cli, unavailable_hint
+        from where_to_go.claude_login import CLAUDE_INSTALL_COMMAND, SIGN_IN_HINT, ClaudeLogin, claude_cli, unavailable_hint
+        from where_to_go.reader_sign_in import ReaderSignIn
         from where_to_go.installed_cli import CliStatus
 
         claude = claude_cli()
@@ -295,7 +296,7 @@ class Cli:
             self._out(f"{unavailable_hint(found)}.{update}")
             if found.status is CliStatus.MISSING:
                 self._out(f"Run: {CLAUDE_INSTALL_COMMAND}")
-        elif ClaudeLogin(claude).state_of(found) is ClaudeSignIn.SIGNED_OUT:
+        elif ClaudeLogin(claude).state_of(found) is ReaderSignIn.SIGNED_OUT:
             self._out(f"Claude Code is not signed in, so refreshes can't read posts. {SIGN_IN_HINT}.")
 
     def _rows(self, rows: list[tuple[str, str]]) -> None:

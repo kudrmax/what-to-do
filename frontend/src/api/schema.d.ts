@@ -777,6 +777,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codex/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Codex Sign In
+         * @description Whether Codex is installed, new enough, accepted by the tool check and signed in to ChatGPT, and how a sign-in started here goes.
+         */
+        get: operations["codex_sign_in_codex_sign_in_get"];
+        put?: never;
+        /**
+         * Start Codex Sign In
+         * @description Opens the ChatGPT sign-in page in the browser; poll `GET /codex/sign-in` until `state` is signed_in.
+         */
+        post: operations["start_codex_sign_in_codex_sign_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stats": {
         parameters: {
             query?: never;
@@ -1319,13 +1343,11 @@ export interface components {
          */
         ClaudeModel: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
         /**
-         * ClaudeSignIn
-         * @enum {string}
+         * ClaudeSignInView
+         * @description Claude Code: a sign-in page opened by hand shows a code to paste.
          */
-        ClaudeSignIn: "signed_in" | "signed_out" | "unknown" | "not_installed" | "too_old";
-        /** ClaudeSignInView */
         ClaudeSignInView: {
-            state: components["schemas"]["ClaudeSignIn"];
+            state: components["schemas"]["ReaderSignIn"];
             /** Hint */
             hint: string;
             /**
@@ -1336,7 +1358,7 @@ export interface components {
             signing_in: boolean;
             /**
              * Page Url
-             * @description The sign-in page to open by hand; it shows a code to paste
+             * @description The sign-in page to open by hand while a sign-in waits
              */
             page_url?: string | null;
             /**
@@ -1346,17 +1368,17 @@ export interface components {
             error?: string | null;
             /**
              * Version
-             * @description The installed Claude Code's version; none when it is missing
+             * @description The installed reader's version; none when it is missing
              */
             version?: string | null;
             /**
              * Minimum
-             * @description The oldest Claude Code version the app works with
+             * @description The oldest version of the reader the app works with
              */
             minimum: string;
             /**
              * Update Command
-             * @description The command that updates the installed Claude Code; none when it is missing
+             * @description The command that updates the installed reader; none when it is missing
              */
             update_command?: string | null;
         };
@@ -1370,6 +1392,51 @@ export interface components {
          * @enum {string}
          */
         CodexModel: "gpt-6-luna" | "gpt-6.1-terra" | "gpt-6.2-sol" | "gpt-6.2-astra";
+        /**
+         * CodexSignInView
+         * @description Codex with ChatGPT: the sign-in page hands the login back by itself.
+         */
+        CodexSignInView: {
+            state: components["schemas"]["ReaderSignIn"];
+            /** Hint */
+            hint: string;
+            /**
+             * Signing In
+             * @description A sign-in started from the app waits for the browser
+             * @default false
+             */
+            signing_in: boolean;
+            /**
+             * Page Url
+             * @description The sign-in page to open by hand while a sign-in waits
+             */
+            page_url?: string | null;
+            /**
+             * Error
+             * @description Why the last sign-in from the app failed
+             */
+            error?: string | null;
+            /**
+             * Version
+             * @description The installed reader's version; none when it is missing
+             */
+            version?: string | null;
+            /**
+             * Minimum
+             * @description The oldest version of the reader the app works with
+             */
+            minimum: string;
+            /**
+             * Update Command
+             * @description The command that updates the installed reader; none when it is missing
+             */
+            update_command?: string | null;
+            /**
+             * Message
+             * @description Why the app refuses this Codex; set when `state` is refused
+             */
+            message?: string | null;
+        };
         /** CollectionBase */
         CollectionBase: {
             /**
@@ -1969,6 +2036,12 @@ export interface components {
             /** Url */
             readonly url: string;
         };
+        /**
+         * ReaderSignIn
+         * @description Whether the reader the app calls is there and signed in; the same answers for Claude Code and Codex.
+         * @enum {string}
+         */
+        ReaderSignIn: "signed_in" | "signed_out" | "unknown" | "not_installed" | "too_old" | "refused";
         /** RefreshProgress */
         RefreshProgress: {
             /** @default idle */
@@ -3858,6 +3931,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    codex_sign_in_codex_sign_in_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexSignInView"];
+                };
+            };
+        };
+    };
+    start_codex_sign_in_codex_sign_in_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexSignInView"];
                 };
             };
         };

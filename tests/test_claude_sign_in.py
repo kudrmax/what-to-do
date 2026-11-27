@@ -15,7 +15,8 @@ from claude_agent_sdk import ResultMessage
 from tests.helpers import FakeClaude, add_city, fake_program, judge_same_titles, photos_saying
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go import llm as llm_module
-from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, ClaudeSignInFlow, SignInProgress
+from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignInFlow
+from where_to_go.reader_sign_in import ReaderSignIn, SignInProgress
 from where_to_go.container import Container
 from where_to_go.installed_cli import CliStatus, InstalledCli
 from where_to_go.llm import ClaudeJsonLlm, ClaudeSignedOutError, ClaudeUnavailableError, LlmError
@@ -40,38 +41,38 @@ def result(**overrides) -> ResultMessage:
 @pytest.mark.parametrize(
     ("answer", "code", "expected"),
     [
-        ({"loggedIn": True, "email": "someone@example.com"}, 0, ClaudeSignIn.SIGNED_IN),
-        ({"loggedIn": False}, 1, ClaudeSignIn.SIGNED_OUT),
-        ({"something": "else"}, 0, ClaudeSignIn.UNKNOWN),
-        ("not json at all", 0, ClaudeSignIn.UNKNOWN),
+        ({"loggedIn": True, "email": "someone@example.com"}, 0, ReaderSignIn.SIGNED_IN),
+        ({"loggedIn": False}, 1, ReaderSignIn.SIGNED_OUT),
+        ({"something": "else"}, 0, ReaderSignIn.UNKNOWN),
+        ("not json at all", 0, ReaderSignIn.UNKNOWN),
     ],
 )
-def test_the_login_check_asks_the_cli(tmp_path, answer: object, code: int, expected: ClaudeSignIn) -> None:
+def test_the_login_check_asks_the_cli(tmp_path, answer: object, code: int, expected: ReaderSignIn) -> None:
     assert ClaudeLogin(FakeClaude(path=auth_status(tmp_path, answer, code))).check() is expected
 
 
 def test_a_cli_that_cannot_run_leaves_the_login_unknown(tmp_path) -> None:
-    assert ClaudeLogin(FakeClaude(path=tmp_path / "no-such-cli")).check() is ClaudeSignIn.UNKNOWN
+    assert ClaudeLogin(FakeClaude(path=tmp_path / "no-such-cli")).check() is ReaderSignIn.UNKNOWN
 
 
 def test_login_check_not_installed(tmp_path) -> None:
-    assert ClaudeLogin(FakeClaude(CliStatus.MISSING)).check() is ClaudeSignIn.NOT_INSTALLED
+    assert ClaudeLogin(FakeClaude(CliStatus.MISSING)).check() is ReaderSignIn.NOT_INSTALLED
 
 
 def test_login_check_too_old(tmp_path) -> None:
     signed_in = auth_status(tmp_path, {"loggedIn": True})
 
-    assert ClaudeLogin(FakeClaude(CliStatus.TOO_OLD, path=signed_in, version="2.1.200")).check() is ClaudeSignIn.TOO_OLD
+    assert ClaudeLogin(FakeClaude(CliStatus.TOO_OLD, path=signed_in, version="2.1.200")).check() is ReaderSignIn.TOO_OLD
 
 
 def test_installing_while_the_app_runs_is_noticed_on_the_next_check(tmp_path) -> None:
     claude = InstalledCli("claude", "2.1.321", extra_dirs=lambda: [tmp_path / "bin"], environ={"PATH": ""}, run_version=lambda path: "2.1.325")
     login = ClaudeLogin(claude)
-    assert login.check() is ClaudeSignIn.NOT_INSTALLED
+    assert login.check() is ReaderSignIn.NOT_INSTALLED
 
     auth_status(tmp_path, {"loggedIn": True})
 
-    assert login.check() is ClaudeSignIn.SIGNED_IN
+    assert login.check() is ReaderSignIn.SIGNED_IN
 
 
 @pytest.mark.parametrize("message", [CLI_ANSWER, "Invalid API key · Please run /login", "OAuth token has expired"])
@@ -331,7 +332,7 @@ def test_the_api_starts_the_sign_in_and_takes_the_code(tmp_path, monkeypatch) ->
 
     from where_to_go.api import create_app
 
-    monkeypatch.setattr(ClaudeLogin, "state_of", lambda self, found: ClaudeSignIn.SIGNED_OUT)
+    monkeypatch.setattr(ClaudeLogin, "state_of", lambda self, found: ReaderSignIn.SIGNED_OUT)
     container = Container.build(tmp_path / "data", matching_llm=judge_same_titles(), claude=FakeClaude())
     container.claude_sign_in = ClaudeSignInFlow(login_cli(tmp_path))
     with TestClient(create_app(lambda: container)) as client:

@@ -39,7 +39,8 @@ TURN = "turn-1"
 
 class FakeCodexCli:
     def __init__(self, status: CliStatus = CliStatus.READY, path: Path | None = Path("/fake/codex"), version: str | None = "0.172.0") -> None:
-        self.found = FoundCli(status, None if status is CliStatus.MISSING else path, version, CODEX_MINIMUM, "codex update")
+        missing = status is CliStatus.MISSING
+        self.found = FoundCli(status, None if missing else path, None if missing else version, CODEX_MINIMUM, None if missing else "codex update")
 
     def find(self) -> FoundCli:
         return self.found
