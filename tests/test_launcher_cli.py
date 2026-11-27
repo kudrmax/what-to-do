@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers import FakeClaude
+from where_to_go.installed_cli import CliStatus
 from where_to_go.launcher.cli import NOT_RUNNING_EXIT, Cli
 from where_to_go.launcher.config import DEFAULT_PORT, ConfigError, InstanceConfig
 from where_to_go.launcher.logs import LogFollower
@@ -255,3 +257,20 @@ def test_the_port_command_prints_only_the_port_and_moves_off_a_taken_one(tmp_pat
     [port] = printed
     assert int(port) != taken
     assert f"Port {taken} is taken by another program" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("claude", "warning"),
+    [
+        (FakeClaude(CliStatus.MISSING), "Install Claude Code to read posts."),
+        (FakeClaude(CliStatus.TOO_OLD, version="2.1.200"), "Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer. Run: claude update"),
+    ],
+)
+def test_start_up_warns_when_claude_code_is_missing_or_too_old(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claude: FakeClaude, warning: str) -> None:
+    paths = copy_at(tmp_path)
+    said: list[str] = []
+    monkeypatch.setattr("where_to_go.claude_login.claude_cli", lambda: claude)
+
+    Cli(paths, InstanceConfig.load(paths, environ={}), out=said.append)._warn_if_signed_out()
+
+    assert said == [warning]

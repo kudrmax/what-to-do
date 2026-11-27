@@ -7,18 +7,27 @@ from typing import Any, Protocol
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
-from where_to_go.claude_login import SIGN_IN_HINT, ClaudeCliEnvironment, ClaudeLogin
+from where_to_go.claude_login import SIGN_IN_HINT, ClaudeCliEnvironment, ClaudeLogin, unavailable_hint
+from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
 
 
 class LlmError(Exception):
     pass
 
 
-class ClaudeSignedOutError(LlmError):
-    """Claude Code has no login to call Claude with; every call fails the same way until the user signs in."""
+class ClaudeNotReadyError(LlmError):
+    """Every call fails the same way until the user fixes Claude Code, so it is said once."""
 
+
+class ClaudeSignedOutError(ClaudeNotReadyError):
     def __init__(self) -> None:
         super().__init__(SIGN_IN_HINT)
+
+
+class ClaudeUnavailableError(ClaudeNotReadyError):
+    def __init__(self, found: FoundCli) -> None:
+        super().__init__(unavailable_hint(found))
+        self.found = found
 
 
 @dataclass(frozen=True)
@@ -37,18 +46,23 @@ class JsonLlm(Protocol):
 
 
 class ClaudeJsonLlm:
-    """Structured-output calls through Claude Code (claude-agent-sdk): no API key, the user's own login.
+    """Structured-output calls through the Claude Code the user installed (claude-agent-sdk): no API key, the user's own login.
 
     The model is asked for on every call, so a model changed in settings applies to the next call."""
 
-    def __init__(self, model: Callable[[], str]) -> None:
+    def __init__(self, model: Callable[[], str], cli: InstalledCli) -> None:
         self._model = model
+        self._cli = cli
         ClaudeCliEnvironment.prepare()
 
     async def complete_json(
         self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
     ) -> dict[str, Any]:
+        found = self._cli.find()
+        if found.status is not CliStatus.READY or found.path is None:
+            raise ClaudeUnavailableError(found)
         options = ClaudeAgentOptions(
+            cli_path=str(found.path),
             model=self._model(),
             system_prompt=system,
             tools=[],

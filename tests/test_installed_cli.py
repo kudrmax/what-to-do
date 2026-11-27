@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
+import pytest
+
 from where_to_go.claude_login import claude_cli, claude_places
+from where_to_go import installed_cli
 from where_to_go.installed_cli import CliStatus, InstalledCli
 from where_to_go.launcher.tools import Tools
 
 MINIMUM = "2.1.321"
+REAL_WHICH = shutil.which
 
 
 class FakeVersion:
@@ -114,6 +119,47 @@ def test_broken_symlink_skipped(tmp_path: Path) -> None:
     real = program(tmp_path / "fixed")
 
     assert finder([tmp_path / "path"], [tmp_path / "fixed"]).find().path == real
+
+
+def test_non_executable_file_on_path_skipped(tmp_path: Path) -> None:
+    plain = program(tmp_path / "path")
+    plain.chmod(0o644)
+    real = program(tmp_path / "fixed")
+
+    assert finder([tmp_path / "path"], [tmp_path / "fixed"]).find().path == real
+
+
+class VanishingFirst:
+    """`which` names a file that is gone by the time it is looked at, as when `brew upgrade` removes the old version."""
+
+    def __init__(self, gone: Path, times: int) -> None:
+        self.gone = gone
+        self.times = times
+
+    def __call__(self, name: str, path: str | None = None) -> str | None:
+        if self.times > 0:
+            self.times -= 1
+            return str(self.gone)
+        return REAL_WHICH(name, path=path)
+
+
+def test_program_removed_after_it_was_found_is_looked_up_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    real = program(tmp_path / "fixed")
+    monkeypatch.setattr(installed_cli.shutil, "which", VanishingFirst(tmp_path / "old" / "claude", times=1))
+
+    found = finder([], [tmp_path / "fixed"]).find()
+
+    assert found.status == CliStatus.READY
+    assert found.path == real
+
+
+def test_program_that_keeps_vanishing_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(installed_cli.shutil, "which", VanishingFirst(tmp_path / "old" / "claude", times=10))
+
+    found = finder([], [tmp_path / "fixed"]).find()
+
+    assert found.status == CliStatus.MISSING
+    assert found.path is None
 
 
 def test_homebrew_cask_update_command(tmp_path: Path) -> None:

@@ -32,6 +32,7 @@ class InstalledCli:
     Its version is asked once per file: a new install or an update changes the file and is asked again."""
 
     VERSION_TIMEOUT_S = 5
+    LOOKUPS = 2
     VERSION = re.compile(r"\d+\.\d+\.\d+")
 
     def __init__(
@@ -50,12 +51,18 @@ class InstalledCli:
         self._versions: dict[tuple[Path, int], str | None] = {}
 
     def find(self) -> FoundCli:
-        path = self._locate()
-        if path is None:
-            return FoundCli(CliStatus.MISSING, None, None, self._minimum, None)
-        version = self._version(path)
-        status = CliStatus.READY if version is not None and self._parts(version) >= self._parts(self._minimum) else CliStatus.TOO_OLD
-        return FoundCli(status, path, version, self._minimum, self._update_command(path))
+        """A file found can be gone a moment later, as when an update removes the old version: it is looked up again."""
+        for _ in range(self.LOOKUPS):
+            path = self._locate()
+            if path is None:
+                break
+            try:
+                version = self._version(path)
+            except OSError:
+                continue
+            status = CliStatus.READY if version is not None and self._parts(version) >= self._parts(self._minimum) else CliStatus.TOO_OLD
+            return FoundCli(status, path, version, self._minimum, self._update_command(path))
+        return FoundCli(CliStatus.MISSING, None, None, self._minimum, None)
 
     def _locate(self) -> Path | None:
         for search in (self._environ.get("PATH", ""), os.pathsep.join(str(directory) for directory in self._extra_dirs())):

@@ -5,17 +5,19 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
 import respx
 from claude_agent_sdk import ResultMessage
 
-from tests.helpers import add_city, judge_same_titles, photos_saying
+from tests.helpers import FakeClaude, add_city, judge_same_titles, photos_saying
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go import llm as llm_module
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, ClaudeSignInFlow, SignInProgress
 from where_to_go.container import Container
+from where_to_go.installed_cli import CliStatus, InstalledCli
 from where_to_go.llm import ClaudeJsonLlm, ClaudeSignedOutError, LlmError
 from where_to_go.models import Source
 from where_to_go.refresh import Stage
@@ -23,9 +25,16 @@ from where_to_go.refresh import Stage
 CLI_ANSWER = "Not logged in · Please run /login"
 
 
-def fake_cli(answer: object, code: int = 0) -> list[str]:
-    script = f"import sys; print({json.dumps(answer)!r}); sys.exit({code})"
-    return [sys.executable, "-c", script]
+def executable(path: Path, code: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"#!{sys.executable}\n{code}\n", encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+def auth_status(tmp_path: Path, answer: object, code: int = 0) -> Path:
+    printed = json.dumps(answer) if isinstance(answer, dict) else answer
+    return executable(tmp_path / "bin" / "claude", f"import sys; print({printed!r}); sys.exit({code})")
 
 
 def result(**overrides) -> ResultMessage:
@@ -43,15 +52,32 @@ def result(**overrides) -> ResultMessage:
         ("not json at all", 0, ClaudeSignIn.UNKNOWN),
     ],
 )
-def test_the_login_check_asks_the_cli(answer: object, code: int, expected: ClaudeSignIn) -> None:
-    command = fake_cli(answer, code)
-    if not isinstance(answer, dict):
-        command = [sys.executable, "-c", f"print({answer!r})"]
-    assert ClaudeLogin(command).check() is expected
+def test_the_login_check_asks_the_cli(tmp_path, answer: object, code: int, expected: ClaudeSignIn) -> None:
+    assert ClaudeLogin(FakeClaude(path=auth_status(tmp_path, answer, code))).check() is expected
 
 
 def test_a_cli_that_cannot_run_leaves_the_login_unknown(tmp_path) -> None:
-    assert ClaudeLogin([str(tmp_path / "no-such-cli")]).check() is ClaudeSignIn.UNKNOWN
+    assert ClaudeLogin(FakeClaude(path=tmp_path / "no-such-cli")).check() is ClaudeSignIn.UNKNOWN
+
+
+def test_login_check_not_installed(tmp_path) -> None:
+    assert ClaudeLogin(FakeClaude(CliStatus.MISSING)).check() is ClaudeSignIn.NOT_INSTALLED
+
+
+def test_login_check_too_old(tmp_path) -> None:
+    signed_in = auth_status(tmp_path, {"loggedIn": True})
+
+    assert ClaudeLogin(FakeClaude(CliStatus.TOO_OLD, path=signed_in, version="2.1.200")).check() is ClaudeSignIn.TOO_OLD
+
+
+def test_installing_while_the_app_runs_is_noticed_on_the_next_check(tmp_path) -> None:
+    claude = InstalledCli("claude", "2.1.321", extra_dirs=lambda: [tmp_path / "bin"], environ={"PATH": ""}, run_version=lambda path: "2.1.325")
+    login = ClaudeLogin(claude)
+    assert login.check() is ClaudeSignIn.NOT_INSTALLED
+
+    auth_status(tmp_path, {"loggedIn": True})
+
+    assert login.check() is ClaudeSignIn.SIGNED_IN
 
 
 @pytest.mark.parametrize("message", [CLI_ANSWER, "Invalid API key · Please run /login", "OAuth token has expired"])
@@ -77,7 +103,7 @@ async def test_a_call_without_a_login_says_how_to_sign_in(monkeypatch, messages,
     monkeypatch.setattr(llm_module, "query", query)
 
     with pytest.raises(ClaudeSignedOutError) as raised:
-        await ClaudeJsonLlm(lambda: "m").complete_json("sys", "prompt", {"type": "object"})
+        await ClaudeJsonLlm(lambda: "m", FakeClaude()).complete_json("sys", "prompt", {"type": "object"})
 
     assert str(raised.value) == SIGN_IN_HINT
     assert isinstance(raised.value, LlmError)
@@ -138,12 +164,12 @@ def flows():
         flow.stop()
 
 
-def login_cli(tmp_path) -> list[str]:
+def login_cli(tmp_path) -> FakeClaude:
     script = tmp_path / "login.py"
     script.write_text(LOGIN_SCRIPT, encoding="utf-8")
     arguments = tmp_path / "arguments.txt"
     recorder = f"import sys, runpy; open({str(arguments)!r}, 'w').write(' '.join(sys.argv[1:])); sys.argv = sys.argv[:1]; runpy.run_path({str(script)!r}, run_name='__main__')"
-    return [sys.executable, "-c", recorder]
+    return FakeClaude(path=executable(tmp_path / "bin" / "claude", recorder))
 
 
 def wait_until(condition, timeout: float = 15) -> None:
@@ -222,7 +248,7 @@ def test_a_second_press_does_not_start_a_second_sign_in(tmp_path, flows) -> None
 
 
 def test_a_cli_that_cannot_start_says_so(tmp_path, flows) -> None:
-    flow = ClaudeSignInFlow([str(tmp_path / "no-such-cli")])
+    flow = ClaudeSignInFlow(FakeClaude(path=tmp_path / "no-such-cli"))
     flows.append(flow)
 
     flow.start()
@@ -230,6 +256,27 @@ def test_a_cli_that_cannot_start_says_so(tmp_path, flows) -> None:
     progress = flow.progress()
     assert not progress.running
     assert progress.error is not None and progress.error.startswith("Couldn't start signing in")
+
+
+def test_sign_in_flow_without_cli_reports_install_hint(flows) -> None:
+    flow = ClaudeSignInFlow(FakeClaude(CliStatus.MISSING))
+    flows.append(flow)
+
+    flow.start()
+
+    progress = flow.progress()
+    assert not progress.running
+    assert progress.error == "Install Claude Code to read posts"
+    assert "Reinstall" not in progress.error
+
+
+def test_sign_in_flow_with_an_old_cli_says_to_update_it(flows) -> None:
+    flow = ClaudeSignInFlow(FakeClaude(CliStatus.TOO_OLD, version="2.1.200"))
+    flows.append(flow)
+
+    flow.start()
+
+    assert flow.progress().error == "Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer"
 
 
 def test_the_api_starts_the_sign_in_and_takes_the_code(tmp_path, monkeypatch) -> None:

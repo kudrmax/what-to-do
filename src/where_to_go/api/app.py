@@ -644,7 +644,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     def sign_in_view(c: Container) -> ClaudeSignInView:
         progress = c.claude_sign_in.progress()
         return ClaudeSignInView(
-            state=ClaudeLogin().check(), hint=SIGN_IN_HINT, signing_in=progress.running, page_url=progress.page_url, error=progress.error
+            state=ClaudeLogin(c.claude).check(), hint=SIGN_IN_HINT, signing_in=progress.running, page_url=progress.page_url, error=progress.error
         )
 
     @app.get("/claude/sign-in", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])

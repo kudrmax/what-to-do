@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from common import TEST_CITY
+from where_to_go.claude_login import claude_cli
 from where_to_go.container import Container
 from where_to_go.llm import ClaudeJsonLlm
 from where_to_go.models import CollectedPost, Source
@@ -26,7 +27,8 @@ class CountingLlm:
 
 async def main(source_dir: Path, target_dir: Path, model: str, post_ids: list[int]) -> None:
     origin = Container.build(source_dir)
-    photos, extraction, matching = (CountingLlm(ClaudeJsonLlm(lambda: model)) for _ in range(3))
+    claude = claude_cli()
+    photos, extraction, matching = (CountingLlm(ClaudeJsonLlm(lambda: model, claude)) for _ in range(3))
     c = Container.build(target_dir, extraction_llm=extraction, matching_llm=matching, photo_llm=photos)
     city = c.cities.active() or c.cities.add(*TEST_CITY)
     copies: dict[int, Source] = {}

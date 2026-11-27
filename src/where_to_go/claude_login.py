@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import threading
@@ -14,7 +12,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import IO
 
-from where_to_go.installed_cli import InstalledCli
+from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
 from where_to_go.launcher.tools import Tools
 
 SIGN_IN_HINT = "Sign in to Claude Code: run `claude` in a terminal and type /login"
@@ -62,10 +60,18 @@ def claude_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None
     )
 
 
+def unavailable_hint(found: FoundCli) -> str:
+    if found.status is CliStatus.MISSING:
+        return "Install Claude Code to read posts"
+    return f"Update Claude Code: you have {found.version or 'an unknown version'}, What To Do needs {found.minimum} or newer"
+
+
 class ClaudeSignIn(StrEnum):
     SIGNED_IN = "signed_in"
     SIGNED_OUT = "signed_out"
     UNKNOWN = "unknown"
+    NOT_INSTALLED = "not_installed"
+    TOO_OLD = "too_old"
 
 
 class ClaudeLogin:
@@ -77,18 +83,19 @@ class ClaudeLogin:
     TIMEOUT_S = 15
     # What the CLI answers a call with when nobody is logged in.
     SIGNED_OUT_MARKERS = ("not logged in", "please run /login", "invalid api key", "oauth token has expired")
+    UNAVAILABLE = {CliStatus.MISSING: ClaudeSignIn.NOT_INSTALLED, CliStatus.TOO_OLD: ClaudeSignIn.TOO_OLD}
 
-    def __init__(self, cli: list[str] | None = None) -> None:
+    def __init__(self, cli: InstalledCli) -> None:
         self._cli = cli
 
     def check(self) -> ClaudeSignIn:
-        cli = self._cli or self._found_cli()
-        if not cli:
-            return ClaudeSignIn.UNKNOWN
+        found = self._cli.find()
+        if found.status is not CliStatus.READY or found.path is None:
+            return self.UNAVAILABLE.get(found.status, ClaudeSignIn.UNKNOWN)
         environ = ClaudeCliEnvironment.cleaned(os.environ)
         try:
             completed = subprocess.run(
-                [*cli, "auth", "status"], capture_output=True, text=True, timeout=self.TIMEOUT_S, stdin=subprocess.DEVNULL, env=environ
+                [str(found.path), "auth", "status"], capture_output=True, text=True, timeout=self.TIMEOUT_S, stdin=subprocess.DEVNULL, env=environ
             )
             answer = json.loads(completed.stdout)
         except (OSError, subprocess.TimeoutExpired, ValueError):
@@ -101,22 +108,6 @@ class ClaudeLogin:
     def means_signed_out(cls, message: str) -> bool:
         lowered = message.lower()
         return any(marker in lowered for marker in cls.SIGNED_OUT_MARKERS)
-
-    @classmethod
-    def _found_cli(cls) -> list[str]:
-        cli = cls.find_cli()
-        return [str(cli)] if cli else []
-
-    @staticmethod
-    def find_cli() -> Path | None:
-        """The CLI bundled with claude-agent-sdk, which the SDK prefers; else a `claude` on PATH."""
-        spec = importlib.util.find_spec("claude_agent_sdk")
-        if spec is not None and spec.origin:
-            bundled = Path(spec.origin).parent / "_bundled" / ("claude.exe" if os.name == "nt" else "claude")
-            if bundled.is_file():
-                return bundled
-        found = shutil.which("claude")
-        return Path(found) if found else None
 
 
 @dataclass(frozen=True)
@@ -138,7 +129,7 @@ class ClaudeSignInFlow:
     CODE_PROMPT = "Paste code here if prompted >"
     STOP_TIMEOUT_S = 5
 
-    def __init__(self, cli: list[str] | None = None) -> None:
+    def __init__(self, cli: InstalledCli) -> None:
         self._cli = cli
         self._lock = threading.Lock()
         self._process: subprocess.Popen[bytes] | None = None
@@ -150,15 +141,15 @@ class ClaudeSignInFlow:
             if self._running():
                 return
             self._close_output()
-            cli = self._cli or ClaudeLogin._found_cli()
-            if not cli:
-                self._error = "Claude Code, which the app reads posts with, is missing. Reinstall What To Do."
+            found = self._cli.find()
+            if found.status is not CliStatus.READY or found.path is None:
+                self._error = unavailable_hint(found)
                 return
             self._error = None
             self._output = tempfile.TemporaryFile()
             try:
                 self._process = subprocess.Popen(
-                    [*cli, "auth", "login", "--claudeai"],
+                    [str(found.path), "auth", "login", "--claudeai"],
                     stdin=subprocess.PIPE,
                     stdout=self._output,
                     stderr=subprocess.STDOUT,

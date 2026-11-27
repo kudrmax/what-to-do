@@ -254,9 +254,15 @@ class Cli:
         self._out(f"→ {spec.url}\n")
 
     def _warn_if_signed_out(self) -> None:
-        from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn
+        from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, claude_cli, unavailable_hint
 
-        if ClaudeLogin().check() is ClaudeSignIn.SIGNED_OUT:
+        claude = claude_cli()
+        state = ClaudeLogin(claude).check()
+        if state in (ClaudeSignIn.NOT_INSTALLED, ClaudeSignIn.TOO_OLD):
+            found = claude.find()
+            update = f" Run: {found.update_command}" if found.update_command else ""
+            self._out(f"{unavailable_hint(found)}.{update}")
+        elif state is ClaudeSignIn.SIGNED_OUT:
             self._out(f"Claude Code is not signed in, so refreshes can't read posts. {SIGN_IN_HINT}.")
 
     def _rows(self, rows: list[tuple[str, str]]) -> None:

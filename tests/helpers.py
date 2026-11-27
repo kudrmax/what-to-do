@@ -4,10 +4,28 @@ import json
 import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime, time
+from pathlib import Path
 from typing import Any
 
+from where_to_go.claude_login import CLAUDE_MINIMUM
+from where_to_go.installed_cli import CliStatus, FoundCli
 from where_to_go.llm import LlmImage
 from where_to_go.models import EventKind, ExtractedEvent, Mention, Post, Source, UpdateKind
+
+
+class FakeClaude:
+    """The installed Claude Code as the app finds it; nothing runs unless a test gives a real program as the path."""
+
+    def __init__(self, status: CliStatus = CliStatus.READY, path: Path | None = Path("/fake/claude"), version: str | None = "2.1.325") -> None:
+        found_path = None if status is CliStatus.MISSING else path
+        found_version = None if status is CliStatus.MISSING else version
+        update = None if status is CliStatus.MISSING else "claude update"
+        self.found = FoundCli(status, found_path, found_version, CLAUDE_MINIMUM, update)
+        self.calls = 0
+
+    def find(self) -> FoundCli:
+        self.calls += 1
+        return self.found
 
 
 class FakeLlm:
