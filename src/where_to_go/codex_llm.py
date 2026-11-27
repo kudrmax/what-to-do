@@ -35,6 +35,7 @@ from where_to_go.llm import (
     LlmImage,
     PlanLimitError,
 )
+from where_to_go.strict_schema import StrictSchema
 
 CLEAN_ENV = Path("/usr/bin/env")
 TRIED_A_TOOL = "Codex tried to use a tool; nothing was read"
@@ -185,6 +186,7 @@ class CodexRuntime:
 class CodexJsonLlm:
     """Structured-output calls through the Codex the user installed, signed in with ChatGPT.
 
+    The schema goes in the strict form OpenAI requires, and the answer comes back in the shape the schema describes.
     Each call is one ephemeral thread with the system text as its base instructions, no sandbox override and
     every approval denied: the app's Codex home gives the model no tool and a sandbox that reads nothing. A turn
     that still shows anything but messages and reasoning is stopped and its answer dropped."""
@@ -199,10 +201,11 @@ class CodexJsonLlm:
     async def complete_json(
         self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
     ) -> dict[str, Any]:
+        strict = StrictSchema(schema)
         codex = await self._runtime.client()
         try:
             await self._runtime.check_signed_in(codex)
-            turn, items = await self._ask(codex, system, prompt, schema, images)
+            turn, items = await self._ask(codex, system, prompt, strict.strict, images)
         except CodexSignedOutError:
             self._runtime.signed_out(codex)
             raise
@@ -222,7 +225,7 @@ class CodexJsonLlm:
             if isinstance(failure, CodexSignedOutError):
                 self._runtime.signed_out(codex)
             raise failure
-        return self._answer(items)
+        return strict.restore(self._answer(items))
 
     async def _ask(
         self, codex: AsyncCodex, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage]

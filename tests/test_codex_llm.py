@@ -35,6 +35,7 @@ from where_to_go.llm import (
 
 WINDOWS = os.name == "nt"
 SCHEMA = {"type": "object", "properties": {"title": {"type": "string"}}, "required": ["title"]}
+STRICT_SCHEMA = {**SCHEMA, "additionalProperties": False}
 TURN = "turn-1"
 
 
@@ -204,7 +205,7 @@ async def test_turn_gets_schema_model_and_effort_and_never_a_sandbox(tmp_path):
     await llm.complete_json("s", "p", SCHEMA)
     first, second = clients.made[0].turns
     assert all("sandbox" not in turn and "approval_mode" not in turn for turn in (first, second))
-    assert first["output_schema"] == SCHEMA
+    assert first["output_schema"] == STRICT_SCHEMA
     assert (first["model"], first["effort"]) == ("gpt-6-luna", ReasoningEffort.low)
     assert (second["model"], second["effort"]) == ("gpt-6.2-sol", ReasoningEffort.high)
     assert len(clients.made) == 1
@@ -676,4 +677,19 @@ async def test_effort_is_read_before_the_thread_starts(tmp_path):
     with pytest.raises(LlmError):
         await CodexJsonLlm(lambda: "gpt-6-luna", lambda: "", rt).complete_json("s", "p", SCHEMA)
     assert clients.made[0].starts == []
+    await rt.close()
+
+
+async def test_turn_gets_the_strict_schema_and_the_answer_comes_back_in_the_source_shape(tmp_path):
+    schema = {
+        "type": "object",
+        "properties": {"title": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}, "default": []}},
+        "required": ["title"],
+    }
+    clients = FakeClients(answer({"title": "Concert", "tags": None}))
+    rt = runtime(clients, tmp_path)
+    assert await reader(rt).complete_json("s", "p", schema) == {"title": "Concert"}
+    sent = clients.made[0].turns[0]["output_schema"]
+    assert sent["required"] == ["title", "tags"] and sent["additionalProperties"] is False
+    assert sent["properties"]["tags"] == {"anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}]}
     await rt.close()
