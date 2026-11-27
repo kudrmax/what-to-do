@@ -183,7 +183,7 @@ async def test_posts_claude_failed_to_read_are_retried_next_refresh(tmp_path):
 
     container.refresh.start()
     first = await container.refresh.wait()
-    assert first.stage is Stage.DONE and any("couldn't read some of the new posts and pages (1):" in e for e in first.errors)
+    assert first.stage is Stage.DONE and any("Couldn't read some of the new posts and pages (1):" in e for e in first.errors)
     assert container.events.in_city(1) == []
 
     container.refresh.start()

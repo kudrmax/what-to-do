@@ -21,6 +21,7 @@ from where_to_go.installed_cli import CliStatus, InstalledCli
 from where_to_go.llm import ClaudeJsonLlm, ClaudeSignedOutError, ClaudeUnavailableError, LlmError
 from where_to_go.models import Source
 from where_to_go.refresh import Stage
+from where_to_go.settings import LlmProvider
 
 CLI_ANSWER = "Not logged in · Please run /login"
 
@@ -136,7 +137,7 @@ async def test_a_refresh_without_a_usable_claude_code_says_so_once(tmp_path, err
     progress = await container.refresh.wait()
 
     assert progress.stage is Stage.DONE
-    assert progress.claude_unavailable
+    assert (progress.reader_unavailable, progress.reader) == (True, LlmProvider.CLAUDE)
     assert progress.errors == [line]
     assert extraction.calls > 1
     await container.close()

@@ -5,13 +5,14 @@ import base64
 import re
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeCliEnvironment, ClaudeLogin, unavailable_hint
 from where_to_go.codex_login import CODEX_SIGN_IN_HINT, codex_unavailable_hint
 from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
+from where_to_go.settings import LlmProvider
 
 
 class LlmError(Exception):
@@ -21,24 +22,34 @@ class LlmError(Exception):
 class ReaderNotReadyError(LlmError):
     """Every call fails the same way until the user fixes the reader (Claude Code or Codex), so it is said once."""
 
+    provider: ClassVar[LlmProvider | None] = None
+
 
 class ClaudeSignedOutError(ReaderNotReadyError):
+    provider = LlmProvider.CLAUDE
+
     def __init__(self) -> None:
         super().__init__(SIGN_IN_HINT)
 
 
 class ClaudeUnavailableError(ReaderNotReadyError):
+    provider = LlmProvider.CLAUDE
+
     def __init__(self, found: FoundCli) -> None:
         super().__init__(unavailable_hint(found))
         self.found = found
 
 
 class CodexSignedOutError(ReaderNotReadyError):
+    provider = LlmProvider.CODEX
+
     def __init__(self) -> None:
         super().__init__(CODEX_SIGN_IN_HINT)
 
 
 class CodexUnavailableError(ReaderNotReadyError):
+    provider = LlmProvider.CODEX
+
     def __init__(self, found: FoundCli) -> None:
         super().__init__(codex_unavailable_hint(found))
         self.found = found
@@ -47,8 +58,11 @@ class CodexUnavailableError(ReaderNotReadyError):
 class CodexRefusedError(ReaderNotReadyError):
     """The tool guard found something the model could act with: no post is sent."""
 
+    provider = LlmProvider.CODEX
+
 
 class PlanLimitError(ReaderNotReadyError):
+    provider = LlmProvider.CODEX
     MESSAGE = "ChatGPT plan limit reached"
     RESET = re.compile(r"try again at (?P<time>.+?)(?=\.\s|\.?\s*$)", re.IGNORECASE | re.MULTILINE)
 
@@ -70,6 +84,20 @@ class JsonLlm(Protocol):
     async def complete_json(
         self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
     ) -> dict[str, Any]: ...
+
+
+class ProviderJsonLlm:
+    """One step's reader: hands each call to the Claude or the Codex reader of that step, whichever is chosen
+    when the call starts, so switching the provider applies to the next call and never splits one."""
+
+    def __init__(self, provider: Callable[[], LlmProvider], claude: JsonLlm, codex: JsonLlm) -> None:
+        self._provider = provider
+        self._readers: dict[LlmProvider, JsonLlm] = {LlmProvider.CLAUDE: claude, LlmProvider.CODEX: codex}
+
+    async def complete_json(
+        self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
+    ) -> dict[str, Any]:
+        return await self._readers[self._provider()].complete_json(system, prompt, schema, images)
 
 
 class ClaudeJsonLlm:

@@ -24,7 +24,7 @@ function status(fields: Partial<RefreshStatus>): RefreshStatus {
     posts_read: 0,
     events_touched: 0,
     errors: [],
-    claude_unavailable: false,
+    reader_unavailable: false, reader: null,
     running: true,
     ...fields,
   };

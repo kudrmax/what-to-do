@@ -1028,7 +1028,7 @@ export interface components {
             recent_posts: number;
             /**
              * Priority Wish
-             * @description What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             * @description What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged
              * @default
              */
             priority_wish: string;
@@ -1040,7 +1040,7 @@ export interface components {
             collections_enabled: boolean;
             /**
              * Extraction Prompt
-             * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
+             * @description Instructions the reader gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
              * @default You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.
              *
              *     For every post return the events and places it announces. Most posts announce nothing: return empty lists for them.
@@ -1075,7 +1075,7 @@ export interface components {
             extraction_prompt: string;
             /**
              * Matching Prompt
-             * @description Instructions Claude gets for merging duplicates
+             * @description Instructions the reader gets for merging duplicates
              * @default You merge duplicate event announcements collected from several Telegram channels and websites.
              *
              *     You get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.
@@ -1090,7 +1090,7 @@ export interface components {
             matching_prompt: string;
             /**
              * Photo Prompt
-             * @description Instructions Claude gets for transcribing post photos
+             * @description Instructions the reader gets for transcribing post photos
              * @default You transcribe the photos of posts that announce events: posters, event cards, schedules, digests.
              *
              *     Every photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema.
@@ -1111,6 +1111,41 @@ export interface components {
              * @default claude-haiku-5-5
              */
             matching_model: components["schemas"]["ClaudeModel"];
+            /**
+             * @description Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models
+             * @default claude
+             */
+            llm_provider: components["schemas"]["LlmProvider"];
+            /**
+             * @description Transcribes post photos when Codex reads
+             * @default gpt-6.1-terra
+             */
+            codex_photo_model: components["schemas"]["CodexModel"];
+            /**
+             * @description How long Codex thinks over post photos
+             * @default medium
+             */
+            codex_photo_effort: components["schemas"]["CodexEffort"];
+            /**
+             * @description Reads posts into events and places when Codex reads
+             * @default gpt-6.1-terra
+             */
+            codex_extraction_model: components["schemas"]["CodexModel"];
+            /**
+             * @description How long Codex thinks over posts
+             * @default medium
+             */
+            codex_extraction_effort: components["schemas"]["CodexEffort"];
+            /**
+             * @description Merges duplicate announcements when Codex reads
+             * @default gpt-6-luna
+             */
+            codex_matching_model: components["schemas"]["CodexModel"];
+            /**
+             * @description How long Codex thinks over duplicates
+             * @default low
+             */
+            codex_matching_effort: components["schemas"]["CodexEffort"];
         };
         /**
          * Booking
@@ -1325,6 +1360,16 @@ export interface components {
              */
             update_command?: string | null;
         };
+        /**
+         * CodexEffort
+         * @enum {string}
+         */
+        CodexEffort: "low" | "medium" | "high";
+        /**
+         * CodexModel
+         * @enum {string}
+         */
+        CodexModel: "gpt-6-luna" | "gpt-6.1-terra" | "gpt-6.2-sol" | "gpt-6.2-astra";
         /** CollectionBase */
         CollectionBase: {
             /**
@@ -1677,6 +1722,11 @@ export interface components {
             count: number;
         };
         /**
+         * LlmProvider
+         * @enum {string}
+         */
+        LlmProvider: "claude" | "codex";
+        /**
          * Mark
          * @description What the user decided about an event: how interesting it is, and whether they are going.
          */
@@ -1973,7 +2023,7 @@ export interface components {
             new_posts: number;
             /**
              * Photos To Read
-             * @description Photos Claude transcribes in this refresh
+             * @description Photos the reader transcribes in this refresh
              * @default 0
              */
             photos_to_read: number;
@@ -1984,7 +2034,7 @@ export interface components {
             photos_read: number;
             /**
              * Posts To Read
-             * @description Posts Claude reads in this refresh
+             * @description Posts the reader reads in this refresh
              * @default 0
              */
             posts_to_read: number;
@@ -2005,11 +2055,13 @@ export interface components {
              */
             errors: string[];
             /**
-             * Claude Unavailable
-             * @description Claude Code is missing, too old or signed out: nothing was read
+             * Reader Unavailable
+             * @description The reader is missing, too old, signed out, refused or out of plan limit: nothing more was read
              * @default false
              */
-            claude_unavailable: boolean;
+            reader_unavailable: boolean;
+            /** @description Whose reader was not ready, when reader_unavailable */
+            reader: components["schemas"]["LlmProvider"] | null;
             /** Running */
             readonly running: boolean;
         };
@@ -2072,7 +2124,7 @@ export interface components {
             recent_posts?: number | null;
             /**
              * Priority Wish
-             * @description What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             * @description What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged
              */
             priority_wish?: string | null;
             /**
@@ -2082,17 +2134,17 @@ export interface components {
             collections_enabled?: boolean | null;
             /**
              * Extraction Prompt
-             * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
+             * @description Instructions the reader gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
              */
             extraction_prompt?: string | null;
             /**
              * Matching Prompt
-             * @description Instructions Claude gets for merging duplicates
+             * @description Instructions the reader gets for merging duplicates
              */
             matching_prompt?: string | null;
             /**
              * Photo Prompt
-             * @description Instructions Claude gets for transcribing post photos
+             * @description Instructions the reader gets for transcribing post photos
              */
             photo_prompt?: string | null;
             /** @description Transcribes post photos; Haiku misreads tables and collages */
@@ -2101,6 +2153,20 @@ export interface components {
             extraction_model?: components["schemas"]["ClaudeModel"] | null;
             /** @description Merges duplicate announcements */
             matching_model?: components["schemas"]["ClaudeModel"] | null;
+            /** @description Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models */
+            llm_provider?: components["schemas"]["LlmProvider"] | null;
+            /** @description Transcribes post photos when Codex reads */
+            codex_photo_model?: components["schemas"]["CodexModel"] | null;
+            /** @description How long Codex thinks over post photos */
+            codex_photo_effort?: components["schemas"]["CodexEffort"] | null;
+            /** @description Reads posts into events and places when Codex reads */
+            codex_extraction_model?: components["schemas"]["CodexModel"] | null;
+            /** @description How long Codex thinks over posts */
+            codex_extraction_effort?: components["schemas"]["CodexEffort"] | null;
+            /** @description Merges duplicate announcements when Codex reads */
+            codex_matching_model?: components["schemas"]["CodexModel"] | null;
+            /** @description How long Codex thinks over duplicates */
+            codex_matching_effort?: components["schemas"]["CodexEffort"] | null;
         };
         /** SignInCodeRequest */
         SignInCodeRequest: {

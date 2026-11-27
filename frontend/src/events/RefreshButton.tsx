@@ -15,7 +15,7 @@ const saysClaudeUnavailable = (error: string) => CLAUDE_UNAVAILABLE_ERRORS.some(
 export function RefreshButton() {
   const refresh = useRefresh();
   const signIn = useClaudeSignInStatus();
-  const claudeUnavailable = !refresh.running && (refresh.status?.claude_unavailable ?? false);
+  const claudeUnavailable = !refresh.running && (refresh.status?.reader_unavailable ?? false) && refresh.status?.reader === "claude";
   const boxShown = claudeUnavailable && signIn.data !== undefined;
   const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(boxShown && saysClaudeUnavailable(error)));
   const { city } = useActiveCity();

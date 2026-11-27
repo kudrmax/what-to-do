@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 
 from where_to_go.about import USER_AGENT
+from where_to_go.active_provider import DATABASE_FILE
 from where_to_go.cities import CityCatalog
 from where_to_go.db import Database
 from where_to_go.extraction import PostExtractor
@@ -15,7 +16,9 @@ from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linking import DetailsLinks, EventCards, EventLinker, PostMentions
 from where_to_go.linked_posts import LinkedPosts
-from where_to_go.llm import ClaudeJsonLlm, JsonLlm
+from where_to_go.codex_llm import CodexJsonLlm, CodexRuntime
+from where_to_go.codex_login import CodexHome, ToolGuard, codex_cli
+from where_to_go.llm import ClaudeJsonLlm, JsonLlm, ProviderJsonLlm
 from where_to_go.matching import CandidateFinder, DuplicateJudge
 from where_to_go.originals import OriginalPosts
 from where_to_go.phone_page.cipher import SnapshotCipher
@@ -49,6 +52,7 @@ from where_to_go.repositories import (
     WebRepository,
 )
 from where_to_go.resolution import EventResolver
+from where_to_go.settings import LlmProvider
 from where_to_go.sources import PotentialSources, SourceCatalog
 from where_to_go.statistics import Statistics
 from where_to_go.telegram import TelegramChannelReader
@@ -92,6 +96,8 @@ class Container:
     releases: Releases
     claude: InstalledCli
     claude_sign_in: ClaudeSignInFlow
+    codex: InstalledCli
+    codex_runtime: CodexRuntime
     statistics: Statistics
     phone_config: PhonePageConfigRepository
     phone_page: PhonePageService
@@ -112,9 +118,11 @@ class Container:
         primary_data_dir: Path | None = None,
         instagram_pause: float = 1.0,
         claude: InstalledCli | None = None,
+        codex: InstalledCli | None = None,
+        codex_runtime: CodexRuntime | None = None,
     ) -> Container:
         project = project or ProjectPaths.here()
-        db = Database(data_dir / "where-to-go.sqlite3")
+        db = Database(data_dir / DATABASE_FILE)
         http = http or httpx.AsyncClient(timeout=30, headers={"User-Agent": USER_AGENT})
         instagram_http = httpx.AsyncClient(timeout=30, follow_redirects=False)
         settings = SettingsRepository(db)
@@ -132,9 +140,28 @@ class Container:
         reader = TelegramChannelReader(http)
         cards = EventCards(events, mentions, EventResolver(tags.fallback), db.transaction)
         claude = claude or claude_cli()
-        matching_llm = matching_llm or ClaudeJsonLlm(lambda: settings.load().matching_model, claude)
-        extraction_llm = extraction_llm or ClaudeJsonLlm(lambda: settings.load().extraction_model, claude)
-        photo_llm = photo_llm or ClaudeJsonLlm(lambda: settings.load().photo_model, claude)
+        codex_home = CodexHome.default()
+        codex = codex or codex_cli(codex_home=codex_home)
+        codex_runtime = codex_runtime or CodexRuntime(codex, codex_home, ToolGuard(codex_home))
+
+        def provider() -> LlmProvider:
+            return settings.load().llm_provider
+
+        matching_llm = matching_llm or ProviderJsonLlm(
+            provider,
+            ClaudeJsonLlm(lambda: settings.load().matching_model, claude),
+            CodexJsonLlm(lambda: settings.load().codex_matching_model, lambda: settings.load().codex_matching_effort, codex_runtime),
+        )
+        extraction_llm = extraction_llm or ProviderJsonLlm(
+            provider,
+            ClaudeJsonLlm(lambda: settings.load().extraction_model, claude),
+            CodexJsonLlm(lambda: settings.load().codex_extraction_model, lambda: settings.load().codex_extraction_effort, codex_runtime),
+        )
+        photo_llm = photo_llm or ProviderJsonLlm(
+            provider,
+            ClaudeJsonLlm(lambda: settings.load().photo_model, claude),
+            CodexJsonLlm(lambda: settings.load().codex_photo_model, lambda: settings.load().codex_photo_effort, codex_runtime),
+        )
         linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards, DetailsLinks(mentions, events))
         photo_texts = PhotoTextRepository(db)
         sitemaps = SitemapReader(http)
@@ -234,6 +261,8 @@ class Container:
             statistics=Statistics(db),
             claude=claude,
             claude_sign_in=ClaudeSignInFlow(claude),
+            codex=codex,
+            codex_runtime=codex_runtime,
             phone_config=phone_config,
             phone_page=phone_page,
         )
@@ -243,6 +272,7 @@ class Container:
         await self.refresh.stop()
         await self.retag.stop()
         self.claude_sign_in.stop()
+        await self.codex_runtime.close()
         await self.http.aclose()
         await self.instagram_http.aclose()
         self.db.close()

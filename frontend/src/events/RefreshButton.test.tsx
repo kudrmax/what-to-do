@@ -27,7 +27,7 @@ function finished(overrides: Partial<RefreshStatus>): RefreshStatus {
     posts_read: 0,
     events_touched: 0,
     errors: [],
-    claude_unavailable: false,
+    reader_unavailable: false, reader: null,
     running: false,
     ...overrides,
   };
@@ -56,7 +56,7 @@ function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<Cl
 
 describe("refresh errors", () => {
   it("offers to sign in to Claude instead of the raw error", async () => {
-    setup(finished({ errors: ["Кафана: couldn't read it", SIGN_IN], claude_unavailable: true }));
+    setup(finished({ errors: ["Кафана: couldn't read it", SIGN_IN], reader_unavailable: true, reader: "claude" }));
 
     const note = await screen.findByRole("alert");
     expect(note).toHaveTextContent("Sign in to Claude to read the posts");
@@ -68,7 +68,7 @@ describe("refresh errors", () => {
   });
 
   it("signs in through the browser and takes the code when the browser didn't open", async () => {
-    const { start, submit } = setup(finished({ claude_unavailable: true }));
+    const { start, submit } = setup(finished({ reader_unavailable: true, reader: "claude" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign in to Claude" }));
 
@@ -82,21 +82,21 @@ describe("refresh errors", () => {
   });
 
   it("says why the pasted code didn't work", async () => {
-    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
+    setup(finished({ reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
 
     expect(await screen.findByText("Invalid code. Please make sure the full code was copied.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open the sign-in page" })).toBeTruthy();
   });
 
   it("says when the sign-in is done", async () => {
-    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
+    setup(finished({ reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, state: "signed_in" });
 
     expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
   });
 
   it("explains a read that failed before Claude Code got ready during the refresh", async () => {
-    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
+    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, state: "signed_in" });
 
     expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
@@ -104,13 +104,13 @@ describe("refresh errors", () => {
   });
 
   it("tells why the last sign-in failed", async () => {
-    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
+    setup(finished({ reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
 
     expect(await screen.findByText("Login failed: That code wasn't accepted.")).toBeTruthy();
   });
 
   it("says how to install Claude Code instead of the raw error", async () => {
-    setup(finished({ errors: ["Кафана: couldn't read it", "Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), {
+    setup(finished({ errors: ["Кафана: couldn't read it", "Install Claude Code: What To Do needs it to read posts"], reader_unavailable: true, reader: "claude" }), {
       ...SIGNED_OUT,
       state: "not_installed",
       version: null,
@@ -123,7 +123,7 @@ describe("refresh errors", () => {
   });
 
   it("says how to update Claude Code instead of the raw error", async () => {
-    setup(finished({ errors: ["Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer"], claude_unavailable: true }), {
+    setup(finished({ errors: ["Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer"], reader_unavailable: true, reader: "claude" }), {
       ...SIGNED_OUT,
       state: "too_old",
       version: "2.1.200",
@@ -134,7 +134,7 @@ describe("refresh errors", () => {
   });
 
   it("keeps the backend's line when it can't tell whether Claude Code is there", async () => {
-    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), () => Promise.reject(new Error("offline")));
+    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], reader_unavailable: true, reader: "claude" }), () => Promise.reject(new Error("offline")));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Install Claude Code: What To Do needs it to read posts");
     expect(screen.queryByRole("alert")).toBeNull();
@@ -142,11 +142,11 @@ describe("refresh errors", () => {
 
   it("offers to sign in once Claude Code is installed and the next refresh ends, without a restart", async () => {
     let signIn: ClaudeSignIn = { ...SIGNED_OUT, state: "not_installed", version: null, update_command: null };
-    const { refresh } = setup(finished({ claude_unavailable: true }), async () => signIn);
+    const { refresh } = setup(finished({ reader_unavailable: true, reader: "claude" }), async () => signIn);
     expect(await screen.findByText("Install Claude Code to read the posts")).toBeTruthy();
 
     signIn = SIGNED_OUT;
-    refresh.mockResolvedValue(finished({ finished_at: "2026-11-16T11:00:00Z", errors: [SIGN_IN], claude_unavailable: true }));
+    refresh.mockResolvedValue(finished({ finished_at: "2026-11-16T11:00:00Z", errors: [SIGN_IN], reader_unavailable: true, reader: "claude" }));
     fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
 
     expect(await screen.findByText("Sign in to Claude to read the posts")).toBeTruthy();

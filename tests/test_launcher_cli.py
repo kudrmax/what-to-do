@@ -289,7 +289,7 @@ def test_status_warns_when_claude_code_is_missing_or_too_old(tmp_path: Path, mon
     monkeypatch.setattr("where_to_go.claude_login.claude_cli", lambda: claude)
     monkeypatch.setattr("where_to_go.launcher.control.ServerControl", OneRunningServer)
 
-    assert Cli(paths, InstanceConfig.load(paths, environ={}), out=said.append).run(["status"]) == 0
+    assert Cli(paths, InstanceConfig.load(paths, environ={"WHERE_TO_GO_DATA_DIR": str(tmp_path / "data")}), out=said.append).run(["status"]) == 0
 
     assert said[0] == "What To Do is running."
     assert said[-len(warnings):] == warnings
