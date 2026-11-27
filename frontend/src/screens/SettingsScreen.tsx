@@ -101,6 +101,7 @@ function AdvancedSection({ settings, reader }: { settings: Settings; reader: Rea
         label="Recent posts per channel"
         hint="How many of each channel’s latest posts a refresh reads. More finds older events but makes every refresh longer. Takes effect from the next refresh."
       />
+      <ProviderRow value={settings.llm_provider} />
       <ModelsSubsection settings={settings} reader={reader} />
       <PromptsSubsection settings={settings} reader={reader} />
     </CollapsibleSection>
@@ -156,7 +157,6 @@ function ModelsSubsection({ settings, reader }: { settings: Settings; reader: Re
       title={`${reader.name} models`}
       hint={`Which model does each step. Bigger models are more accurate, slower and use more of ${reader.plan}. A new model takes effect from the next refresh.`}
     >
-      <ProviderRow value={settings.llm_provider} />
       {STEPS.map((step) =>
         codex ? (
           <CodexModelRow

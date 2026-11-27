@@ -137,6 +137,12 @@ describe("which subscription reads posts", () => {
     ]);
     expect(screen.getByRole("heading", { name: "Claude models" })).toBeVisible();
     expect(screen.getByText(/use more of your Claude plan/)).toBeVisible();
+    const switchRow = screen.getByRole("group", { name: "Reads posts with" });
+    const title = screen.getByRole("heading", { name: "Claude models" });
+    const photo = screen.getByRole("group", { name: "Photo reading" });
+    expect(switchRow.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(title.compareDocumentPosition(photo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(title.closest(".subsection")?.contains(switchRow)).toBe(false);
     expect(chips("Photo reading")).toEqual([
       { name: "Haiku", pressed: true },
       { name: "Sonnet", pressed: false },

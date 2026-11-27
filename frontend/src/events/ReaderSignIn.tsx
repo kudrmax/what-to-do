@@ -43,7 +43,7 @@ export function ReaderSignIn({ provider }: { provider: LlmProvider }) {
           (provider === "claude" ? (
             <CodeFallback pageUrl={status.page_url} onSubmit={signIn.submitCode} submitting={signIn.submitting} error={signIn.codeError} cliError={status.error ?? null} />
           ) : (
-            <PageFallback pageUrl={status.page_url} />
+            <PageFallback pageUrl={status.page_url} error={status.error ?? null} />
           ))}
       </div>
     );
@@ -110,9 +110,9 @@ function Refused({ reader, status }: { reader: Reader; status: SignInView }) {
   );
 }
 
-function PageFallback({ pageUrl }: { pageUrl: string }) {
+function PageFallback({ pageUrl, error }: { pageUrl: string; error: string | null }) {
   return (
-    <details className="reader-sign-in__fallback">
+    <details className="reader-sign-in__fallback" open={error ? true : undefined}>
       <summary>The browser didn’t open?</summary>
       <ol className="reader-sign-in__steps">
         <li>
@@ -122,6 +122,7 @@ function PageFallback({ pageUrl }: { pageUrl: string }) {
         </li>
         <li>Sign in. This box changes by itself once you’re done.</li>
       </ol>
+      {error && <span className="reader-sign-in__error">{error}</span>}
     </details>
   );
 }

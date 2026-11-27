@@ -167,7 +167,7 @@ async def test_a_dropped_answer_from_a_running_server_keeps_that_server() -> Non
     assert runtime.forgotten == []
 
 
-async def test_a_server_that_stopped_before_the_sign_in_started_is_replaced_next_time() -> None:
+async def test_a_sign_in_request_the_server_dropped_replaces_that_server_next_time() -> None:
     client = FakeClient(login_error=TransportClosedError("closed"))
     runtime = FakeRuntime(client)
     opened: list[str] = []

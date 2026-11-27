@@ -193,4 +193,12 @@ describe("Codex box under Refresh", () => {
     expect(await screen.findByText("Signed in to ChatGPT")).toBeTruthy();
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
   });
+
+  it("says why signing in to ChatGPT went wrong while it still waits", async () => {
+    setupCodex({ ...CODEX_SIGNED_OUT, signing_in: true, page_url: CODEX_PAGE, error: "Signing in didn't finish: closed" });
+
+    expect(await screen.findByText("Finish signing in in your browser")).toBeTruthy();
+    expect(screen.getByText("Signing in didn't finish: closed")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open the sign-in page" })).toHaveAttribute("href", CODEX_PAGE);
+  });
 });

@@ -252,4 +252,20 @@ describe("refresh errors with Codex reading", () => {
     expect(claude).toHaveBeenCalled();
     expect(codex).not.toHaveBeenCalled();
   });
+
+  it("keeps the backend's line when Codex can't tell whether someone is signed in", async () => {
+    setup(finished({ errors: [CODEX_SIGN_IN], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "unknown" });
+
+    expect(await screen.findByRole("status")).toHaveTextContent(CODEX_SIGN_IN);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sign in to ChatGPT" })).toBeNull();
+  });
+
+  it("keeps the backend's line when Claude Code can't tell whether someone is signed in", async () => {
+    setup(finished({ errors: [SIGN_IN], reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, state: "unknown" });
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Sign in to Claude Code");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sign in to Claude" })).toBeNull();
+  });
 });

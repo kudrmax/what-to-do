@@ -18,7 +18,7 @@ export function RefreshButton() {
   const readerUnavailable = !refresh.running && (refresh.status?.reader_unavailable ?? false);
   const boxWanted = readerUnavailable && knownProvider !== undefined && !finishedErrors.some((error) => staysAsLine(reader, error));
   const signIn = useReaderSignInStatus(provider, boxWanted);
-  const boxKnows = boxWanted && signIn.data !== undefined;
+  const boxKnows = boxWanted && signIn.data !== undefined && signIn.data.state !== "unknown";
   const errors = finishedErrors.filter((error) => !(boxKnows && boxExplains(reader, error)));
   const { city } = useActiveCity();
   const label = refresh.running ? refreshLabel(refresh.status) : "Refresh";
@@ -30,7 +30,7 @@ export function RefreshButton() {
         {label}
         {left && <span className="refresh__left">{left}</span>}
       </button>
-      {boxWanted && <ReaderSignIn provider={provider} />}
+      {boxKnows && <ReaderSignIn provider={provider} />}
       {errors.length > 0 && (
         <div className="note refresh__errors" role="status">
           {errors.map((error) => (

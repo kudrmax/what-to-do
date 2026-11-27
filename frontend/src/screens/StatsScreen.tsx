@@ -107,7 +107,7 @@ function Panel({ title, hint, children }: { title: string; hint?: string; childr
 function pipeline(stats: CityStats) {
   const going = stats.plans.filter((p) => p.plan && GOING.includes(p.plan)).reduce((sum, p) => sum + p.count, 0);
   return [
-    { key: "posts", label: "Posts and pages read", value: stats.posts.read, tip: `${formatNumber(stats.posts.read)} read in all` },
+    { key: "posts", label: "Posts and pages read", value: stats.posts.read, tip: "Channel posts and website pages read since the start" },
     { key: "announcements", label: "Announcements in them", value: stats.events.announcements, tip: "Each event in each post and on each page counted separately" },
     { key: "cards", label: "Cards after merging", value: stats.events.cards, tip: `Duplicates merged: ${formatNumber(stats.events.announcements - stats.events.cards)}` },
     { key: "marked", label: "Marked by you", value: stats.marked, tip: "With an interest or a status" },

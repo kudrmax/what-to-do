@@ -89,12 +89,10 @@ class CodexSignInFlow:
                 return
             try:
                 handle = await client.login_chatgpt()
-            except (TransportClosedError, OSError) as error:
-                self._error = f"Couldn't start signing in: {error}"
-                await self._runtime.forget(client)
-                return
             except Exception as error:
                 self._error = f"Couldn't start signing in: {error}"
+                if isinstance(error, (TransportClosedError, OSError)):
+                    await self._runtime.forget(client)
                 return
             self._handle = handle
             self._page_url = handle.auth_url
