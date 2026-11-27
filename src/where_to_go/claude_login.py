@@ -51,10 +51,10 @@ def claude_places(environ: Mapping[str, str], home: Path) -> list[Path]:
     return list(dict.fromkeys([*fixed, *Tools(environ, home).program_dirs()]))
 
 
-def claude_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None, windows: bool = os.name == "nt") -> InstalledCli:
+def claude_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None) -> InstalledCli:
     folder = home or Path.home()
     return InstalledCli(
-        "claude.exe" if windows else "claude",
+        "claude",
         CLAUDE_MINIMUM,
         extra_dirs=lambda: claude_places(environ, folder),
         environ=ClaudeCliEnvironment.cleaned(environ),

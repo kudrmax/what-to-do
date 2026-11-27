@@ -4,7 +4,6 @@ Refresh, and can tell whether the login is there before a refresh."""
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import httpx
@@ -12,7 +11,7 @@ import pytest
 import respx
 from claude_agent_sdk import ResultMessage
 
-from tests.helpers import FakeClaude, add_city, judge_same_titles, photos_saying
+from tests.helpers import FakeClaude, add_city, fake_program, judge_same_titles, photos_saying
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go import llm as llm_module
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, ClaudeSignInFlow, SignInProgress
@@ -25,16 +24,9 @@ from where_to_go.refresh import Stage
 CLI_ANSWER = "Not logged in · Please run /login"
 
 
-def executable(path: Path, code: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"#!{sys.executable}\n{code}\n", encoding="utf-8")
-    path.chmod(0o755)
-    return path
-
-
 def auth_status(tmp_path: Path, answer: object, code: int = 0) -> Path:
     printed = json.dumps(answer) if isinstance(answer, dict) else answer
-    return executable(tmp_path / "bin" / "claude", f"import sys; print({printed!r}); sys.exit({code})")
+    return fake_program(tmp_path / "bin", f"import sys; print({printed!r}); sys.exit({code})")
 
 
 def result(**overrides) -> ResultMessage:
@@ -175,10 +167,11 @@ import sys, time
 print("Opening browser to sign in…", flush=True)
 print("If the browser didn't open, visit: {SIGN_IN_PAGE}", flush=True)
 print("Paste code here if prompted > ", end="", flush=True)
-code = sys.stdin.readline().strip()
-while "#" not in code and code != "good":
+line = sys.stdin.readline()
+while line and "#" not in line and line.strip() != "good":
     print("Invalid code. Please make sure the full code was copied.", flush=True)
-    code = sys.stdin.readline().strip()
+    line = sys.stdin.readline()
+code = line.strip()
 if code == "good":
     print("Login successful.")
     sys.exit(0)
@@ -201,7 +194,7 @@ def login_cli(tmp_path) -> FakeClaude:
     script.write_text(LOGIN_SCRIPT, encoding="utf-8")
     arguments = tmp_path / "arguments.txt"
     recorder = f"import sys, runpy; open({str(arguments)!r}, 'w').write(' '.join(sys.argv[1:])); sys.argv = sys.argv[:1]; runpy.run_path({str(script)!r}, run_name='__main__')"
-    return FakeClaude(path=executable(tmp_path / "bin" / "claude", recorder))
+    return FakeClaude(path=fake_program(tmp_path / "bin", recorder))
 
 
 def wait_until(condition, timeout: float = 15) -> None:

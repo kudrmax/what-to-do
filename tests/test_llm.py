@@ -103,7 +103,7 @@ async def test_llm_passes_the_found_cli_path(monkeypatch):
     query, seen = fake_query(result(structured_output={}))
     monkeypatch.setattr(llm_module, "query", query)
     await ClaudeJsonLlm(lambda: "m", FakeClaude(path=Path("/fake/claude"))).complete_json("s", "p", {})
-    assert seen["options"].cli_path == "/fake/claude"
+    assert seen["options"].cli_path == str(Path("/fake/claude"))
 
 
 async def test_llm_raises_unavailable_when_missing(monkeypatch):

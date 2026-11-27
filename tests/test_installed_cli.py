@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.helpers import fake_program
 from where_to_go.claude_login import claude_cli, claude_places
 from where_to_go import installed_cli
 from where_to_go.installed_cli import CliStatus, InstalledCli
@@ -29,12 +30,8 @@ class FakeVersion:
         return self.answer
 
 
-def program(directory: Path, name: str = "claude") -> Path:
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / name
-    path.write_text("#!/bin/sh\necho '2.1.330 (Claude Code)'\n", encoding="utf-8")
-    path.chmod(0o755)
-    return path
+def program(directory: Path) -> Path:
+    return fake_program(directory, "print('2.1.330 (Claude Code)')")
 
 
 def finder(path_dirs: list[Path], extra_dirs: list[Path], version: FakeVersion | None = None) -> InstalledCli:
@@ -156,6 +153,7 @@ def test_finds_at_once_ask_the_version_once(tmp_path: Path) -> None:
     assert len(version.calls) == 1
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows finds programs by their extension, so a link named claude is never a candidate")
 def test_broken_symlink_skipped(tmp_path: Path) -> None:
     (tmp_path / "path").mkdir()
     (tmp_path / "path" / "claude").symlink_to(tmp_path / "gone" / "claude")
@@ -164,6 +162,7 @@ def test_broken_symlink_skipped(tmp_path: Path) -> None:
     assert finder([tmp_path / "path"], [tmp_path / "fixed"]).find().path == real
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows files have no executable bit")
 def test_non_executable_file_on_path_skipped(tmp_path: Path) -> None:
     plain = program(tmp_path / "path")
     plain.chmod(0o644)
@@ -205,6 +204,7 @@ def test_program_that_keeps_vanishing_is_missing(tmp_path: Path, monkeypatch: py
     assert found.path is None
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Homebrew casks do not exist on Windows")
 def test_homebrew_cask_update_command(tmp_path: Path) -> None:
     cask = program(tmp_path / "homebrew" / "Caskroom" / "claude-code@latest" / "2.1.325")
     (tmp_path / "homebrew" / "bin").mkdir()
@@ -224,7 +224,7 @@ def test_other_install_update_command(tmp_path: Path) -> None:
 def test_default_version_runner_asks_the_program(tmp_path: Path) -> None:
     program(tmp_path / "fixed")
 
-    found = InstalledCli("claude", MINIMUM, extra_dirs=lambda: [tmp_path / "fixed"], environ={"PATH": ""}).find()
+    found = InstalledCli("claude", MINIMUM, extra_dirs=lambda: [tmp_path / "fixed"], environ={**os.environ, "PATH": ""}).find()
 
     assert found.status == CliStatus.READY
     assert found.version == "2.1.330"
@@ -249,13 +249,16 @@ def test_claude_places_in_installer_order_then_npm_folders(tmp_path: Path) -> No
     assert len(places) == len(set(places))
 
 
-def test_windows_name(tmp_path: Path) -> None:
-    program(tmp_path / ".local" / "bin")
-    windows = program(tmp_path / ".local" / "bin", "claude.exe")
+@pytest.mark.skipif(os.name != "nt", reason="program extensions from PATHEXT exist on Windows only")
+def test_claude_finds_the_native_installers_exe_before_an_npm_shim(tmp_path: Path) -> None:
+    native = tmp_path / ".local" / "bin" / "claude.exe"
+    native.parent.mkdir(parents=True)
+    native.write_bytes(b"")
+    (native.parent / "claude.cmd").write_text("@echo 2.1.330\n", encoding="utf-8")
 
-    found = claude_cli(environ={"PATH": ""}, home=tmp_path, windows=True).find()
+    found = claude_cli(environ={**os.environ, "PATH": ""}, home=tmp_path).find()
 
-    assert found.path == windows
+    assert found.path == native
     assert found.update_command == "claude update"
 
 
