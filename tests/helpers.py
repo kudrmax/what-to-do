@@ -1,13 +1,49 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime, time
+from pathlib import Path
 from typing import Any
 
+from where_to_go.claude_login import CLAUDE_MINIMUM
+from where_to_go.installed_cli import CliStatus, FoundCli
 from where_to_go.llm import LlmImage
 from where_to_go.models import EventKind, ExtractedEvent, Mention, Post, Source, UpdateKind
+
+
+def fake_program(directory: Path, code: str, name: str = "claude") -> Path:
+    """A program found and run as an installed one: a Python script with a shebang on POSIX; on Windows, where
+    a program needs an extension from PATHEXT, a `.cmd` that runs the script with this Python."""
+    directory.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        path = directory / name
+        path.write_text(f"#!{sys.executable}\n{code}\n", encoding="utf-8")
+        path.chmod(0o755)
+        return path
+    script = directory / f"{name}.script"
+    script.write_text(f"{code}\n", encoding="utf-8")
+    path = directory / f"{name}.cmd"
+    path.write_text(f'@"{sys.executable}" "{script}" %*\n', encoding="utf-8")
+    return path
+
+
+class FakeClaude:
+    """The installed Claude Code as the app finds it; nothing runs unless a test gives a real program as the path."""
+
+    def __init__(self, status: CliStatus = CliStatus.READY, path: Path | None = Path("/fake/claude"), version: str | None = "2.1.325") -> None:
+        found_path = None if status is CliStatus.MISSING else path
+        found_version = None if status is CliStatus.MISSING else version
+        update = None if status is CliStatus.MISSING else "claude update"
+        self.found = FoundCli(status, found_path, found_version, CLAUDE_MINIMUM, update)
+        self.calls = 0
+
+    def find(self) -> FoundCli:
+        self.calls += 1
+        return self.found
 
 
 class FakeLlm:

@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import type { UpdateStep } from "../api/client";
+import { CommandLine } from "../ui/CommandLine";
 import { Icon } from "../ui/Icon";
 import { desktopOf, TERMINAL_STEPS } from "./terminal";
 import { useUpdates } from "./useUpdates";
 import "./updates.css";
 
 const STUCK_AFTER_MINUTES = 10;
-const COPY_LABELS = { idle: "Copy", copied: "Copied", failed: "Couldn’t copy" } as const;
 
 /** While the update runs the app under it is closed; a failed one says what to do by hand. */
 export function UpdatingOverlay() {
@@ -118,23 +118,5 @@ function ByHand({ command, waitFor }: { command: string; waitFor: string }) {
       </li>
       <li>{waitFor} Then reload this page.</li>
     </ol>
-  );
-}
-
-function CommandLine({ command }: { command: string }) {
-  const [copy, setCopy] = useState<keyof typeof COPY_LABELS>("idle");
-  const copyCommand = () => {
-    navigator.clipboard.writeText(command).then(
-      () => setCopy("copied"),
-      () => setCopy("failed"),
-    );
-  };
-  return (
-    <div className="updating__command">
-      <code>{command}</code>
-      <button type="button" className="button button--small" onClick={copyCommand}>
-        {COPY_LABELS[copy]}
-      </button>
-    </div>
   );
 }

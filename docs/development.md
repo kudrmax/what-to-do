@@ -29,7 +29,7 @@ Run `uv run where-to-go serve --help` for the flags:
 | `--data` | Folder for the database and images. Defaults to the platform's user data folder; a git worktree uses its own `./data`. |
 | `--ui` | A built web interface to serve at the root. The API then moves to `/api`. |
 
-Claude is called through `claude-agent-sdk`, that is, through the Claude Code login. The SDK brings its own Claude Code CLI; only the login is needed. No API key is used. Without a login, the note under **Refresh** signs in from the app: `POST /claude/sign-in` runs the bundled CLI's `claude auth login`, which opens the sign-in page in the browser and takes the login back by itself (`claude_login.py`).
+Claude is called through `claude-agent-sdk`, that is, through the Claude Code the user installed and its login. No API key is used. `InstalledCli` (`installed_cli.py`) finds `claude`: `PATH` first, then the folders its installers use; it needs version 2.1.321 or newer (`CLAUDE_MINIMUM` in `claude_login.py`). When it is missing or too old, the box under **Refresh** shows the install or update command. Without a login, the same box signs in from the app: `POST /claude/sign-in` runs the installed CLI's `claude auth login`, which opens the sign-in page in the browser and takes the login back by itself (`claude_login.py`). `claude-agent-sdk` also ships a CLI of its own; the app never runs it, and the disk image leaves it out.
 
 Each entity is described once in `models.py` (SQLModel): a base class with the fields and their descriptions for Claude, and from it the table and the public API model. Settings, including Claude's prompts, live in `settings.py` (defaults in `prompts.py`).
 

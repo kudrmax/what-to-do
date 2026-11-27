@@ -272,22 +272,8 @@
   font-size: var(--caption-size);
 }
 
-.updating__command {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.updating__by-hand .command-line {
   margin-top: 6px;
-}
-
-.updating__command code {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px;
-  border-radius: var(--radius-small);
-  background: var(--bg-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--caption-size);
-  overflow-wrap: anywhere;
 }
 
 .updating__log {

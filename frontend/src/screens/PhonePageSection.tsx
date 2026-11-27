@@ -7,6 +7,7 @@ import { ago } from "../domain/dates";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
+import { useCopy } from "../ui/useCopy";
 import { Section } from "../ui/Screen";
 import "./PhonePageSection.css";
 
@@ -169,25 +170,16 @@ function Published({ page, busy, error, onPublish, onTurnOff }: PublishedProps) 
   );
 }
 
-const COPY_LABELS = { idle: "Copy", copied: "Copied", failed: "Couldn’t copy" } as const;
-
 function PageLink({ url }: { url: string }) {
-  const [copy, setCopy] = useState<keyof typeof COPY_LABELS>("idle");
-  const copyLink = () => {
-    if (!navigator.clipboard) return setCopy("failed");
-    navigator.clipboard.writeText(url).then(
-      () => setCopy("copied"),
-      () => setCopy("failed"),
-    );
-  };
+  const copy = useCopy(url);
   return (
     <div className="phone-page__link-row">
       <Icon name="link" size={16} className="phone-page__link-icon" />
       <a className="phone-page__link" href={url} target="_blank" rel="noreferrer">
         {url}
       </a>
-      <button type="button" className="button button--quiet button--small" onClick={copyLink}>
-        {COPY_LABELS[copy]}
+      <button type="button" className="button button--quiet button--small" onClick={copy.copy}>
+        {copy.label}
       </button>
     </div>
   );

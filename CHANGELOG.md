@@ -2,6 +2,26 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.30.0 — 2026-11-27
+
+What To Do now reads posts with the Claude Code you install yourself, and the download is less than half the size.
+
+### Install Claude Code before you update
+The app no longer carries its own copy of Claude Code: it uses the one installed on your Mac. If you don't have it yet, install it with one of these commands in Terminal, then press **Refresh**:
+
+- Installer: `curl -fsSL https://claude.ai/install.sh | bash`
+- Homebrew: `brew install --cask claude-code@latest`
+
+Your Claude login stays as it is. The Apple Silicon download shrinks from 256 MB to about 110 MB.
+
+### The app says what Claude Code needs
+When Claude Code is missing or too old, the note under **Refresh** says so and gives the command to install or update it, each with its own **Copy** button. Installing while the app is open is enough: press **Refresh** again, no restart needed.
+![](docs/images/changelog/1.30.0/install.png)
+![](docs/images/changelog/1.30.0/update.png)
+
+### Fixed
+- Signing in to Claude from the app no longer loses part of what Claude Code printed, so the sign-in page link and its error messages always show.
+
 ## 1.29.2 — 2026-11-20
 
 The app answers at once again: marks, opening a screen and opening an event no longer stall.
