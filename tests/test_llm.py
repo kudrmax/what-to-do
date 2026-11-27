@@ -4,7 +4,7 @@ import os
 
 from tests.helpers import FakeClaude
 from where_to_go.installed_cli import CliStatus
-from where_to_go.llm import ClaudeCliEnvironment, ClaudeJsonLlm, ClaudeNotReadyError, ClaudeUnavailableError
+from where_to_go.llm import ClaudeCliEnvironment, ClaudeJsonLlm, ClaudeUnavailableError, ReaderNotReadyError
 
 
 def test_config_dir_naming_the_default_location_is_removed_not_emptied(monkeypatch):
@@ -113,7 +113,7 @@ async def test_llm_raises_unavailable_when_missing(monkeypatch):
         await ClaudeJsonLlm(lambda: "m", FakeClaude(CliStatus.MISSING)).complete_json("s", "p", {})
     assert str(raised.value) == "Install Claude Code: What To Do needs it to read posts"
     assert raised.value.found.status is CliStatus.MISSING
-    assert isinstance(raised.value, ClaudeNotReadyError) and isinstance(raised.value, LlmError)
+    assert isinstance(raised.value, ReaderNotReadyError) and isinstance(raised.value, LlmError)
     assert seen == {}
 
 

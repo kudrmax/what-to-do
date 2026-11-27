@@ -16,7 +16,7 @@ from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linked_posts import LinkedPosts
 from where_to_go.linking import Atomically, EventLinker, PostMentions
-from where_to_go.llm import ClaudeNotReadyError, LlmError
+from where_to_go.llm import LlmError, ReaderNotReadyError
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
@@ -94,7 +94,7 @@ class RefreshProgress(Public):
 
     def claude_failed(self, error: LlmError, message: str) -> None:
         """One line per failure, except Claude Code not being ready: it fails every call alike and is said once."""
-        if not isinstance(error, ClaudeNotReadyError):
+        if not isinstance(error, ReaderNotReadyError):
             self.errors.append(message)
         elif not self.claude_unavailable:
             self.claude_unavailable = True

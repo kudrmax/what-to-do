@@ -10,12 +10,19 @@ from pathlib import Path
 
 from platformdirs import user_data_dir
 
-from where_to_go.installed_cli import InstalledCli
+from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
 from where_to_go.launcher.bundle import STATE_DIR_NAME
 from where_to_go.launcher.tools import Tools
 
 CODEX_MINIMUM = "0.172.0"
 CODEX_INSTALL_COMMANDS = ("curl -fsSL https://chatgpt.com/codex/install.sh | sh", "brew install --cask codex")
+CODEX_SIGN_IN_HINT = "Sign in to ChatGPT in What To Do to read posts with Codex"
+
+
+def codex_unavailable_hint(found: FoundCli) -> str:
+    if found.status is CliStatus.MISSING:
+        return "Install Codex: What To Do needs it to read posts"
+    return f"Update Codex: you have {found.version or 'an unknown version'}, What To Do needs {found.minimum} or newer"
 
 
 def codex_places(environ: Mapping[str, str], home: Path) -> list[Path]:
