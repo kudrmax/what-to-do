@@ -20,7 +20,7 @@ on Codex with that subscription, switched in Settings. No API key either way: bo
 - Every call the app makes today (`JsonLlm.complete_json`: system text, prompt, JSON schema, images) works on Codex.
 - The switch takes effect from the next call, like a model change today.
 - Signing in to ChatGPT from the app, the way signing in to Claude works today: a button, the browser page, done.
-- The built app bundles Codex the way it bundles the Claude CLI: the user installs nothing.
+- Codex is a dependency the user installs, like Claude Code; the app finds it and says how to install it when missing.
 
 ## Non-goals
 
@@ -103,12 +103,13 @@ Duplicate merging       same
 
 ### Bundle
 
-`openai-codex-cli-bin` holds three binaries, all signed by OpenAI: `codex` 291 MB (120 MB compressed),
-`codex-code-mode-host` 67 MB (25), `codex-exec-server` 63 MB (24). Today's disk images are 256 MB (Apple Silicon) and
-271 MB (Intel). Bundling all three adds about 170 MB to every download, Claude users included; `codex` alone about
-120 MB, if the app works without the other two (to be proven: `code_mode_host` is off).
-
-Max's decision pending: bundle Codex in every download, or download it on the first switch to Codex.
+**Codex is installed by the user, like Claude Code after the previous release** (Max's decision; see
+`2026-11-27-external-claude-design.md`). The disk image carries no Codex binaries: `build-dmg.sh` removes
+`codex_cli_bin`'s binaries (291 + 67 + 63 MB) and checks they are gone. `CodexConfig(codex_bin=...)` points at the
+`codex` found by the same `InstalledCli` finder (places: `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, npm
+global bin, PATH), with a minimum version the builder sets from the SDK's app-server protocol (the SDK pins runtime
+0.172.0). Missing or too old Codex with Codex chosen: the install box names Codex and its install command.
+Dev runs use the installed `codex` too, never the wheel's copy.
 
 ### Choosing the Codex defaults
 
