@@ -95,6 +95,14 @@ describe("refresh errors", () => {
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
   });
 
+  it("explains a read that failed before Claude Code got ready during the refresh", async () => {
+    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
+
+    expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
+    expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
+    expect(screen.queryByText(/needs it to read posts/)).toBeNull();
+  });
+
   it("tells why the last sign-in failed", async () => {
     setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
 

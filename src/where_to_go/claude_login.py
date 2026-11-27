@@ -15,6 +15,7 @@ from typing import IO
 from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
 from where_to_go.launcher.tools import Tools
 
+CLAUDE_INSTALL_COMMAND = "curl -fsSL https://claude.ai/install.sh | bash"
 SIGN_IN_HINT = "Sign in to Claude Code: run `claude` in a terminal and type /login"
 CLAUDE_MINIMUM = "2.1.321"
 

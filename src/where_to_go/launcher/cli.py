@@ -118,7 +118,7 @@ class Cli:
         spec = self._spec(arguments)
         self._control().up(spec, build=not arguments.no_build)
         self._banner(spec)
-        self._warn_if_signed_out()
+        self._warn_if_claude_not_ready()
         if arguments.open:
             webbrowser.open(spec.url)
         return 0
@@ -159,7 +159,7 @@ class Cli:
                 ("Instance", server.spec.instance),
                 ("Log", str(self._paths.app_log)),
             ])
-        self._warn_if_signed_out()
+        self._warn_if_claude_not_ready()
         return 0
 
     def logs(self, arguments: argparse.Namespace) -> int:
@@ -253,8 +253,8 @@ class Cli:
         self._out(f"{RULE}{reset}")
         self._out(f"→ {spec.url}\n")
 
-    def _warn_if_signed_out(self) -> None:
-        from where_to_go.claude_login import SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, claude_cli, unavailable_hint
+    def _warn_if_claude_not_ready(self) -> None:
+        from where_to_go.claude_login import CLAUDE_INSTALL_COMMAND, SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, claude_cli, unavailable_hint
         from where_to_go.installed_cli import CliStatus
 
         claude = claude_cli()
@@ -262,6 +262,8 @@ class Cli:
         if found.status is not CliStatus.READY:
             update = f" Run: {found.update_command}" if found.update_command else ""
             self._out(f"{unavailable_hint(found)}.{update}")
+            if found.status is CliStatus.MISSING:
+                self._out(f"Run: {CLAUDE_INSTALL_COMMAND}")
         elif ClaudeLogin(claude).state_of(found) is ClaudeSignIn.SIGNED_OUT:
             self._out(f"Claude Code is not signed in, so refreshes can't read posts. {SIGN_IN_HINT}.")
 

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -111,6 +113,47 @@ def test_version_cached_until_file_changes(tmp_path: Path) -> None:
     os.utime(path, ns=(moment, moment))
     cli.find()
     assert len(version.calls) == 2
+
+
+class AnswersInTurn(FakeVersion):
+    def __init__(self, *answers: str | None) -> None:
+        super().__init__()
+        self.answers = list(answers)
+
+    def __call__(self, path: Path) -> str | None:
+        self.calls.append(path)
+        return self.answers.pop(0)
+
+
+def test_a_version_not_given_is_asked_again(tmp_path: Path) -> None:
+    program(tmp_path / "fixed")
+    version = AnswersInTurn(None, "2.1.325 (Claude Code)")
+    cli = finder([], [tmp_path / "fixed"], version)
+
+    assert cli.find().status == CliStatus.TOO_OLD
+    found = cli.find()
+
+    assert found.status == CliStatus.READY
+    assert found.version == "2.1.325"
+    assert len(version.calls) == 2
+
+
+class SlowVersion(FakeVersion):
+    def __call__(self, path: Path) -> str | None:
+        time.sleep(0.05)
+        return super().__call__(path)
+
+
+def test_finds_at_once_ask_the_version_once(tmp_path: Path) -> None:
+    program(tmp_path / "fixed")
+    version = SlowVersion()
+    cli = finder([], [tmp_path / "fixed"], version)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        statuses = list(pool.map(lambda _: cli.find().status, range(8)))
+
+    assert statuses == [CliStatus.READY] * 8
+    assert len(version.calls) == 1
 
 
 def test_broken_symlink_skipped(tmp_path: Path) -> None:
