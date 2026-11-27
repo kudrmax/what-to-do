@@ -90,6 +90,16 @@ class CountingRun:
         return self.output
 
 
+STRICT_FILESYSTEM = {
+    ":root": "deny",
+    ":minimal": "read",
+    "/tmp": "deny",
+    "/private/tmp": "deny",
+    "/var/tmp": "deny",
+    "/private/var/tmp": "deny",
+}
+
+
 def filesystem(home: CodexHome) -> dict[str, str]:
     return tomllib.loads((home.folder / "config.toml").read_text(encoding="utf-8"))["permissions"]["answer-only"]["filesystem"]
 
@@ -180,6 +190,27 @@ def test_sandbox_profile_reads_nothing_and_has_no_network(tmp_path: Path) -> Non
     assert "URLError" in fetch.stderr
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="the answer-only profile is checked with macOS seatbelt")
+@pytest.mark.parametrize("shared", ["/private/tmp", "/tmp"])
+def test_sandbox_profile_reads_nothing_in_the_shared_temporary_folders(tmp_path: Path, shared: str) -> None:
+    """The base profile lets these in; other programs leave their files there."""
+    home = CodexHome(tmp_path / "home")
+    home.prepare(bundled_codex_path())
+    workdir = tmp_path / "empty"
+    workdir.mkdir()
+    with tempfile.TemporaryDirectory(dir="/private/tmp") as outside:
+        secret = Path(outside) / "passwords.txt"
+        secret.write_text("hunter2\n", encoding="utf-8")
+        read = sandboxed(home, workdir, "/bin/cat", str(secret).replace("/private/tmp", shared, 1))
+        listing = sandboxed(home, workdir, "/bin/ls", "/var/tmp")
+
+    assert read.returncode != 0
+    assert "hunter2" not in read.stdout
+    assert "Operation not permitted" in read.stderr
+    assert listing.returncode != 0
+    assert "Operation not permitted" in listing.stderr
+
+
 def test_prepare_writes_the_config_and_overwrites_drift(tmp_path: Path) -> None:
     home = CodexHome(tmp_path / "home")
     codex = fake_program(tmp_path / "bin", "", name="codex")
@@ -197,11 +228,7 @@ def test_prepare_writes_the_config_and_overwrites_drift(tmp_path: Path) -> None:
     assert config["features"]["shell_tool"] is False
     assert all(value is False for value in config["features"].values())
     assert config["default_permissions"] == "answer-only"
-    assert config["permissions"]["answer-only"]["filesystem"] == {
-        ":root": "deny",
-        ":minimal": "read",
-        os.path.realpath(codex.parent): "read",
-    }
+    assert config["permissions"]["answer-only"]["filesystem"] == {**STRICT_FILESYSTEM, os.path.realpath(codex.parent): "read"}
     assert config["permissions"]["answer-only"]["network"] == {"enabled": False}
 
 
@@ -212,7 +239,7 @@ def test_prepare_lets_in_only_the_folder_of_the_real_file(tmp_path: Path) -> Non
 
     assert home.prepare(link) == Path(os.path.realpath(real))
 
-    assert filesystem(home) == {":root": "deny", ":minimal": "read", os.path.realpath(real.parent): "read"}
+    assert filesystem(home) == {**STRICT_FILESYSTEM, os.path.realpath(real.parent): "read"}
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Homebrew links do not exist on Windows")
@@ -225,7 +252,7 @@ def test_prepare_follows_a_codex_update_to_its_new_folder(tmp_path: Path) -> Non
     _, new = homebrew_like(tmp_path, program, "0.173.0")
     home.prepare(link)
 
-    assert filesystem(home) == {":root": "deny", ":minimal": "read", os.path.realpath(new.parent): "read"}
+    assert filesystem(home) == {**STRICT_FILESYSTEM, os.path.realpath(new.parent): "read"}
     assert os.path.realpath(old.parent) not in filesystem(home)
 
 
@@ -235,7 +262,7 @@ def test_config_quotes_the_folder(tmp_path: Path, name: str) -> None:
 
     config = tomllib.loads(CodexHome(tmp_path / "home").config_for(program))
 
-    assert config["permissions"]["answer-only"]["filesystem"] == {":root": "deny", ":minimal": "read", str(program.parent): "read"}
+    assert config["permissions"]["answer-only"]["filesystem"] == {**STRICT_FILESYSTEM, str(program.parent): "read"}
 
 
 @pytest.mark.parametrize("name", ["new\nline", "carriage\rreturn", "bell\x07", "delete\x7f"])
@@ -280,7 +307,7 @@ def test_guard_refuses_readably_a_codex_lying_in_the_user_home(tmp_path: Path) -
 
     assert refusal is not None and "would have to let the model read that whole folder" in refusal
     assert run.calls == []
-    assert filesystem(home) == {":root": "deny", ":minimal": "read"}
+    assert filesystem(home) == STRICT_FILESYSTEM
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Homebrew links do not exist on Windows")

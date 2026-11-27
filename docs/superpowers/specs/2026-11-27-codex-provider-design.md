@@ -138,6 +138,11 @@ a model and an effort:
 
 The comparison spends Max's Codex limit (a few hundred messages at most); it runs only after he signs in.
 
+Result (2026-11-28, 20 posts, 63 baseline events, one run per variant): photos **Terra low** (Luna misread a poster
+time and lost a table; Terra low and medium read the same), posts **Terra medium** (closest to the baseline, no
+poster-only event lost), duplicates **Luna low** (9 of 9 known groups merged, no wrong merge, the cheapest). These are
+the shipped defaults.
+
 ## No tools (checked on Codex CLI 0.172.0, 2026-11-27, without signing in)
 
 Why: posts are strangers' text and cards leave the computer through the phone page. A post that says "read the
@@ -170,11 +175,25 @@ Two layers, both proven offline:
    [permissions.answer-only.filesystem]
    ":root" = "deny"
    ":minimal" = "read"
+   "/tmp" = "deny"
+   "/private/tmp" = "deny"
+   "/var/tmp" = "deny"
+   "/private/var/tmp" = "deny"
    "/opt/homebrew/Caskroom/codex/0.172.0/bin" = "read"
    [permissions.answer-only.network]
    enabled = false
    ```
    Checked: under it `cat ~/.zshrc` and `ls ~` give "Operation not permitted", `curl` cannot resolve a host.
+
+   On macOS `:minimal` alone still let the sandbox read the shared temporary folders and `/etc` (checked 2026-11-28 on
+   0.172.0, wheel and Homebrew: `codex sandbox -P answer-only -- /bin/cat /private/tmp/<file>` printed it). Other
+   programs leave files in `/tmp` and `/var/tmp`, so both are denied by name, in their `/private` form too; after that
+   the same `cat` and `ls /var/tmp` give "Operation not permitted", `codex debug prompt-input` still exits 0 with zero
+   tools, and the more specific read line for Codex's own folder still wins (a Codex installed under `/private/tmp`
+   passes the guard). `/etc` stays readable: a `"/etc" = "deny"` / `"/private/etc" = "deny"` line is accepted but has no
+   effect (`/etc/hosts`, `/etc/passwd` and `ls /etc` still work), as Codex's built-in macOS profile allows it. It holds
+   system configuration, not the user's files, so it is left out of the config rather than written as a rule that
+   does nothing.
 
    The third filesystem line is the folder of the real file of the Codex the app starts, written per Codex found
    (here the Homebrew one). Codex starts its own program again inside this sandbox to read its instruction files;
@@ -197,7 +216,8 @@ Guards in the test suite (they use the `codex` from the `openai-codex-cli-bin` w
 login needed):
 - `codex debug prompt-input` with the app's home lists zero tools and no skills; a Codex update that adds a new tool
   turned on by default fails this test before it ships.
-- `codex sandbox` with the app's profile cannot read a file in the home folder or reach the network.
+- `codex sandbox` with the app's profile cannot read a file in the home folder or in `/tmp`, list `/var/tmp`, or reach
+  the network.
 - `thread/start` through the SDK with the app's home returns `approval_policy: "never"` and no network.
 - **Before merge, after Max signs in (required):** a live trap call through the app's own `CodexJsonLlm`: a post asking
   to read a planted file. The answer must not contain it and the turn's items must hold no `commandExecution` or

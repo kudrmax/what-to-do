@@ -90,6 +90,10 @@ extends = ":read-only"
 [permissions.answer-only.filesystem]
 ":root" = "deny"
 ":minimal" = "read"
+"/tmp" = "deny"
+"/private/tmp" = "deny"
+"/var/tmp" = "deny"
+"/private/var/tmp" = "deny"
 
 [permissions.answer-only.network]
 enabled = false
