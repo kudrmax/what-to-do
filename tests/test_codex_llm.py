@@ -216,7 +216,7 @@ async def test_client_starts_the_found_codex_with_the_app_home(tmp_path):
     await reader(rt).complete_json("s", "p", SCHEMA)
     config = clients.made[0].config
     environ, command = launched(config)
-    assert command == ["/somewhere/codex", "app-server", "--listen", "stdio://"]
+    assert command == [str(Path("/somewhere/codex")), "app-server", "--listen", "stdio://"]
     assert environ["CODEX_HOME"] == str(tmp_path / "codex")
     assert config.cwd == rt.workdir
     assert (tmp_path / "codex" / "config.toml").read_text(encoding="utf-8") == CodexHome.CONFIG
@@ -362,7 +362,7 @@ async def test_a_different_codex_starts_a_new_server(tmp_path):
     await reader(rt).complete_json("s", "p", SCHEMA)
     cli.found = FoundCli(CliStatus.READY, Path("/new/codex"), "0.173.0", CODEX_MINIMUM, "codex update")
     await reader(rt).complete_json("s", "p", SCHEMA)
-    assert [launched(client.config)[1][0] for client in clients.made] == ["/old/codex", "/new/codex"]
+    assert [launched(client.config)[1][0] for client in clients.made] == [str(Path("/old/codex")), str(Path("/new/codex"))]
     assert clients.made[0].closed
     await rt.close()
 
