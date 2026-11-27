@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Builds the self-contained What To Do.app for one kind of Mac and its disk image: Python, the app's
-# packages and the built interface go inside the bundle. Posts are read by the Claude Code the user installed.
+# packages and the built interface go inside the bundle. Posts are read by the Claude Code or Codex the user installed.
 #
 # Usage: build-dmg.sh <arm64|x86_64> [output dir] [version]
 #   The version defaults to the one in pyproject.toml; a different one is for testing updates.
@@ -60,6 +60,13 @@ uv pip install --quiet --target "$site_packages" --python-platform "$python_trip
 bundled_cli=$site_packages/claude_agent_sdk/_bundled
 [[ -e $bundled_cli ]] && trash "$bundled_cli"
 [[ ! -e $bundled_cli ]] || { echo "ERROR: the Claude CLI of claude-agent-sdk is still in the bundle"; exit 1; }
+codex_package=$site_packages/codex_cli_bin
+[[ -d $codex_package ]] || { echo "ERROR: codex_cli_bin is missing from the app's packages"; exit 1; }
+for codex_binaries in "$codex_package/bin" "$codex_package/codex-path"; do
+    if [[ -e $codex_binaries ]]; then trash "$codex_binaries"; fi
+done
+codex_programs=$(find "$codex_package" -type f -exec file {} + | grep 'Mach-O' || true)
+[[ -z $codex_programs ]] || { echo "ERROR: codex_cli_bin still carries programs: $codex_programs"; exit 1; }
 [[ -e $site_packages/bin ]] && trash "$site_packages/bin"
 
 echo "==> The interface"

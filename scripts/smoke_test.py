@@ -58,6 +58,7 @@ class SmokeTest:
         page = self._get("/")
         self._expect(page.startswith(b"<!doctype html>") or b"<div id=\"root\">" in page, "the page loads")
         self._expect(self._get_json("/api/claude/sign-in")["state"] in ("signed_in", "signed_out", "unknown", "not_installed", "too_old"), "the sign-in check answers")
+        self._expect(self._get_json("/api/codex/sign-in")["state"] in ("signed_in", "signed_out", "unknown", "not_installed", "too_old", "refused"), "the Codex sign-in check answers")
 
         status = json.loads(self._cli("status", "--json").stdout)
         [server] = status["servers"]

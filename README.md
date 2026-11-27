@@ -95,6 +95,7 @@ See how many posts and photos Claude read, how many announcements were merged in
 - **Several cities.** Each city has its own sources, feed and calendar. Switch between them in the top-left corner.
 - **Your own tags.** Add, rename, reorder or hide tags in **Settings**. Events with a hidden tag leave the feed.
 - **Your choice of Claude model** for each step: Haiku, Sonnet or Opus.
+- **Codex instead of Claude.** With a ChatGPT subscription, Codex can read the posts, see [Codex instead of Claude](#codex-instead-of-claude).
 - **Editable prompts.** Every prompt Claude gets is in **Settings**.
 - **One-button updates.** When a new version is out, **New version** appears in the sidebar with the list of changes and an **Update** button.
 - **A macOS app** with its own window, installed from a disk image, see [Install and run](#macos).
@@ -120,6 +121,22 @@ On Linux and Windows, and to run the app from its code, you also need:
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | Installs and runs the app | It also installs the right Python by itself |
 | [Node.js](https://nodejs.org) 20 or later | Builds the interface on the first start and after updates that change it | |
 | [Git](https://git-scm.com/downloads) | Downloads the app and its updates | |
+
+### Codex instead of Claude
+
+With a ChatGPT subscription ([chatgpt.com](https://chatgpt.com)) instead of a Claude one, OpenAI's [Codex](https://developers.openai.com/codex) 0.172.0 or newer can read the posts:
+
+1. Choose **Codex** in **Settings → Advanced → Reads posts with**. Codex has its own models and thinking settings there; Claude's stay as they were for when you switch back.
+2. Install Codex with one of these commands:
+
+   | System | Command |
+   | --- | --- |
+   | macOS, Linux | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` |
+   | macOS with Homebrew | `brew install --cask codex` |
+
+3. Press **Sign in to ChatGPT** in the box under **Refresh** and sign in with the account of your subscription.
+
+Codex gets no tools and no access to your files: posts are strangers' text, so a post that asks to read or change something on your computer must have nothing to do it with. It only reads the text and photos the app hands it.
 
 ## Install and run
 
@@ -263,6 +280,9 @@ Press **Sign in to Claude** under **Refresh**. The sign-in page opens in your br
 **Refresh says to install Claude Code.**
 The app reads posts through the Claude Code installed on your computer, and it found none, or one older than 2.1.321. The box under **Refresh** shows the command for your case with a **Copy** button: run it in Terminal, then press **Refresh** again. The commands are in [Requirements](#requirements). The app looks for `claude` on its `PATH` and, since an app started from Finder doesn't see your Terminal's `PATH`, also in the folders installers use: `~/.local/bin` (Claude Code's own installer), Homebrew's `/opt/homebrew/bin`, `/usr/local/bin`, `~/.claude/local`, and the npm global folders of Volta and nvm. Each command above puts Claude Code in one of them.
 
+**Refresh says to install Codex.**
+Codex is chosen in **Settings → Advanced → Reads posts with**, and the app found no Codex on your computer, or one older than 0.172.0. The box under **Refresh** shows the command with a **Copy** button: run it in Terminal, then press **Refresh** again. The commands are in [Codex instead of Claude](#codex-instead-of-claude). The app looks for `codex` on its `PATH` and in the folders installers use: `~/.local/bin` and `~/.codex/bin` (Codex's own installer), Homebrew's `/opt/homebrew/bin`, `/usr/local/bin`, and the npm global folders of Volta and nvm.
+
 **Another program uses the app's port.**
 What To Do moves to a free port next to its own by itself and stays there: the macOS app opens on it, and `uv run where-to-go up` prints the new address. A port you set yourself is kept as it is: `PORT` in `.env` of a copy run from the code, or in `~/Library/Application Support/What To Do/.env` for the macOS app. If that one is busy, the app says which program holds it; change the number or remove the line.
 
@@ -283,7 +303,7 @@ Everything stays on your computer except:
 | Where | What |
 | --- | --- |
 | Telegram (`t.me`), Instagram and the websites you add | The app downloads their public posts and event pages |
-| Claude, through your Claude Code login | Post texts and photos, to turn them into events |
+| Claude, through your Claude Code login, or OpenAI, through your Codex login | Post texts and photos, to turn them into events |
 | GitHub | Checks for new versions and downloads them: the macOS app asks GitHub's list of releases, a copy run from the code runs `git fetch` |
 
 The server listens only on `127.0.0.1`, so other devices on your network can't open it.
