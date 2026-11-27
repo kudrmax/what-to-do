@@ -4,6 +4,7 @@ Refresh, and can tell whether the login is there before a refresh."""
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import httpx
@@ -198,8 +199,6 @@ def login_cli(tmp_path) -> FakeClaude:
 
 
 def wait_until(condition, timeout: float = 15) -> None:
-    import time
-
     deadline = time.monotonic() + timeout
     while not condition():
         assert time.monotonic() < deadline, "timed out"
@@ -256,6 +255,28 @@ def test_a_code_the_cli_cannot_use_says_why_while_it_waits_for_another(tmp_path,
     flow.submit_code("good")
     wait_until(lambda: not flow.progress().running)
     assert flow.progress().error is None
+
+
+def test_reading_the_progress_while_the_cli_prints_loses_nothing_it_printed(tmp_path, flows) -> None:
+    printed = tmp_path / "printed"
+    chatty = f"""
+import sys
+print("If the browser didn't open, visit: {SIGN_IN_PAGE}", flush=True)
+for number in range(3000):
+    print(f"still waiting {{number}}", flush=True)
+open({str(printed)!r}, "w").close()
+sys.stdin.readline()
+"""
+    flow = ClaudeSignInFlow(FakeClaude(path=fake_program(tmp_path / "bin", chatty)))
+    flows.append(flow)
+    flow.start()
+
+    deadline = time.monotonic() + 15
+    while not printed.exists():
+        assert time.monotonic() < deadline, "timed out"
+        flow.progress()
+
+    assert flow.progress().page_url == SIGN_IN_PAGE
 
 
 def test_a_second_press_does_not_start_a_second_sign_in(tmp_path, flows) -> None:

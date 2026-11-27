@@ -136,6 +136,7 @@ class ClaudeSignInFlow:
         self._cli = cli
         self._lock = threading.Lock()
         self._process: subprocess.Popen[bytes] | None = None
+        self._output_dir: tempfile.TemporaryDirectory[str] | None = None
         self._output: IO[bytes] | None = None
         self._error: str | None = None
 
@@ -149,16 +150,19 @@ class ClaudeSignInFlow:
                 self._error = unavailable_hint(found)
                 return
             self._error = None
-            self._output = tempfile.TemporaryFile()
+            self._output_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+            output_path = Path(self._output_dir.name) / "output"
             try:
-                self._process = subprocess.Popen(
-                    [str(found.path), "auth", "login", "--claudeai"],
-                    stdin=subprocess.PIPE,
-                    stdout=self._output,
-                    stderr=subprocess.STDOUT,
-                    env=ClaudeCliEnvironment.cleaned(os.environ),
-                    start_new_session=True,
-                )
+                with output_path.open("wb") as cli_output:
+                    self._output = output_path.open("rb")
+                    self._process = subprocess.Popen(
+                        [str(found.path), "auth", "login", "--claudeai"],
+                        stdin=subprocess.PIPE,
+                        stdout=cli_output,
+                        stderr=subprocess.STDOUT,
+                        env=ClaudeCliEnvironment.cleaned(os.environ),
+                        start_new_session=True,
+                    )
             except OSError as error:
                 self._process = None
                 self._error = f"Couldn't start signing in: {error}"
@@ -213,3 +217,6 @@ class ClaudeSignInFlow:
         if self._output is not None:
             self._output.close()
             self._output = None
+        if self._output_dir is not None:
+            self._output_dir.cleanup()
+            self._output_dir = None
