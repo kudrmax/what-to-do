@@ -18,10 +18,11 @@ from where_to_go.installed_cli import CliStatus
 from where_to_go.launcher.config import InstanceConfig
 
 SANDBOX_TIMEOUT_S = 30
+WINDOWS = os.name == "nt"
 
 
-def prompt_input(codex: Path, home: CodexHome, workdir: Path) -> list[dict]:
-    done = subprocess.run(
+def run_prompt_input(codex: Path, home: CodexHome, workdir: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [str(codex), "debug", "prompt-input", "x"],
         capture_output=True,
         text=True,
@@ -30,6 +31,10 @@ def prompt_input(codex: Path, home: CodexHome, workdir: Path) -> list[dict]:
         cwd=workdir,
         env=home.environ(os.environ),
     )
+
+
+def prompt_input(codex: Path, home: CodexHome, workdir: Path) -> list[dict]:
+    done = run_prompt_input(codex, home, workdir)
     assert done.returncode == 0, done.stderr
     return json.loads(done.stdout)
 
@@ -81,11 +86,36 @@ def test_config_turns_every_tool_off(tmp_path: Path) -> None:
     workdir = tmp_path / "empty"
     workdir.mkdir()
 
-    given = prompt_input(bundled_codex_path(), home, workdir)
+    done = run_prompt_input(bundled_codex_path(), home, workdir)
 
+    if WINDOWS:
+        assert done.returncode != 0 and ToolGuard.READS_UNLIMITED_MARKER in done.stderr
+        assert ToolGuard(home).check(bundled_codex_path()) == ToolGuard.CANNOT_LIMIT_READS
+        return
+    assert done.returncode == 0, done.stderr
+    given = json.loads(done.stdout)
     assert tool_lists(given) == []
     assert "<skills_instructions>" not in json.dumps(given)
     assert ToolGuard(home).check(bundled_codex_path()) is None
+
+
+def test_codex_is_refused_on_windows_because_reads_cannot_be_limited(tmp_path: Path) -> None:
+    home = CodexHome(tmp_path / "home")
+
+    refusal = ToolGuard(home).check(bundled_codex_path())
+
+    if WINDOWS:
+        assert refusal == "Codex can't limit file access on Windows; use Claude there"
+    else:
+        assert refusal != ToolGuard.CANNOT_LIMIT_READS
+
+
+def test_guard_names_windows_when_codex_says_it_cannot_limit_reads(tmp_path: Path) -> None:
+    message = "Error: failed to prepare Windows sandbox: cannot enforce split filesystem read restrictions directly"
+    codex = fake_program(tmp_path / "bin", f"import sys\nsys.stderr.write({message!r})\nsys.exit(1)", name="codex")
+    guard = ToolGuard(CodexHome(tmp_path / "home"))
+
+    assert guard.check(codex) == ToolGuard.CANNOT_LIMIT_READS
 
 
 def test_without_the_config_the_guard_sees_the_tools(tmp_path: Path) -> None:

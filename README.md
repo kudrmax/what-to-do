@@ -124,7 +124,9 @@ On Linux and Windows, and to run the app from its code, you also need:
 
 ### Codex instead of Claude
 
-With a ChatGPT subscription ([chatgpt.com](https://chatgpt.com)) instead of a Claude one, OpenAI's [Codex](https://developers.openai.com/codex) 0.172.0 or newer can read the posts:
+With a ChatGPT subscription ([chatgpt.com](https://chatgpt.com)) instead of a Claude one, OpenAI's [Codex](https://developers.openai.com/codex) 0.172.0 or newer can read the posts on macOS and Linux. On Windows, Codex can't keep the model away from your files, so the app reads posts there with Claude only.
+
+To switch:
 
 1. Choose **Codex** in **Settings → Advanced → Reads posts with**. Codex has its own models and thinking settings there; Claude's stay as they were for when you switch back.
 2. Install Codex with one of these commands:

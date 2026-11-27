@@ -33,6 +33,7 @@ from where_to_go.llm import (
     ReaderNotReadyError,
 )
 
+WINDOWS = os.name == "nt"
 SCHEMA = {"type": "object", "properties": {"title": {"type": "string"}}, "required": ["title"]}
 TURN = "turn-1"
 
@@ -422,10 +423,20 @@ def real_runtime(tmp_path: Path, made: list[RealThreadStart], pretend_signed_in:
     return CodexRuntime(FakeCodexCli(path=bundled_codex_path()), home, ToolGuard(home), client_factory=factory)
 
 
+async def expect_windows_refusal(rt: CodexRuntime, made: list[RealThreadStart]) -> None:
+    with pytest.raises(CodexRefusedError) as raised:
+        await reader(rt).complete_json("s", "p", SCHEMA)
+    assert str(raised.value) == ToolGuard.CANNOT_LIMIT_READS
+    assert made == []
+
+
 async def test_real_thread_start_never_asks_for_approval_and_has_no_network(tmp_path):
     made: list[RealThreadStart] = []
     rt = real_runtime(tmp_path, made, pretend_signed_in=True)
     try:
+        if WINDOWS:
+            await expect_windows_refusal(rt, made)
+            return
         with pytest.raises(LlmError) as raised:
             await reader(rt).complete_json("system text", "p", SCHEMA)
         assert isinstance(raised.value.__cause__, StopBeforeTheModel)
@@ -444,6 +455,9 @@ async def test_real_codex_without_a_login_is_signed_out_before_any_thread(tmp_pa
     made: list[RealThreadStart] = []
     rt = real_runtime(tmp_path, made, pretend_signed_in=False)
     try:
+        if WINDOWS:
+            await expect_windows_refusal(rt, made)
+            return
         with pytest.raises(CodexSignedOutError):
             await reader(rt).complete_json("s", "p", SCHEMA)
         assert made[0].started == []
@@ -455,6 +469,9 @@ async def test_real_server_that_was_killed_counts_as_ended(tmp_path):
     made: list[RealThreadStart] = []
     rt = real_runtime(tmp_path, made, pretend_signed_in=False)
     try:
+        if WINDOWS:
+            await expect_windows_refusal(rt, made)
+            return
         with pytest.raises(CodexSignedOutError):
             await reader(rt).complete_json("s", "p", SCHEMA)
         codex = made[0].codex

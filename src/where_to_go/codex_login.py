@@ -126,6 +126,10 @@ enabled = false
         return name.upper() in cls.ALLOWED_VARIABLES or name.startswith("LC_")
 
 
+class ReadsCannotBeLimited(Exception):
+    """Codex refuses to run the app's profile because it can't keep the model from reading files (Windows)."""
+
+
 class ToolGuard:
     """The app runs the Codex the user installed, which may be newer than the one tested and bring a tool turned on
     by default. Before the first call with a given file, `codex debug prompt-input` shows what the model would be
@@ -136,6 +140,8 @@ class ToolGuard:
     TIMEOUT_S = 20
     OFFERS_TOOLS = "This Codex version offers tools What To Do cannot turn off; update What To Do"
     CANNOT_CHECK = "What To Do could not check that Codex has no tools; try again, or update Codex"
+    CANNOT_LIMIT_READS = "Codex can't limit file access on Windows; use Claude there"
+    READS_UNLIMITED_MARKER = "cannot enforce split filesystem read restrictions"
     SKILLS_MARKER = "<skills_instructions>"
     KNOWN_ITEMS = frozenset({"message"})
 
@@ -165,8 +171,10 @@ class ToolGuard:
                 return self.instructions_refusal(instructions[0])
             if key in self._verdicts:
                 return self._verdicts[key]
-            output = self._run(codex, self._home.environ(os.environ))
-            verdict = self.refusal(output)
+            try:
+                verdict = self.refusal(self._run(codex, self._home.environ(os.environ)))
+            except ReadsCannotBeLimited:
+                verdict = self.CANNOT_LIMIT_READS
             if verdict != self.CANNOT_CHECK:
                 self._verdicts[key] = verdict
             return verdict
@@ -221,4 +229,6 @@ class ToolGuard:
                 )
             except (OSError, subprocess.SubprocessError):
                 return None
+        if done.returncode != 0 and self.READS_UNLIMITED_MARKER in done.stderr:
+            raise ReadsCannotBeLimited(done.stderr)
         return done.stdout if done.returncode == 0 else None
