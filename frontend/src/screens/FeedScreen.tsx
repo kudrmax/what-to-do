@@ -1,6 +1,7 @@
 import type { Source } from "../api/client";
 import { useFeed, useRefresh, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
+import { useReader } from "../api/useReader";
 import { SECTIONS } from "../app/routes";
 import { dayAndMonth, plural } from "../domain/dates";
 import { plansToShow, SHOWN_PLANS } from "../domain/plans";
@@ -21,13 +22,14 @@ const neverRefreshed = (sources: Source[]) => sources.every((source) => source.l
 /** Sources are added but nothing is read yet: the feed is empty because it waits, not because nothing is ahead. */
 function FirstRefresh({ count, city }: { count: number; city: string }) {
   const refresh = useRefresh();
+  const reader = useReader();
   if (refresh.running) {
     return <EmptyState title={`Reading the sources of ${city}`} text="Cards appear here when the refresh ends. The first one takes a few minutes." />;
   }
   return (
     <EmptyState
       title="Ready for the first refresh"
-      text={`${count} ${plural(count, "source is", "sources are")} waiting to be read. Refresh collects ${plural(count, "its", "their")} recent posts, and Claude turns them into event cards.`}
+      text={`${count} ${plural(count, "source is", "sources are")} waiting to be read. Refresh collects ${plural(count, "its", "their")} recent posts, and ${reader.name} turns them into event cards.`}
       action={{ label: "Refresh now", onClick: refresh.start }}
     />
   );

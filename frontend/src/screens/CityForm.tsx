@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 
 import type { City, NewCity } from "../api/client";
+import { useReader } from "../api/useReader";
 import { browserLanguageName, COUNTRY_NAMES, LANGUAGE_NAMES } from "../domain/languages";
 import { errorText } from "../ui/errors";
 import "./Cities.css";
@@ -22,6 +23,7 @@ interface Props {
 /** A city's four facts, each with what it is for: the name and the country, its clock, the language of its cards. */
 export function CityForm({ city, submitLabel, busy, error, onSubmit, onCancel }: Props) {
   const ids = useId();
+  const reader = useReader();
   const [name, setName] = useState(city?.name ?? "");
   const [country, setCountry] = useState(city?.country ?? "");
   const [timezone, setTimezone] = useState(city?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -75,7 +77,7 @@ export function CityForm({ city, submitLabel, busy, error, onSubmit, onCancel }:
           </label>
           <input id={`${ids}-language-input`} className="input" value={language} onChange={(e) => setLanguage(e.target.value)} list={`${ids}-languages`} required aria-describedby={`${ids}-language`} />
           <span id={`${ids}-language`} className={`city-form__hint${languageChanged ? " city-form__hint--note" : ""}`}>
-            {languageChanged ? "The next refresh rewrites the recent cards in this language" : "Claude writes card titles and descriptions in it"}
+            {languageChanged ? "The next refresh rewrites the recent cards in this language" : `${reader.name} writes card titles and descriptions in it`}
           </span>
           <datalist id={`${ids}-languages`}>
             {LANGUAGE_NAMES.map((option) => (

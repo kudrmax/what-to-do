@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { CityStats, Plan } from "../api/client";
 import { useStats } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
+import { useReader } from "../api/useReader";
 import { SECTIONS } from "../app/routes";
 import { dayAndMonth, plural } from "../domain/dates";
 import { PLANS } from "../domain/plans";
@@ -24,6 +25,7 @@ const cards = (count: number) => `${formatNumber(count)} ${plural(count, "card",
 export function StatsScreen() {
   const { city } = useActiveCity();
   const stats = useStats(city !== null);
+  const reader = useReader();
   return (
     <Screen title={SECTIONS.stats.title}>
       {!city ? (
@@ -31,7 +33,7 @@ export function StatsScreen() {
       ) : stats.isError ? (
         <LoadError error={stats.error} />
       ) : stats.data?.posts.read === 0 ? (
-        <EmptyState title="Nothing to count yet" text="Stats will appear after the first refresh, once Claude has read the channels’ posts and the websites’ pages." />
+        <EmptyState title="Nothing to count yet" text={`Stats will appear after the first refresh, once ${reader.name} has read the channels’ posts and the websites’ pages.`} />
       ) : (
         stats.data && <Dashboard stats={stats.data} />
       )}
@@ -105,7 +107,7 @@ function Panel({ title, hint, children }: { title: string; hint?: string; childr
 function pipeline(stats: CityStats) {
   const going = stats.plans.filter((p) => p.plan && GOING.includes(p.plan)).reduce((sum, p) => sum + p.count, 0);
   return [
-    { key: "posts", label: "Posts and pages read", value: stats.posts.read, tip: `Claude read ${formatNumber(stats.posts.read)}` },
+    { key: "posts", label: "Posts and pages read", value: stats.posts.read, tip: `${formatNumber(stats.posts.read)} read in all` },
     { key: "announcements", label: "Announcements in them", value: stats.events.announcements, tip: "Each event in each post and on each page counted separately" },
     { key: "cards", label: "Cards after merging", value: stats.events.cards, tip: `Duplicates merged: ${formatNumber(stats.events.announcements - stats.events.cards)}` },
     { key: "marked", label: "Marked by you", value: stats.marked, tip: "With an interest or a status" },

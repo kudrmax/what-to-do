@@ -39,7 +39,7 @@
   line-height: 1.4;
 }
 
-.claude-sign-in {
+.reader-sign-in {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
@@ -48,32 +48,32 @@
   line-height: 1.4;
 }
 
-.claude-sign-in--done {
+.reader-sign-in--done {
   background: var(--ok-bg);
   color: var(--ok-text);
 }
 
-.claude-sign-in__title {
+.reader-sign-in__title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-.claude-sign-in__action {
+.reader-sign-in__action {
   margin-top: 4px;
 }
 
-.claude-sign-in__error {
+.reader-sign-in__error {
   color: var(--accent-strong);
 }
 
-.claude-sign-in__fallback summary {
+.reader-sign-in__fallback summary {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.claude-sign-in__steps {
+.reader-sign-in__steps {
   margin: 8px 0 0;
   padding-left: 18px;
   display: flex;
@@ -81,17 +81,17 @@
   gap: 6px;
 }
 
-.claude-sign-in__steps a {
+.reader-sign-in__steps a {
   color: inherit;
   font-weight: 600;
 }
 
-.claude-sign-in__code {
+.reader-sign-in__code {
   display: flex;
   gap: 8px;
 }
 
-.claude-sign-in__code .input {
+.reader-sign-in__code .input {
   height: 32px;
   font-size: 13px;
 }
@@ -104,13 +104,13 @@
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
-.claude-sign-in__command {
+.reader-sign-in__command {
   display: flex;
   flex-direction: column;
   gap: 4px;
   align-self: stretch;
 }
 
-.claude-sign-in__command-label {
+.reader-sign-in__command-label {
   font-weight: 600;
 }

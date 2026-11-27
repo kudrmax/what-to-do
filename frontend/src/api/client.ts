@@ -36,6 +36,11 @@ export type UpdateStep = Schemas["UpdateStep"];
 export type ChangelogEntry = Schemas["ChangelogEntryView"];
 export type CityStats = Schemas["CityStats"];
 export type ClaudeSignIn = Schemas["ClaudeSignInView"];
+export type CodexSignIn = Schemas["CodexSignInView"];
+export type ReaderSignIn = ClaudeSignIn | CodexSignIn;
+export type LlmProvider = Schemas["LlmProvider"];
+export type CodexModel = Schemas["CodexModel"];
+export type CodexEffort = Schemas["CodexEffort"];
 export type PhonePage = Schemas["PhonePageState"];
 export type PhonePageRequest = Schemas["PhonePageRequest"];
 export type FeedQuery = NonNullable<paths["/events"]["get"]["parameters"]["query"]>;
@@ -128,6 +133,8 @@ export function createApi(baseUrl: string) {
     claudeSignIn: () => answer(client.GET("/claude/sign-in")),
     startClaudeSignIn: () => answer(client.POST("/claude/sign-in")),
     submitClaudeSignInCode: (code: string) => answer(client.POST("/claude/sign-in/code", { body: { code } })),
+    codexSignIn: () => answer(client.GET("/codex/sign-in")),
+    startCodexSignIn: () => answer(client.POST("/codex/sign-in")),
 
     stats: () => answer(client.GET("/stats")),
 

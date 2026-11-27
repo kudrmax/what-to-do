@@ -1,4 +1,5 @@
 import { useActiveCity } from "../api/useActiveCity";
+import { useReader } from "../api/useReader";
 import { Icon } from "../ui/Icon";
 import { NewCity } from "./CitiesSection";
 import "./Onboarding.css";
@@ -6,6 +7,7 @@ import "./Onboarding.css";
 /** The first thing a new app asks: the city, right where the feed will be. */
 export function NoCity() {
   const { loading } = useActiveCity();
+  const reader = useReader();
   if (loading) return null;
   return (
     <section className="welcome" aria-labelledby="welcome-title">
@@ -16,7 +18,7 @@ export function NoCity() {
         <h2 id="welcome-title" className="welcome__title">
           Where are you looking for things to do?
         </h2>
-        <p className="welcome__text">Add your city. Then add Telegram channels, Instagram profiles and websites that announce events there, and Claude turns their posts into event cards.</p>
+        <p className="welcome__text">Add your city. Then add Telegram channels, Instagram profiles and websites that announce events there, and {reader.name} turns their posts into event cards.</p>
       </div>
       <NewCity canCancel={false} />
     </section>

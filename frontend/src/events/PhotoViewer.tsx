@@ -45,7 +45,7 @@ export function PhotoViewer({ photos, start, onClose }: { photos: ViewedPhoto[];
           </span>
           <IconButton icon="close" label="Close viewer" onClick={startClose} />
         </div>
-        <h3 className="viewer__title">Text Claude read in the photo</h3>
+        <h3 className="viewer__title">Text read in the photo</h3>
         <p className={`viewer__text${photo.text ? "" : " viewer__text--none"}`}>{photo.text === null ? "The text in this photo hasn’t been read yet." : photo.text || "There’s no text in this photo."}</p>
       </aside>
     </div>,

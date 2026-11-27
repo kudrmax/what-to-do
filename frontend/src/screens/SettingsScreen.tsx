@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
-import type { Settings, Tag } from "../api/client";
+import type { CodexEffort, CodexModel, LlmProvider, Settings, Tag } from "../api/client";
 import { useAddTag, useChangeSettings, useDefaultSettings, useChangeTag, useReorderTags, useTagVisibility, useRetag, useSettings, useTags } from "../api/queries";
 import { SECTIONS } from "../app/routes";
 import { useThemeChoice, type ThemeChoice } from "../app/theme";
 import { plural } from "../domain/dates";
+import { READERS, type Reader } from "../domain/readers";
 import { moved } from "../domain/tags";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
@@ -20,17 +21,18 @@ import "./SettingsScreen.css";
 
 export function SettingsScreen() {
   const settings = useSettings();
+  const reader = READERS[settings.data?.llm_provider ?? "claude"];
   return (
     <Screen title={SECTIONS.settings.title} narrow>
       <CitiesSection />
       <AppearanceSection />
-      <Section title="Your feed" hint="What Claude looks for in posts and how it sorts events. Shared by all cities.">
-        {settings.data && <PriorityWish wish={settings.data.priority_wish} />}
-        <TagsSubsection />
+      <Section title="Your feed" hint={`What ${reader.name} looks for in posts and how it sorts events. Shared by all cities.`}>
+        {settings.data && <PriorityWish wish={settings.data.priority_wish} reader={reader} />}
+        <TagsSubsection reader={reader} />
       </Section>
       <PhonePageSection />
       <UpdatesSection />
-      {settings.data && <AdvancedSection settings={settings.data} />}
+      {settings.data && <AdvancedSection settings={settings.data} reader={reader} />}
     </Screen>
   );
 }
@@ -60,14 +62,14 @@ function AppearanceSection() {
 
 const WISH_EXAMPLE = "Above all I want events made for meeting people and talking. I am looking for friends";
 
-function PriorityWish({ wish }: { wish: string }) {
+function PriorityWish({ wish, reader }: { wish: string; reader: Reader }) {
   const change = useChangeSettings();
   const [draft, setDraft] = useState(wish);
   const save = (text: string) => change.mutate({ priority_wish: text }, { onSuccess: () => setDraft(text) });
   return (
     <Subsection
       title="What I look for first"
-      hint="Describe it in your own words. Claude marks the events that fit with «For you»: they stand out in the feed, and the «For you» filter shows only them. After a change, the next refresh reads the recent posts again."
+      hint={`Describe it in your own words. ${reader.name} marks the events that fit with «For you»: they stand out in the feed, and the «For you» filter shows only them. After a change, the next refresh reads the recent posts again.`}
     >
       <div className="prompt">
         <textarea className="input wish__text" value={draft} rows={4} aria-label="What I look for first" placeholder={WISH_EXAMPLE} aria-invalid={change.isError} onChange={(e) => setDraft(e.target.value)} />
@@ -85,11 +87,11 @@ function PriorityWish({ wish }: { wish: string }) {
   );
 }
 
-function AdvancedSection({ settings }: { settings: Settings }) {
+function AdvancedSection({ settings, reader }: { settings: Settings; reader: Reader }) {
   return (
     <CollapsibleSection
       title="Advanced"
-      hint="Safe to leave as they are. Change them only if cards come out wrong, or a refresh takes too long or uses too much of your Claude plan."
+      hint={`Safe to leave as they are. Change them only if cards come out wrong, or a refresh takes too long or uses too much of ${reader.plan}.`}
       openFor={COLLECTIONS_ANCHOR}
     >
       <CollectionsSubsection enabled={settings.collections_enabled} />
@@ -99,35 +101,110 @@ function AdvancedSection({ settings }: { settings: Settings }) {
         label="Recent posts per channel"
         hint="How many of each channel’s latest posts a refresh reads. More finds older events but makes every refresh longer. Takes effect from the next refresh."
       />
-      <ModelsSubsection settings={settings} />
-      <PromptsSubsection settings={settings} />
+      <ModelsSubsection settings={settings} reader={reader} />
+      <PromptsSubsection settings={settings} reader={reader} />
     </CollapsibleSection>
   );
 }
 
 type EditableSetting = "recent_posts";
 
-type ModelSetting = "photo_model" | "extraction_model" | "matching_model";
-type ClaudeModel = Settings[ModelSetting];
+type ClaudeModelSetting = "photo_model" | "extraction_model" | "matching_model";
+type ClaudeModel = Settings[ClaudeModelSetting];
+type CodexStep = "photo" | "extraction" | "matching";
 
-const MODELS: { id: ClaudeModel; name: string; tip: string }[] = [
+interface Choice<T> {
+  id: T;
+  name: string;
+  tip: string;
+}
+
+const PROVIDERS: Choice<LlmProvider>[] = [
+  { id: "claude", name: "Claude", tip: "Reads with your Claude plan through Claude Code" },
+  { id: "codex", name: "Codex", tip: "Reads with your ChatGPT plan through Codex" },
+];
+
+const CLAUDE_MODELS: Choice<ClaudeModel>[] = [
   { id: "claude-haiku-5-5", name: "Haiku", tip: "Fastest and cheapest" },
   { id: "claude-sonnet-5-5", name: "Sonnet", tip: "More accurate than Haiku, costs more" },
   { id: "claude-opus-5-5", name: "Opus", tip: "Most capable and most expensive" },
 ];
 
-function ModelsSubsection({ settings }: { settings: Settings }) {
+const CODEX_MODELS: Choice<CodexModel>[] = [
+  { id: "gpt-6-luna", name: "Luna", tip: "Fastest and lightest" },
+  { id: "gpt-6.1-terra", name: "Terra", tip: "Fast" },
+  { id: "gpt-6.2-sol", name: "Sol", tip: "Balanced" },
+  { id: "gpt-6.2-astra", name: "Astra", tip: "Most capable and slowest" },
+];
+
+const CODEX_EFFORTS: Choice<CodexEffort>[] = [
+  { id: "low", name: "Low", tip: "Answers quickest" },
+  { id: "medium", name: "Medium", tip: "Thinks longer before answering" },
+  { id: "high", name: "High", tip: "Thinks longest: slowest and uses the most of your plan" },
+];
+
+const STEPS: { claude: ClaudeModelSetting; codex: CodexStep; label: string; hint: string; claudeHint?: string }[] = [
+  { claude: "photo_model", codex: "photo", label: "Photo reading", hint: "Copies the text from posters and post images.", claudeHint: "Haiku mixes up tables and collages." },
+  { claude: "extraction_model", codex: "extraction", label: "Post and page reading", hint: "Turns channel posts and website pages into events and venues." },
+  { claude: "matching_model", codex: "matching", label: "Duplicate merging", hint: "Decides when two announcements are the same event." },
+];
+
+function ModelsSubsection({ settings, reader }: { settings: Settings; reader: Reader }) {
+  const codex = settings.llm_provider === "codex";
   return (
-    <Subsection title="Claude models" hint="Which model does each step. Bigger models are more accurate, slower and use more of your Claude plan. A new model takes effect from the next refresh.">
-      <ModelRow name="photo_model" value={settings.photo_model} label="Photo reading" hint="Copies the text from posters and post images. Haiku mixes up tables and collages." />
-      <ModelRow name="extraction_model" value={settings.extraction_model} label="Post and page reading" hint="Turns channel posts and website pages into events and venues." />
-      <ModelRow name="matching_model" value={settings.matching_model} label="Duplicate merging" hint="Decides when two announcements are the same event." />
+    <Subsection
+      title={`${reader.name} models`}
+      hint={`Which model does each step. Bigger models are more accurate, slower and use more of ${reader.plan}. A new model takes effect from the next refresh.`}
+    >
+      <ProviderRow value={settings.llm_provider} />
+      {STEPS.map((step) =>
+        codex ? (
+          <CodexModelRow
+            key={step.codex}
+            step={step.codex}
+            model={settings[`codex_${step.codex}_model`]}
+            effort={settings[`codex_${step.codex}_effort`]}
+            label={step.label}
+            hint={step.hint}
+          />
+        ) : (
+          <ClaudeModelRow key={step.claude} name={step.claude} value={settings[step.claude]} label={step.label} hint={step.claudeHint ? `${step.hint} ${step.claudeHint}` : step.hint} />
+        ),
+      )}
     </Subsection>
   );
 }
 
-function ModelRow({ name, value, label, hint }: { name: ModelSetting; value: ClaudeModel; label: string; hint: string }) {
+function ProviderRow({ value }: { value: LlmProvider }) {
   const change = useChangeSettings();
+  return (
+    <ChoiceRow label="Reads posts with" hint="Which subscription reads the posts. The other one keeps its models for when you switch back." error={change.error}>
+      <Chips label="Reads posts with" choices={PROVIDERS} value={value} onPick={(llm_provider) => change.mutate({ llm_provider })} />
+    </ChoiceRow>
+  );
+}
+
+function ClaudeModelRow({ name, value, label, hint }: { name: ClaudeModelSetting; value: ClaudeModel; label: string; hint: string }) {
+  const change = useChangeSettings();
+  return (
+    <ChoiceRow label={label} hint={hint} error={change.error}>
+      <Chips label={label} choices={CLAUDE_MODELS} value={value} onPick={(model) => change.mutate({ [name]: model })} />
+    </ChoiceRow>
+  );
+}
+
+function CodexModelRow({ step, model, effort, label, hint }: { step: CodexStep; model: CodexModel; effort: CodexEffort; label: string; hint: string }) {
+  const change = useChangeSettings();
+  return (
+    <ChoiceRow label={label} hint={hint} error={change.error}>
+      <Chips label={label} choices={CODEX_MODELS} value={model} onPick={(next) => change.mutate({ [`codex_${step}_model`]: next })} dense />
+      <span className="setting-row__caption">Thinking</span>
+      <Chips label={`${label} thinking`} choices={CODEX_EFFORTS} value={effort} onPick={(next) => change.mutate({ [`codex_${step}_effort`]: next })} />
+    </ChoiceRow>
+  );
+}
+
+function ChoiceRow({ label, hint, error, children }: { label: string; hint: string; error: unknown; children: ReactNode }) {
   return (
     <div className="setting-row">
       <div className="setting-row__text">
@@ -135,15 +212,21 @@ function ModelRow({ name, value, label, hint }: { name: ModelSetting; value: Cla
         <p className="setting-row__hint">{hint}</p>
       </div>
       <div className="setting-row__control">
-        <div className="settings-chips" role="group" aria-label={label}>
-          {MODELS.map((model) => (
-            <button key={model.id} type="button" className="chip" aria-pressed={model.id === value} data-tip={model.tip} onClick={() => model.id !== value && change.mutate({ [name]: model.id })}>
-              {model.name}
-            </button>
-          ))}
-        </div>
-        {change.error && <span className="error-text">{errorText(change.error)}</span>}
+        {children}
+        {error != null && <span className="error-text">{errorText(error)}</span>}
       </div>
+    </div>
+  );
+}
+
+function Chips<T extends string>({ label, choices, value, onPick, dense = false }: { label: string; choices: Choice<T>[]; value: T; onPick: (id: T) => void; dense?: boolean }) {
+  return (
+    <div className={dense ? "settings-chips settings-chips--dense" : "settings-chips"} role="group" aria-label={label}>
+      {choices.map((choice) => (
+        <button key={choice.id} type="button" className="chip" aria-pressed={choice.id === value} data-tip={choice.tip} onClick={() => choice.id !== value && onPick(choice.id)}>
+          {choice.name}
+        </button>
+      ))}
     </div>
   );
 }
@@ -179,7 +262,7 @@ function SettingRow({ name, value, label, hint }: { name: EditableSetting; value
   );
 }
 
-function TagsSubsection() {
+function TagsSubsection({ reader }: { reader: Reader }) {
   const tags = useTags();
   const add = useAddTag();
   const reorder = useReorderTags();
@@ -194,13 +277,14 @@ function TagsSubsection() {
   return (
     <Subsection
       title="Tags"
-      hint={`Claude tags events only with these, up to four per event. Drag a tag to change the order on cards, click its name to rename it, and under the name tell Claude what the tag means. Click the eye to hide a tag. An event leaves the feed when all its tags are hidden, or when it has a tag that is always hidden; marked ones and ones that fit what you look for first stay. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
+      hint={`${reader.name} tags events only with these, up to four per event. Drag a tag to change the order on cards, click its name to rename it, and under the name tell ${reader.name} what the tag means. Click the eye to hide a tag. An event leaves the feed when all its tags are hidden, or when it has a tag that is always hidden; marked ones and ones that fit what you look for first stay. Events that fit no tag get “${fallback ?? "…"}”, which stays last.`}
     >
       <ul className="tag-list" aria-label="Tags">
         {list.map((tag, index) => (
           <TagRow
             key={tag.id}
             tag={tag}
+            reader={reader}
             dragging={dragged === index}
             onDragStart={() => setDragged(index)}
             onDragEnter={() => {
@@ -223,13 +307,14 @@ function TagsSubsection() {
         <input className="input tag-add__input" aria-label="New tag" value={name} onChange={(e) => setName(e.target.value)} placeholder="+ New tag" />
       </form>
       {(add.error || reorder.error) && <p className="error-text">{errorText(add.error ?? reorder.error)}</p>}
-      <Retag />
+      <Retag reader={reader} />
     </Subsection>
   );
 }
 
 interface TagRowProps {
   tag: Tag;
+  reader: Reader;
   dragging: boolean;
   onDragStart: () => void;
   onDragEnter: () => void;
@@ -237,7 +322,7 @@ interface TagRowProps {
   onMove: (step: -1 | 1) => void;
 }
 
-function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: TagRowProps) {
+function TagRow({ tag, reader, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: TagRowProps) {
   const change = useChangeTag();
   const visibility = useTagVisibility();
   const classes = ["tag-row", tag.visibility !== "shown" && "tag-row--hidden", dragging && "tag-row--dragging"].filter(Boolean).join(" ");
@@ -282,7 +367,7 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
             <InlineEdit
               value={tag.description}
               label={`What “${tag.name}” means`}
-              tip="What this tag means for Claude"
+              tip={`What this tag means for ${reader.name}`}
               placeholder="Add what it means"
               onSave={(description) => change.mutate({ id: tag.id, change: { description } })}
             />
@@ -296,7 +381,7 @@ function TagRow({ tag, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: 
 }
 
 /** Gives the upcoming events tags from the current list again, once the list or the meanings changed. */
-function Retag() {
+function Retag({ reader }: { reader: Reader }) {
   const retag = useRetag();
   const status = retag.status;
   if (!status) return null;
@@ -308,8 +393,8 @@ function Retag() {
         <span className="retag__title">Re-tag upcoming events</span>
         <span className="retag__hint">
           {retag.running
-            ? `Claude is reading ${count(status.cards_to_retag, "event", "events")} again.`
-            : `Claude reads ${count(status.upcoming, "upcoming event", "upcoming events")} again and tags them from this list, with the meanings: ${count(status.claude_calls, "Claude call", "Claude calls")}. Marks and plans stay.`}
+            ? `${reader.name} is reading ${count(status.cards_to_retag, "event", "events")} again.`
+            : `${reader.name} reads ${count(status.upcoming, "upcoming event", "upcoming events")} again and tags them from this list, with the meanings: ${count(status.claude_calls, `${reader.name} call`, `${reader.name} calls`)}. Marks and plans stay.`}
         </span>
         {finished && status.errors.length === 0 && (
           <span className="retag__done" role="status">
@@ -333,9 +418,12 @@ function Retag() {
   );
 }
 
-function PromptsSubsection({ settings }: { settings: Settings }) {
+function PromptsSubsection({ settings, reader }: { settings: Settings; reader: Reader }) {
   return (
-    <Subsection title="Claude prompts" hint="The instructions Claude follows at each step. New text applies to posts that arrive after the next refresh; posts already read aren’t read again.">
+    <Subsection
+      title={`${reader.name} prompts`}
+      hint={`The instructions ${reader.name} follows at each step. New text applies to posts that arrive after the next refresh; posts already read aren’t read again.`}
+    >
       <PromptEditor name="extraction_prompt" value={settings.extraction_prompt} title="Post and page reading" hint="How to turn posts and website pages into events. Placeholders: {city} is the city, {language} the description language, {tags} the tag list, {fallback} the fallback tag." />
       <PromptEditor name="photo_prompt" value={settings.photo_prompt} title="Photo reading" hint="How to copy the text from posters and post images. Posts are then read together with this text." />
       <PromptEditor name="matching_prompt" value={settings.matching_prompt} title="Duplicate merging" hint="How to decide when two announcements are the same event." />

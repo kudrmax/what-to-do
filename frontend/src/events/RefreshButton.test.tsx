@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createApi, type ClaudeSignIn, type RefreshStatus } from "../api/client";
+import { createApi, type ClaudeSignIn, type CodexSignIn, type LlmProvider, type RefreshStatus, type Settings } from "../api/client";
 import { ApiContext } from "../api/queries";
 import { RefreshButton } from "./RefreshButton";
 
@@ -36,10 +36,16 @@ function finished(overrides: Partial<RefreshStatus>): RefreshStatus {
 const SIGNED_OUT: ClaudeSignIn = { state: "signed_out", hint: SIGN_IN, signing_in: false, page_url: null, error: null, version: "2.1.325", minimum: "2.1.321", update_command: "claude update" };
 const PAGE = "https://claude.com/cai/oauth/authorize?code=true";
 
-function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<ClaudeSignIn>) = SIGNED_OUT) {
+const CODEX_SIGN_IN = "Sign in to ChatGPT in What To Do to read posts with Codex";
+const CODEX_SIGNED_OUT: CodexSignIn = { ...SIGNED_OUT, hint: CODEX_SIGN_IN, version: "0.172.0", minimum: "0.172.0", update_command: "codex update", message: null };
+const OFFERS_TOOLS = "This Codex version offers tools What To Do cannot turn off; update What To Do";
+
+function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<ClaudeSignIn>) = SIGNED_OUT, provider: LlmProvider = "claude", codexSignIn: CodexSignIn = CODEX_SIGNED_OUT) {
   const api = createApi("");
   vi.spyOn(api, "refreshStatus").mockResolvedValue(progress);
-  vi.spyOn(api, "claudeSignIn").mockImplementation(typeof signIn === "function" ? signIn : async () => signIn);
+  vi.spyOn(api, "settings").mockResolvedValue({ llm_provider: provider } as Settings);
+  const codex = vi.spyOn(api, "codexSignIn").mockResolvedValue(codexSignIn);
+  const claude = vi.spyOn(api, "claudeSignIn").mockImplementation(typeof signIn === "function" ? signIn : async () => signIn);
   const view = typeof signIn === "function" ? SIGNED_OUT : signIn;
   const start = vi.spyOn(api, "startClaudeSignIn").mockResolvedValue({ ...view, signing_in: true, page_url: PAGE });
   const submit = vi.spyOn(api, "submitClaudeSignInCode").mockResolvedValue({ ...view, signing_in: true, page_url: PAGE });
@@ -51,7 +57,7 @@ function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<Cl
       </QueryClientProvider>
     </ApiContext.Provider>,
   );
-  return { start, submit, refresh };
+  return { start, submit, refresh, codex, claude };
 }
 
 describe("refresh errors", () => {
@@ -159,5 +165,91 @@ describe("refresh errors", () => {
     const errors = await screen.findByRole("status");
     expect(errors.querySelector("code")).toHaveTextContent("where-to-go restart");
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("refresh errors with Codex reading", () => {
+  it("offers to sign in to ChatGPT instead of the raw error and never asks Claude Code", async () => {
+    const { claude, codex } = setup(finished({ errors: ["Кафана: couldn't read it", CODEX_SIGN_IN], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex");
+
+    const note = await screen.findByRole("alert");
+    expect(note).toHaveTextContent("Sign in to ChatGPT to read the posts");
+    expect(screen.getByRole("button", { name: "Sign in to ChatGPT" })).toBeTruthy();
+    expect(screen.getByRole("status")).toHaveTextContent("Кафана: couldn't read it");
+    expect(screen.getByRole("status")).not.toHaveTextContent(CODEX_SIGN_IN);
+    expect(codex).toHaveBeenCalled();
+    expect(claude).not.toHaveBeenCalled();
+  });
+
+  it("says how to install Codex instead of the raw error", async () => {
+    setup(finished({ errors: ["Install Codex: What To Do needs it to read posts"], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", {
+      ...CODEX_SIGNED_OUT,
+      state: "not_installed",
+      version: null,
+      update_command: null,
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Install Codex to read the posts");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("says how to update Codex instead of the raw error", async () => {
+    setup(finished({ errors: ["Update Codex: you have 0.150.0, What To Do needs 0.172.0 or newer"], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", {
+      ...CODEX_SIGNED_OUT,
+      state: "too_old",
+      version: "0.150.0",
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Update Codex to read the posts");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("says once why Codex is refused", async () => {
+    setup(finished({ errors: [OFFERS_TOOLS], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "refused", message: OFFERS_TOOLS });
+
+    const box = await screen.findByRole("alert");
+    expect(box).toHaveTextContent("Codex can’t be used safely");
+    expect(screen.getAllByText(OFFERS_TOOLS)).toHaveLength(1);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the plan limit as a plain note without asking Codex", async () => {
+    const { codex } = setup(finished({ errors: ["ChatGPT plan limit reached, resets at 18:40"], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "signed_in" });
+
+    expect(await screen.findByRole("status")).toHaveTextContent("ChatGPT plan limit reached, resets at 18:40");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Sign in/ })).toBeNull();
+    expect(screen.queryByText("Signed in to ChatGPT")).toBeNull();
+    expect(codex).not.toHaveBeenCalled();
+  });
+
+  it("keeps the line about a tool Codex tried to use instead of saying it is signed in", async () => {
+    setup(finished({ errors: ["Codex tried to use a tool; nothing was read"], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "signed_in" });
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Codex tried to use a tool; nothing was read");
+    expect(screen.queryByText("Signed in to ChatGPT")).toBeNull();
+  });
+
+  it("names the reader from the settings when the refresh doesn't say whose it was", async () => {
+    const { claude } = setup(finished({ errors: [CODEX_SIGN_IN], reader_unavailable: true, reader: null }), SIGNED_OUT, "codex");
+
+    expect(await screen.findByRole("button", { name: "Sign in to ChatGPT" })).toBeTruthy();
+    expect(claude).not.toHaveBeenCalled();
+  });
+
+  it("asks no reader while every read went fine", async () => {
+    const { claude, codex } = setup(finished({ errors: ["Кафана: couldn't read it"] }), SIGNED_OUT, "codex");
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Кафана: couldn't read it");
+    expect(codex).not.toHaveBeenCalled();
+    expect(claude).not.toHaveBeenCalled();
+  });
+
+  it("asks only Claude Code when Claude is the reader that isn't ready", async () => {
+    const { claude, codex } = setup(finished({ errors: [SIGN_IN], reader_unavailable: true, reader: "claude" }), SIGNED_OUT, "codex");
+
+    expect(await screen.findByRole("button", { name: "Sign in to Claude" })).toBeTruthy();
+    expect(claude).toHaveBeenCalled();
+    expect(codex).not.toHaveBeenCalled();
   });
 });
