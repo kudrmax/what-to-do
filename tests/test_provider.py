@@ -56,11 +56,11 @@ def answering(name: str) -> FakeLlm:
     return FakeLlm(lambda system, prompt: {"by": name})
 
 
-def test_settings_default_to_claude_with_provisional_codex_models() -> None:
+def test_settings_default_to_claude_with_the_compared_codex_models() -> None:
     settings = AppSettings()
 
     assert settings.llm_provider is LlmProvider.CLAUDE
-    assert (settings.codex_photo_model, settings.codex_photo_effort) == (CodexModel.TERRA, CodexEffort.MEDIUM)
+    assert (settings.codex_photo_model, settings.codex_photo_effort) == (CodexModel.TERRA, CodexEffort.LOW)
     assert (settings.codex_extraction_model, settings.codex_extraction_effort) == (CodexModel.TERRA, CodexEffort.MEDIUM)
     assert (settings.codex_matching_model, settings.codex_matching_effort) == (CodexModel.LUNA, CodexEffort.LOW)
     assert [model.value for model in CodexModel] == ["gpt-6-luna", "gpt-6.1-terra", "gpt-6.2-sol", "gpt-6.2-astra"]

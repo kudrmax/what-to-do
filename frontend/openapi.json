@@ -2437,7 +2437,7 @@
      "codex_photo_effort": {
       "$ref": "#/components/schemas/CodexEffort",
       "description": "How long Codex thinks over post photos",
-      "default": "medium"
+      "default": "low"
      },
      "codex_extraction_model": {
       "$ref": "#/components/schemas/CodexModel",

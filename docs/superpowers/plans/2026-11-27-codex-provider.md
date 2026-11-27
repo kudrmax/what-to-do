@@ -62,7 +62,7 @@
 
 **Interfaces:**
 - `LlmProvider(StrEnum)`: `CLAUDE="claude"`, `CODEX="codex"`; `CodexModel`, `CodexEffort` enums with the Global Constraints values.
-- `AppSettings`: `llm_provider` (default claude), `codex_photo_model`/`_effort`, `codex_extraction_model`/`_effort`, `codex_matching_model`/`_effort` (provisional defaults Terra/medium, Terra/medium, Luna/low — replaced after the comparison in Task 8).
+- `AppSettings`: `llm_provider` (default claude), `codex_photo_model`/`_effort`, `codex_extraction_model`/`_effort`, `codex_matching_model`/`_effort` (defaults chosen by the comparison: photos Terra/low, extraction Terra/medium, matching Luna/low).
 - `class ProviderJsonLlm(JsonLlm)`: `__init__(self, provider: Callable[[], LlmProvider], claude: JsonLlm, codex: JsonLlm)` — reads the provider once per call.
 - `Container`: `codex: InstalledCli`, `codex_runtime: CodexRuntime`, three `ProviderJsonLlm`; closes the runtime on shutdown.
 - `RefreshProgress.reader_unavailable: bool` + `reader: LlmProvider | None` replace `claude_unavailable`; one line per refresh for any `ReaderNotReadyError` (plan limit included).

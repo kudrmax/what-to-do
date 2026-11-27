@@ -1,3 +1,6 @@
+"""The app's settings. The Codex models and efforts default to what the comparison with Claude's reading chose on
+2026-11-28 (spec "Choosing the Codex defaults"): photos Terra low, posts Terra medium, duplicates Luna low."""
+
 from __future__ import annotations
 
 from enum import StrEnum
@@ -70,7 +73,7 @@ class AppSettings(BaseModel):
         description="Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models",
     )
     codex_photo_model: CodexModel = Field(default=CodexModel.TERRA, description="Transcribes post photos when Codex reads")
-    codex_photo_effort: CodexEffort = Field(default=CodexEffort.MEDIUM, description="How long Codex thinks over post photos")
+    codex_photo_effort: CodexEffort = Field(default=CodexEffort.LOW, description="How long Codex thinks over post photos")
     codex_extraction_model: CodexModel = Field(default=CodexModel.TERRA, description="Reads posts into events and places when Codex reads")
     codex_extraction_effort: CodexEffort = Field(default=CodexEffort.MEDIUM, description="How long Codex thinks over posts")
     codex_matching_model: CodexModel = Field(default=CodexModel.LUNA, description="Merges duplicate announcements when Codex reads")

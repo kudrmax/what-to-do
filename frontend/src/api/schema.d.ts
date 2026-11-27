@@ -1147,7 +1147,7 @@ export interface components {
             codex_photo_model: components["schemas"]["CodexModel"];
             /**
              * @description How long Codex thinks over post photos
-             * @default medium
+             * @default low
              */
             codex_photo_effort: components["schemas"]["CodexEffort"];
             /**
