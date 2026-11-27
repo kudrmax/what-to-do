@@ -14,7 +14,11 @@ from enum import StrEnum
 from pathlib import Path
 from typing import IO
 
+from where_to_go.installed_cli import InstalledCli
+from where_to_go.launcher.tools import Tools
+
 SIGN_IN_HINT = "Sign in to Claude Code: run `claude` in a terminal and type /login"
+CLAUDE_MINIMUM = "2.1.321"
 
 
 class ClaudeCliEnvironment:
@@ -40,6 +44,22 @@ class ClaudeCliEnvironment:
     @staticmethod
     def is_default_config(configured: str | None) -> bool:
         return configured is not None and configured.strip() != "" and Path(configured).expanduser().resolve() == (Path.home() / ".claude").resolve()
+
+
+def claude_places(environ: Mapping[str, str], home: Path) -> list[Path]:
+    """Where Claude Code's installers put it: native installer, Homebrew, the old local install, then npm."""
+    fixed = [home / ".local" / "bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin"), home / ".claude" / "local"]
+    return list(dict.fromkeys([*fixed, *Tools(environ, home).program_dirs()]))
+
+
+def claude_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None, windows: bool = os.name == "nt") -> InstalledCli:
+    folder = home or Path.home()
+    return InstalledCli(
+        "claude.exe" if windows else "claude",
+        CLAUDE_MINIMUM,
+        extra_dirs=lambda: claude_places(environ, folder),
+        environ=ClaudeCliEnvironment.cleaned(environ),
+    )
 
 
 class ClaudeSignIn(StrEnum):

@@ -1,0 +1,181 @@
+"""Finding a program the user installed: PATH first, then the folders installers use."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from where_to_go.claude_login import claude_cli, claude_places
+from where_to_go.installed_cli import CliStatus, InstalledCli
+from where_to_go.launcher.tools import Tools
+
+MINIMUM = "2.1.321"
+
+
+class FakeVersion:
+    def __init__(self, answer: str | None = "2.1.325 (Claude Code)") -> None:
+        self.answer = answer
+        self.calls: list[Path] = []
+
+    def __call__(self, path: Path) -> str | None:
+        self.calls.append(path)
+        return self.answer
+
+
+def program(directory: Path, name: str = "claude") -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text("#!/bin/sh\necho '2.1.330 (Claude Code)'\n", encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+def finder(path_dirs: list[Path], extra_dirs: list[Path], version: FakeVersion | None = None) -> InstalledCli:
+    environ = {"PATH": os.pathsep.join(str(directory) for directory in path_dirs)}
+    return InstalledCli("claude", MINIMUM, extra_dirs=lambda: extra_dirs, environ=environ, run_version=version or FakeVersion())
+
+
+def test_path_wins_over_fixed_places(tmp_path: Path) -> None:
+    on_path = program(tmp_path / "path")
+    program(tmp_path / "fixed")
+
+    assert finder([tmp_path / "path"], [tmp_path / "fixed"]).find().path == on_path
+
+
+def test_fixed_places_when_path_lacks_it(tmp_path: Path) -> None:
+    fixed = program(tmp_path / "fixed")
+
+    assert finder([], [tmp_path / "missing", tmp_path / "fixed"]).find().path == fixed
+
+
+def test_missing(tmp_path: Path) -> None:
+    found = finder([tmp_path / "path"], [tmp_path / "fixed"]).find()
+
+    assert found.status == CliStatus.MISSING
+    assert found.path is None
+    assert found.version is None
+    assert found.update_command is None
+
+
+def test_too_old(tmp_path: Path) -> None:
+    program(tmp_path / "fixed")
+
+    found = finder([], [tmp_path / "fixed"], FakeVersion("2.1.200")).find()
+
+    assert found.status == CliStatus.TOO_OLD
+    assert found.version == "2.1.200"
+    assert found.minimum == MINIMUM
+
+
+def test_ready(tmp_path: Path) -> None:
+    path = program(tmp_path / "fixed")
+
+    found = finder([], [tmp_path / "fixed"], FakeVersion("2.1.325 (Claude Code)\n")).find()
+
+    assert found.status == CliStatus.READY
+    assert found.path == path
+    assert found.version == "2.1.325"
+
+
+def test_newer_minor_beats_longer_patch(tmp_path: Path) -> None:
+    program(tmp_path / "fixed")
+
+    assert finder([], [tmp_path / "fixed"], FakeVersion("2.2.0")).find().status == CliStatus.READY
+
+
+def test_unreadable_version_counts_as_too_old(tmp_path: Path) -> None:
+    program(tmp_path / "fixed")
+
+    for answer in (None, "garbage"):
+        found = finder([], [tmp_path / "fixed"], FakeVersion(answer)).find()
+
+        assert found.status == CliStatus.TOO_OLD
+        assert found.version is None
+
+
+def test_version_cached_until_file_changes(tmp_path: Path) -> None:
+    path = program(tmp_path / "fixed")
+    version = FakeVersion()
+    cli = finder([], [tmp_path / "fixed"], version)
+
+    cli.find()
+    cli.find()
+    assert len(version.calls) == 1
+
+    moment = path.stat().st_mtime_ns + 10**9
+    os.utime(path, ns=(moment, moment))
+    cli.find()
+    assert len(version.calls) == 2
+
+
+def test_broken_symlink_skipped(tmp_path: Path) -> None:
+    (tmp_path / "path").mkdir()
+    (tmp_path / "path" / "claude").symlink_to(tmp_path / "gone" / "claude")
+    real = program(tmp_path / "fixed")
+
+    assert finder([tmp_path / "path"], [tmp_path / "fixed"]).find().path == real
+
+
+def test_homebrew_cask_update_command(tmp_path: Path) -> None:
+    cask = program(tmp_path / "homebrew" / "Caskroom" / "claude-code@latest" / "2.1.325")
+    (tmp_path / "homebrew" / "bin").mkdir()
+    (tmp_path / "homebrew" / "bin" / "claude").symlink_to(cask)
+
+    found = finder([tmp_path / "homebrew" / "bin"], []).find()
+
+    assert found.update_command == "brew upgrade --cask claude-code@latest"
+
+
+def test_other_install_update_command(tmp_path: Path) -> None:
+    program(tmp_path / "local" / "bin")
+
+    assert finder([], [tmp_path / "local" / "bin"]).find().update_command == "claude update"
+
+
+def test_default_version_runner_asks_the_program(tmp_path: Path) -> None:
+    program(tmp_path / "fixed")
+
+    found = InstalledCli("claude", MINIMUM, extra_dirs=lambda: [tmp_path / "fixed"], environ={"PATH": ""}).find()
+
+    assert found.status == CliStatus.READY
+    assert found.version == "2.1.330"
+
+
+def test_claude_searches_the_native_installer_folder(tmp_path: Path) -> None:
+    native = program(tmp_path / ".local" / "bin")
+
+    found = claude_cli(environ={"PATH": ""}, home=tmp_path).find()
+
+    assert found.path == native
+    assert found.minimum == MINIMUM
+
+
+def test_claude_places_in_installer_order_then_npm_folders(tmp_path: Path) -> None:
+    (tmp_path / ".nvm" / "versions" / "node" / "v22.3.0" / "bin").mkdir(parents=True)
+
+    places = claude_places({}, tmp_path)
+
+    assert places[:4] == [tmp_path / ".local" / "bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin"), tmp_path / ".claude" / "local"]
+    assert places[-2:] == [tmp_path / ".volta" / "bin", tmp_path / ".nvm" / "versions" / "node" / "v22.3.0" / "bin"]
+    assert len(places) == len(set(places))
+
+
+def test_windows_name(tmp_path: Path) -> None:
+    program(tmp_path / ".local" / "bin")
+    windows = program(tmp_path / ".local" / "bin", "claude.exe")
+
+    found = claude_cli(environ={"PATH": ""}, home=tmp_path, windows=True).find()
+
+    assert found.path == windows
+    assert found.update_command == "claude update"
+
+
+def test_program_dirs_lists_nvm_and_volta(tmp_path: Path) -> None:
+    for version in ("v18.20.0", "v22.3.0", "v20.11.1"):
+        (tmp_path / ".nvm" / "versions" / "node" / version / "bin").mkdir(parents=True)
+
+    dirs = Tools(environ={}, home=tmp_path).program_dirs()
+
+    assert tmp_path / ".volta" / "bin" in dirs
+    nvm = [directory for directory in dirs if ".nvm" in directory.parts]
+    assert nvm == [tmp_path / ".nvm" / "versions" / "node" / version / "bin" for version in ("v22.3.0", "v20.11.1", "v18.20.0")]

@@ -28,10 +28,14 @@ class Tools:
         return found
 
     def npm(self) -> Path:
-        found = self._find("npm", [*self._common_dirs(), self._home / ".volta" / "bin", *self._nvm_dirs()])
+        found = self._find("npm", self.program_dirs())
         if found is None:
             raise ToolMissingError("Node.js is needed to build the interface: install Node.js 20 or newer from https://nodejs.org and try again.")
         return found
+
+    def program_dirs(self) -> list[Path]:
+        """Where Node.js and the programs npm installs globally live, outside PATH."""
+        return [*self._common_dirs(), self._home / ".volta" / "bin", *self._nvm_dirs()]
 
     def environ_for(self, tool: Path) -> dict[str, str]:
         """npm runs its scripts with `node`: the folder it came from goes first on PATH."""
