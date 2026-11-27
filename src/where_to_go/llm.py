@@ -50,7 +50,7 @@ class CodexRefusedError(ReaderNotReadyError):
 
 class PlanLimitError(ReaderNotReadyError):
     MESSAGE = "ChatGPT plan limit reached"
-    RESET = re.compile(r"try again at (?P<time>.+?)\.?\s*$", re.IGNORECASE)
+    RESET = re.compile(r"try again at (?P<time>.+?)(?=\.\s|\.?\s*$)", re.IGNORECASE | re.MULTILINE)
 
     def __init__(self, codex_message: str = "") -> None:
         reset = self.RESET.search(codex_message)

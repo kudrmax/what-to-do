@@ -149,6 +149,29 @@ def test_environ_points_codex_at_the_apps_home(tmp_path: Path) -> None:
     assert environ == {"PATH": "/bin", "CODEX_HOME": str(tmp_path / "home")}
 
 
+def test_environ_keeps_only_the_allowlist(tmp_path: Path) -> None:
+    home = CodexHome(tmp_path / "home")
+    base = {
+        "PATH": "/bin",
+        "HOME": "/Users/someone",
+        "LC_ALL": "en_US.UTF-8",
+        "https_proxy": "http://proxy:1",
+        "OPENAI_API_KEY": "secret",
+        "CODEX_ACCESS_TOKEN": "secret",
+        "CODEX_SQLITE_HOME": "/elsewhere",
+    }
+
+    environ = home.environ(base)
+
+    assert environ == {
+        "PATH": "/bin",
+        "HOME": "/Users/someone",
+        "LC_ALL": "en_US.UTF-8",
+        "https_proxy": "http://proxy:1",
+        "CODEX_HOME": str(tmp_path / "home"),
+    }
+
+
 def test_home_never_inside_data_folder() -> None:
     folder = CodexHome.default().folder
 

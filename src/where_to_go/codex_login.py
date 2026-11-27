@@ -84,6 +84,11 @@ extends = ":read-only"
 enabled = false
 """
     VARIABLE = "CODEX_HOME"
+    PROXIES = ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY")
+    WINDOWS = ("SYSTEMROOT", "WINDIR", "PATHEXT", "COMSPEC", "TEMP", "TMP", "USERPROFILE")
+    ALLOWED_VARIABLES = frozenset(
+        {"HOME", "USER", "LOGNAME", "SHELL", "PATH", "TMPDIR", "LANG", "SSL_CERT_FILE", "SSL_CERT_DIR", *PROXIES, *WINDOWS}
+    )
     INSTRUCTION_FILES = ("AGENTS.md", "AGENTS.override.md")
 
     def __init__(self, folder: Path) -> None:
@@ -111,7 +116,14 @@ enabled = false
         return [path for path in (self.folder / name for name in self.INSTRUCTION_FILES) if path.exists()]
 
     def environ(self, base: Mapping[str, str]) -> dict[str, str]:
-        return {**base, self.VARIABLE: str(self.folder)}
+        """Only what a program needs to run and reach the network: keys, tokens and Codex overrides in the
+        app's own environment never reach Codex. Every start of Codex by the app uses this."""
+        kept = {name: value for name, value in base.items() if self._allowed(name)}
+        return {**kept, self.VARIABLE: str(self.folder)}
+
+    @classmethod
+    def _allowed(cls, name: str) -> bool:
+        return name.upper() in cls.ALLOWED_VARIABLES or name.startswith("LC_")
 
 
 class ToolGuard:
