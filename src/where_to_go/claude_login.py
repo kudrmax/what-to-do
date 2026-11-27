@@ -62,7 +62,7 @@ def claude_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None
 
 def unavailable_hint(found: FoundCli) -> str:
     if found.status is CliStatus.MISSING:
-        return "Install Claude Code to read posts"
+        return "Install Claude Code: What To Do reads with it"
     return f"Update Claude Code: you have {found.version or 'an unknown version'}, What To Do needs {found.minimum} or newer"
 
 

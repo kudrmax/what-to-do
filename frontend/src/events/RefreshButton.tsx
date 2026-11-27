@@ -6,14 +6,16 @@ import { InlineCode } from "../ui/InlineCode";
 import { ClaudeSignIn } from "./ClaudeSignIn";
 import "./RefreshButton.css";
 
-/** The backend's own line for a missing login; the sign-in note below replaces it. */
-const SIGN_IN_ERROR = "Sign in to Claude Code";
+/** The backend's own lines for Claude Code missing, too old or signed out; the box below replaces them. */
+const CLAUDE_UNAVAILABLE_ERRORS = ["Install Claude Code", "Update Claude Code", "Sign in to Claude Code"];
+
+const saysClaudeUnavailable = (error: string) => CLAUDE_UNAVAILABLE_ERRORS.some((start) => error.startsWith(start));
 
 /** Starts a refresh, shows its stage while it runs and what went wrong when it ends. */
 export function RefreshButton() {
   const refresh = useRefresh();
-  const signedOut = !refresh.running && (refresh.status?.claude_unavailable ?? false);
-  const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(signedOut && error.startsWith(SIGN_IN_ERROR)));
+  const claudeUnavailable = !refresh.running && (refresh.status?.claude_unavailable ?? false);
+  const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(claudeUnavailable && saysClaudeUnavailable(error)));
   const { city } = useActiveCity();
   const label = refresh.running ? refreshLabel(refresh.status) : "Refresh";
   const left = refresh.running ? timeLeft(refresh.status) : null;
@@ -24,7 +26,7 @@ export function RefreshButton() {
         {label}
         {left && <span className="refresh__left">{left}</span>}
       </button>
-      {signedOut && <ClaudeSignIn />}
+      {claudeUnavailable && <ClaudeSignIn />}
       {errors.length > 0 && (
         <div className="note refresh__errors" role="status">
           {errors.map((error) => (

@@ -111,7 +111,7 @@ async def test_llm_raises_unavailable_when_missing(monkeypatch):
     monkeypatch.setattr(llm_module, "query", query)
     with pytest.raises(ClaudeUnavailableError) as raised:
         await ClaudeJsonLlm(lambda: "m", FakeClaude(CliStatus.MISSING)).complete_json("s", "p", {})
-    assert str(raised.value) == "Install Claude Code to read posts"
+    assert str(raised.value) == "Install Claude Code: What To Do reads with it"
     assert raised.value.found.status is CliStatus.MISSING
     assert isinstance(raised.value, ClaudeNotReadyError) and isinstance(raised.value, LlmError)
     assert seen == {}

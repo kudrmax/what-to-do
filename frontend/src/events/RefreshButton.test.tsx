@@ -99,6 +99,30 @@ describe("refresh errors", () => {
     expect(await screen.findByText("Login failed: That code wasn't accepted.")).toBeTruthy();
   });
 
+  it("says how to install Claude Code instead of the raw error", async () => {
+    setup(finished({ errors: ["Кафана: couldn't read it", "Install Claude Code: What To Do reads with it"], claude_unavailable: true }), {
+      ...SIGNED_OUT,
+      state: "not_installed",
+      version: null,
+      update_command: null,
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Install Claude Code to read the posts");
+    expect(screen.getByRole("status")).toHaveTextContent("Кафана: couldn't read it");
+    expect(screen.getByRole("status")).not.toHaveTextContent("What To Do reads with it");
+  });
+
+  it("says how to update Claude Code instead of the raw error", async () => {
+    setup(finished({ errors: ["Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer"], claude_unavailable: true }), {
+      ...SIGNED_OUT,
+      state: "too_old",
+      version: "2.1.200",
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Update Claude Code to read the posts");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("shows commands in other errors as code", async () => {
     setup(finished({ errors: ["Run `where-to-go restart` and try again"] }));
 

@@ -1,15 +1,24 @@
 import { useState, type FormEvent } from "react";
 
+import type { ClaudeSignIn as SignInView } from "../api/client";
 import { useClaudeSignIn } from "../api/queries";
+import { CommandLine } from "../ui/CommandLine";
 import { Icon } from "../ui/Icon";
 import { errorText } from "../ui/errors";
 
-/** Shown under Refresh when Claude has no login: signs in through the browser, no terminal needed. */
+const INSTALL_COMMANDS = [
+  { label: "Installer", command: "curl -fsSL https://claude.ai/install.sh | bash" },
+  { label: "Homebrew", command: "brew install --cask claude-code@latest" },
+];
+
+/** Shown under Refresh when Claude Code can't read: says how to install or update it, or signs in through the browser. */
 export function ClaudeSignIn() {
   const signIn = useClaudeSignIn();
   const status = signIn.status;
 
-  if (status?.state === "signed_in") {
+  if (!status) return null;
+
+  if (status.state === "signed_in") {
     return (
       <div className="note claude-sign-in claude-sign-in--done" role="status">
         <strong className="claude-sign-in__title">
@@ -21,7 +30,10 @@ export function ClaudeSignIn() {
     );
   }
 
-  if (status?.signing_in) {
+  if (status.state === "not_installed") return <InstallClaudeCode />;
+  if (status.state === "too_old") return <UpdateClaudeCode status={status} />;
+
+  if (status.signing_in) {
     return (
       <div className="note claude-sign-in" role="status">
         <strong className="claude-sign-in__title">
@@ -40,10 +52,46 @@ export function ClaudeSignIn() {
     <div className="note claude-sign-in" role="alert">
       <strong className="claude-sign-in__title">Sign in to Claude to read the posts</strong>
       <span>What To Do reads posts with your Claude subscription. Nothing was read this time.</span>
-      {status?.error && <span className="claude-sign-in__error">{status.error}</span>}
+      {status.error && <span className="claude-sign-in__error">{status.error}</span>}
       <button type="button" className="button button--small claude-sign-in__action" onClick={signIn.start} disabled={signIn.starting}>
         Sign in to Claude
       </button>
+    </div>
+  );
+}
+
+function InstallClaudeCode() {
+  return (
+    <div className="note claude-sign-in" role="alert">
+      <strong className="claude-sign-in__title">Install Claude Code to read the posts</strong>
+      <span>What To Do reads posts with your Claude subscription through Claude Code. Paste one of these into a terminal:</span>
+      {INSTALL_COMMANDS.map(({ label, command }) => (
+        <div key={label} className="claude-sign-in__command">
+          <span className="claude-sign-in__command-label">{label}</span>
+          <CommandLine command={command} />
+        </div>
+      ))}
+      <span>Then press Refresh.</span>
+    </div>
+  );
+}
+
+function UpdateClaudeCode({ status }: { status: SignInView }) {
+  return (
+    <div className="note claude-sign-in" role="alert">
+      <strong className="claude-sign-in__title">Update Claude Code to read the posts</strong>
+      <span>
+        You have {status.version ?? "an older version"}. What To Do needs {status.minimum} or newer.
+      </span>
+      {status.update_command ? (
+        <>
+          <span>Paste this into a terminal:</span>
+          <CommandLine command={status.update_command} />
+        </>
+      ) : (
+        <span>Update it the way you installed it.</span>
+      )}
+      <span>Then press Refresh.</span>
     </div>
   );
 }

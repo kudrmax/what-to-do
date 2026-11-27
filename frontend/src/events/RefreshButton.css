@@ -103,3 +103,14 @@
   border-radius: 5px;
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
+
+.claude-sign-in__command {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: stretch;
+}
+
+.claude-sign-in__command-label {
+  font-weight: 600;
+}

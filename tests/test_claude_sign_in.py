@@ -124,7 +124,7 @@ class NotReady:
     ("error", "line"),
     [
         (ClaudeSignedOutError(), SIGN_IN_HINT),
-        (ClaudeUnavailableError(FakeClaude(CliStatus.MISSING).found), "Install Claude Code to read posts"),
+        (ClaudeUnavailableError(FakeClaude(CliStatus.MISSING).found), "Install Claude Code: What To Do reads with it"),
         (
             ClaudeUnavailableError(FakeClaude(CliStatus.TOO_OLD, version="2.1.200").found),
             "Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer",
@@ -298,7 +298,7 @@ def test_sign_in_flow_without_cli_reports_install_hint(flows) -> None:
 
     progress = flow.progress()
     assert not progress.running
-    assert progress.error == "Install Claude Code to read posts"
+    assert progress.error == "Install Claude Code: What To Do reads with it"
     assert "Reinstall" not in progress.error
 
 

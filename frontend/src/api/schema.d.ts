@@ -742,7 +742,7 @@ export interface paths {
         };
         /**
          * Claude Sign In
-         * @description Whether Claude Code, which reads the posts, is signed in, and how a sign-in started here goes.
+         * @description Whether Claude Code, which reads the posts, is installed, new enough and signed in, and how a sign-in started here goes.
          */
         get: operations["claude_sign_in_claude_sign_in_get"];
         put?: never;

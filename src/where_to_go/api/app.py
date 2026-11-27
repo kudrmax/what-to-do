@@ -660,7 +660,7 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
 
     @app.get("/claude/sign-in", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])
     def claude_sign_in(c: ContainerDep):
-        """Whether Claude Code, which reads the posts, is signed in, and how a sign-in started here goes."""
+        """Whether Claude Code, which reads the posts, is installed, new enough and signed in, and how a sign-in started here goes."""
         return sign_in_view(c)
 
     @app.post("/claude/sign-in", response_model=ClaudeSignInView, tags=[ApiTag.REFRESH])
