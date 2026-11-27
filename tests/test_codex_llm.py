@@ -401,7 +401,7 @@ async def test_a_different_codex_starts_a_new_server(tmp_path):
     await reader(rt).complete_json("s", "p", SCHEMA)
     cli.found = FoundCli(CliStatus.READY, Path("/new/codex"), "0.173.0", CODEX_MINIMUM, "codex update")
     await reader(rt).complete_json("s", "p", SCHEMA)
-    assert [launched(client.config)[1][0] for client in clients.made] == [str(Path("/old/codex")), str(Path("/new/codex"))]
+    assert [launched(client.config)[1][0] for client in clients.made] == [os.path.realpath("/old/codex"), os.path.realpath("/new/codex")]
     assert clients.made[0].closed
     await rt.close()
 
