@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,22 +86,44 @@ def readers(comparison: Comparison) -> tuple[list[CountingLlm], object | None]:
     return [CountingLlm(ClaudeJsonLlm(lambda: comparison.model, claude)) for _ in range(3)], None
 
 
+def copy_reading_context(origin, target, city_type):
+    """The source's city, tags and reading wishes, so both folders read the posts with the same context."""
+    old = origin.cities.active()
+    city = target.cities.add(city_type(**old.model_dump(exclude={"id"})))
+    tags = origin.tags.all()
+    target.tags.seed([], next(t.name for t in tags if t.is_fallback))
+    for tag in tags:
+        if not tag.is_fallback:
+            target.tags.add(tag.name, tag.description)
+    wishes = origin.settings.load()
+    target.settings.update(
+        extraction_prompt=wishes.extraction_prompt,
+        priority_wish=wishes.priority_wish,
+        matching_prompt=wishes.matching_prompt,
+        photo_prompt=wishes.photo_prompt,
+    )
+    return city
+
+
 async def main(comparison: Comparison) -> None:
-    from common import TEST_CITY
     from where_to_go.container import Container
-    from where_to_go.models import CollectedPost, Source
+    from where_to_go.models import City, CollectedPost, Source
 
     origin = Container.build(comparison.source_dir)
     (photos, extraction, matching), runtime = readers(comparison)
     c = Container.build(comparison.target_dir, extraction_llm=extraction, matching_llm=matching, photo_llm=photos)
     try:
-        city = c.cities.active() or c.cities.add(*TEST_CITY)
+        city = c.cities.active() or copy_reading_context(origin, c, City)
         copies: dict[int, Source] = {}
         for post_id in comparison.post_ids:
             post = origin.posts.get(post_id)
             if post.source_id not in copies:
                 old = origin.sources.get(post.source_id)
                 copies[post.source_id] = c.sources.add(Source(city_id=city.id, handle=old.handle, title=old.title))
+            for name in post.image_paths:
+                stored = origin.images.path(name)
+                if stored is not None:
+                    shutil.copy2(stored, comparison.target_dir / "images" / name)
             collected = CollectedPost.model_validate(post, from_attributes=True)
             c.posts.add_new(copies[post.source_id].id, collected, post.image_paths)
         sources = {s.id: s for s in copies.values()}
