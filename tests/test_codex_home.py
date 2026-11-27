@@ -90,14 +90,8 @@ class CountingRun:
         return self.output
 
 
-STRICT_FILESYSTEM = {
-    ":root": "deny",
-    ":minimal": "read",
-    "/tmp": "deny",
-    "/private/tmp": "deny",
-    "/var/tmp": "deny",
-    "/private/var/tmp": "deny",
-}
+SHARED_TEMP = ("/tmp", "/private/tmp", "/var/tmp", "/private/var/tmp")
+STRICT_FILESYSTEM = {":root": "deny", ":minimal": "read", **({folder: "deny" for folder in SHARED_TEMP} if sys.platform == "darwin" else {})}
 
 
 def filesystem(home: CodexHome) -> dict[str, str]:
@@ -190,6 +184,15 @@ def test_sandbox_profile_reads_nothing_and_has_no_network(tmp_path: Path) -> Non
     assert "URLError" in fetch.stderr
 
 
+def test_shared_temporary_folders_are_denied_on_macos_only() -> None:
+    def denied(platform: str) -> dict[str, str]:
+        found = tomllib.loads(CodexHome.strict_config(platform))["permissions"]["answer-only"]["filesystem"]
+        return {folder: rule for folder, rule in found.items() if folder in SHARED_TEMP}
+
+    assert denied("darwin") == {folder: "deny" for folder in SHARED_TEMP}
+    assert denied("linux") == {}
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="the answer-only profile is checked with macOS seatbelt")
 @pytest.mark.parametrize("shared", ["/private/tmp", "/tmp"])
 def test_sandbox_profile_reads_nothing_in_the_shared_temporary_folders(tmp_path: Path, shared: str) -> None:
@@ -273,7 +276,7 @@ def test_a_folder_with_a_control_character_is_refused_and_the_config_stays_stric
         home.prepare(tmp_path / name / "codex")
 
     assert str(raised.value) == CodexHome.UNWRITABLE_PATH
-    assert (home.folder / "config.toml").read_text(encoding="utf-8") == CodexHome.CONFIG
+    assert (home.folder / "config.toml").read_text(encoding="utf-8") == CodexHome.strict_config()
 
 
 @pytest.mark.parametrize("where", ["root", "user home", "above user home"])

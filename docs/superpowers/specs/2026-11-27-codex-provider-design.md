@@ -194,6 +194,8 @@ Two layers, both proven offline:
    effect (`/etc/hosts`, `/etc/passwd` and `ls /etc` still work), as Codex's built-in macOS profile allows it. It holds
    system configuration, not the user's files, so it is left out of the config rather than written as a rule that
    does nothing.
+   The temporary-folder lines are written on macOS only: on Linux (CI) the temporary folder is `/tmp` itself and holds
+   the working folder, and Codex fails there with "failed to load AGENTS.md instructions: Permission denied".
 
    The third filesystem line is the folder of the real file of the Codex the app starts, written per Codex found
    (here the Homebrew one). Codex starts its own program again inside this sandbox to read its instruction files;

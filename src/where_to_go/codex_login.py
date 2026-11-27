@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import threading
 import unicodedata
@@ -90,15 +91,12 @@ extends = ":read-only"
 [permissions.answer-only.filesystem]
 ":root" = "deny"
 ":minimal" = "read"
-"/tmp" = "deny"
-"/private/tmp" = "deny"
-"/var/tmp" = "deny"
-"/private/var/tmp" = "deny"
 
 [permissions.answer-only.network]
 enabled = false
 """
     MINIMAL_READ = '":minimal" = "read"\n'
+    SHARED_TEMP_DENIED = '"/tmp" = "deny"\n"/private/tmp" = "deny"\n"/var/tmp" = "deny"\n"/private/var/tmp" = "deny"\n'
     UNWRITABLE_PATH = "Codex is installed at a path What To Do cannot put into its settings safely; reinstall Codex with its installer or Homebrew"
     VARIABLE = "CODEX_HOME"
     PROXIES = ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY")
@@ -124,7 +122,7 @@ enabled = false
         try:
             config = self.config_for(program)
         except UnsafeCodexPath:
-            self._write(self.CONFIG)
+            self._write(self.strict_config())
             raise
         self._write(config)
         return program
@@ -147,7 +145,16 @@ enabled = false
                 "so reinstall Codex with its installer or Homebrew"
             )
         entry = f'{self._toml_string(str(folder))} = "read"\n'
-        return self.CONFIG.replace(self.MINIMAL_READ, self.MINIMAL_READ + entry)
+        return self.strict_config().replace(self.MINIMAL_READ, self.MINIMAL_READ + entry)
+
+    @classmethod
+    def strict_config(cls, platform: str = sys.platform) -> str:
+        """On macOS `:minimal` also lets in the shared temporary folders, where other programs leave files. On Linux and
+        Windows, development platforms only, the temporary folder is /tmp itself and holds Codex's working folder, so
+        Codex fails to start without it."""
+        if platform != "darwin":
+            return cls.CONFIG
+        return cls.CONFIG.replace(cls.MINIMAL_READ, cls.MINIMAL_READ + cls.SHARED_TEMP_DENIED)
 
     def _too_wide(self, folder: Path) -> bool:
         user_home = Path(os.path.realpath(self._user_home or Path.home()))
