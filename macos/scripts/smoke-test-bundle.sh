@@ -20,7 +20,9 @@ fail() { echo "SMOKE TEST FAILED: $1"; "$python" -m where_to_go down >/dev/null 
 version=$(curl -sf "http://127.0.0.1:$port/api/version") || fail "no answer on /api/version"
 echo "Answers: $version"
 curl -sf "http://127.0.0.1:$port/" | grep -q '<title>What To Do</title>' || fail "the interface isn't served"
-[[ ! -e $app/Contents/Resources/python/lib/python3.13/site-packages/claude_agent_sdk/_bundled ]] || fail "the bundle carries the Claude CLI of claude-agent-sdk"
+sdk=$("$python" -c 'import claude_agent_sdk, pathlib; print(pathlib.Path(claude_agent_sdk.__file__).parent)') || fail "the bundle's Python can't import claude_agent_sdk"
+[[ -d $sdk ]] || fail "claude_agent_sdk isn't a folder: $sdk"
+[[ ! -e $sdk/_bundled ]] || fail "the bundle carries the Claude CLI of claude-agent-sdk"
 curl -sf "http://127.0.0.1:$port/api/claude/sign-in" | grep -qE '"state":"(signed_in|signed_out|not_installed|too_old)"' || fail "the sign-in state of Claude Code didn't come back"
 "$python" -m where_to_go down
 sleep 1
