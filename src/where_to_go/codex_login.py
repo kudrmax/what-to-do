@@ -77,6 +77,7 @@ extends = ":read-only"
 enabled = false
 """
     VARIABLE = "CODEX_HOME"
+    INSTRUCTION_FILES = ("AGENTS.md", "AGENTS.override.md")
 
     def __init__(self, folder: Path) -> None:
         self.folder = folder
@@ -93,10 +94,14 @@ enabled = false
                 return self.folder
         except OSError:
             pass
-        draft = self.folder / "config.toml.new"
-        draft.write_text(self.CONFIG, encoding="utf-8")
-        draft.replace(config)
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=self.folder, prefix="config.toml.", delete=False) as draft:
+            draft.write(self.CONFIG)
+        os.replace(draft.name, config)
         return self.folder
+
+    def instruction_files(self) -> list[Path]:
+        """Codex hands the model the AGENTS files of its home: the app's calls must have none."""
+        return [path for path in (self.folder / name for name in self.INSTRUCTION_FILES) if path.exists()]
 
     def environ(self, base: Mapping[str, str]) -> dict[str, str]:
         return {**base, self.VARIABLE: str(self.folder)}
@@ -113,6 +118,11 @@ class ToolGuard:
     OFFERS_TOOLS = "This Codex version offers tools What To Do cannot turn off; update What To Do"
     CANNOT_CHECK = "What To Do could not check that Codex has no tools; try again, or update Codex"
     SKILLS_MARKER = "<skills_instructions>"
+    KNOWN_ITEMS = frozenset({"message"})
+
+    @staticmethod
+    def instructions_refusal(path: Path) -> str:
+        return f"Codex would give the model the instructions in {path}; move that file away so What To Do can use Codex"
 
     def __init__(self, home: CodexHome, run: Callable[[Path, Mapping[str, str]], str | None] | None = None) -> None:
         self._home = home
@@ -127,9 +137,15 @@ class ToolGuard:
                 key = (resolved, resolved.stat().st_mtime_ns)
             except OSError:
                 return self.CANNOT_CHECK
+            try:
+                self._home.prepare()
+                instructions = self._home.instruction_files()
+            except OSError:
+                return self.CANNOT_CHECK
+            if instructions:
+                return self.instructions_refusal(instructions[0])
             if key in self._verdicts:
                 return self._verdicts[key]
-            self._home.prepare()
             output = self._run(codex, self._home.environ(os.environ))
             verdict = self.refusal(output)
             if verdict != self.CANNOT_CHECK:
@@ -142,8 +158,10 @@ class ToolGuard:
             given = json.loads(output or "")
         except ValueError:
             return cls.CANNOT_CHECK
-        if not isinstance(given, list):
+        if not isinstance(given, list) or not given:
             return cls.CANNOT_CHECK
+        if any(not isinstance(item, dict) or item.get("type") not in cls.KNOWN_ITEMS for item in given):
+            return cls.OFFERS_TOOLS
         if cls._offers_tools(given) or any(cls.SKILLS_MARKER in text for text in cls._texts(given)):
             return cls.OFFERS_TOOLS
         return None
