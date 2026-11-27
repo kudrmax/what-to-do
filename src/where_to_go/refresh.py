@@ -16,7 +16,7 @@ from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linked_posts import LinkedPosts
 from where_to_go.linking import Atomically, EventLinker, PostMentions
-from where_to_go.llm import ClaudeSignedOutError, LlmError
+from where_to_go.llm import ClaudeNotReadyError, LlmError
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
@@ -75,7 +75,7 @@ class RefreshProgress(Public):
     posts_read: int = 0
     events_touched: int = Field(default=0, description="Cards created or updated")
     errors: list[str] = Field(default_factory=list, description="Human-readable, ready to show")
-    claude_signed_out: bool = Field(default=False, description="Claude Code has no login: nothing was read; the user must sign in first")
+    claude_unavailable: bool = Field(default=False, description="Claude Code is missing, too old or signed out: nothing was read")
 
     @computed_field
     @property
@@ -93,11 +93,11 @@ class RefreshProgress(Public):
         self.pages_fetched += 1
 
     def claude_failed(self, error: LlmError, message: str) -> None:
-        """One line per failure, except a missing login: it fails every call alike and is said once."""
-        if not isinstance(error, ClaudeSignedOutError):
+        """One line per failure, except Claude Code not being ready: it fails every call alike and is said once."""
+        if not isinstance(error, ClaudeNotReadyError):
             self.errors.append(message)
-        elif not self.claude_signed_out:
-            self.claude_signed_out = True
+        elif not self.claude_unavailable:
+            self.claude_unavailable = True
             self.errors.append(str(error))
 
 

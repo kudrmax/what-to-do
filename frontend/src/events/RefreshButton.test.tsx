@@ -27,21 +27,23 @@ function finished(overrides: Partial<RefreshStatus>): RefreshStatus {
     posts_read: 0,
     events_touched: 0,
     errors: [],
-    claude_signed_out: false,
+    claude_unavailable: false,
     running: false,
     ...overrides,
   };
 }
 
-const SIGNED_OUT: ClaudeSignIn = { state: "signed_out", hint: SIGN_IN, signing_in: false, page_url: null, error: null };
+const SIGNED_OUT: ClaudeSignIn = { state: "signed_out", hint: SIGN_IN, signing_in: false, page_url: null, error: null, version: "2.1.325", minimum: "2.1.321", update_command: "claude update" };
 const PAGE = "https://claude.com/cai/oauth/authorize?code=true";
 
-function setup(progress: RefreshStatus, signIn: ClaudeSignIn = SIGNED_OUT) {
+function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<ClaudeSignIn>) = SIGNED_OUT) {
   const api = createApi("");
   vi.spyOn(api, "refreshStatus").mockResolvedValue(progress);
-  vi.spyOn(api, "claudeSignIn").mockResolvedValue(signIn);
-  const start = vi.spyOn(api, "startClaudeSignIn").mockResolvedValue({ ...signIn, signing_in: true, page_url: PAGE });
-  const submit = vi.spyOn(api, "submitClaudeSignInCode").mockResolvedValue({ ...signIn, signing_in: true, page_url: PAGE });
+  vi.spyOn(api, "claudeSignIn").mockImplementation(typeof signIn === "function" ? signIn : async () => signIn);
+  const view = typeof signIn === "function" ? SIGNED_OUT : signIn;
+  const start = vi.spyOn(api, "startClaudeSignIn").mockResolvedValue({ ...view, signing_in: true, page_url: PAGE });
+  const submit = vi.spyOn(api, "submitClaudeSignInCode").mockResolvedValue({ ...view, signing_in: true, page_url: PAGE });
+  const refresh = vi.spyOn(api, "refresh");
   render(
     <ApiContext.Provider value={api}>
       <QueryClientProvider client={new QueryClient()}>
@@ -49,12 +51,12 @@ function setup(progress: RefreshStatus, signIn: ClaudeSignIn = SIGNED_OUT) {
       </QueryClientProvider>
     </ApiContext.Provider>,
   );
-  return { start, submit };
+  return { start, submit, refresh };
 }
 
 describe("refresh errors", () => {
   it("offers to sign in to Claude instead of the raw error", async () => {
-    setup(finished({ errors: ["Кафана: couldn't read it", SIGN_IN], claude_signed_out: true }));
+    setup(finished({ errors: ["Кафана: couldn't read it", SIGN_IN], claude_unavailable: true }));
 
     const note = await screen.findByRole("alert");
     expect(note).toHaveTextContent("Sign in to Claude to read the posts");
@@ -66,7 +68,7 @@ describe("refresh errors", () => {
   });
 
   it("signs in through the browser and takes the code when the browser didn't open", async () => {
-    const { start, submit } = setup(finished({ claude_signed_out: true }));
+    const { start, submit } = setup(finished({ claude_unavailable: true }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign in to Claude" }));
 
@@ -80,23 +82,75 @@ describe("refresh errors", () => {
   });
 
   it("says why the pasted code didn't work", async () => {
-    setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
+    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
 
     expect(await screen.findByText("Invalid code. Please make sure the full code was copied.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open the sign-in page" })).toBeTruthy();
   });
 
   it("says when the sign-in is done", async () => {
-    setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, state: "signed_in" });
+    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
 
     expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
   });
 
+  it("explains a read that failed before Claude Code got ready during the refresh", async () => {
+    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
+
+    expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
+    expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
+    expect(screen.queryByText(/needs it to read posts/)).toBeNull();
+  });
+
   it("tells why the last sign-in failed", async () => {
-    setup(finished({ claude_signed_out: true }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
+    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
 
     expect(await screen.findByText("Login failed: That code wasn't accepted.")).toBeTruthy();
+  });
+
+  it("says how to install Claude Code instead of the raw error", async () => {
+    setup(finished({ errors: ["Кафана: couldn't read it", "Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), {
+      ...SIGNED_OUT,
+      state: "not_installed",
+      version: null,
+      update_command: null,
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Install Claude Code to read the posts");
+    expect(screen.getByRole("status")).toHaveTextContent("Кафана: couldn't read it");
+    expect(screen.getByRole("status")).not.toHaveTextContent("needs it to read posts");
+  });
+
+  it("says how to update Claude Code instead of the raw error", async () => {
+    setup(finished({ errors: ["Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer"], claude_unavailable: true }), {
+      ...SIGNED_OUT,
+      state: "too_old",
+      version: "2.1.200",
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Update Claude Code to read the posts");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("keeps the backend's line when it can't tell whether Claude Code is there", async () => {
+    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), () => Promise.reject(new Error("offline")));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Install Claude Code: What To Do needs it to read posts");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("offers to sign in once Claude Code is installed and the next refresh ends, without a restart", async () => {
+    let signIn: ClaudeSignIn = { ...SIGNED_OUT, state: "not_installed", version: null, update_command: null };
+    const { refresh } = setup(finished({ claude_unavailable: true }), async () => signIn);
+    expect(await screen.findByText("Install Claude Code to read the posts")).toBeTruthy();
+
+    signIn = SIGNED_OUT;
+    refresh.mockResolvedValue(finished({ finished_at: "2026-11-16T11:00:00Z", errors: [SIGN_IN], claude_unavailable: true }));
+    fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
+
+    expect(await screen.findByText("Sign in to Claude to read the posts")).toBeTruthy();
+    expect(screen.queryByText("Install Claude Code to read the posts")).toBeNull();
   });
 
   it("shows commands in other errors as code", async () => {

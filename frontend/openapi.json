@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.28.0"
+  "version": "1.29.2"
  },
  "paths": {
   "/settings": {
@@ -1859,7 +1859,7 @@
      "refresh"
     ],
     "summary": "Claude Sign In",
-    "description": "Whether Claude Code, which reads the posts, is signed in, and how a sign-in started here goes.",
+    "description": "Whether Claude Code, which reads the posts, is installed, new enough and signed in, and how a sign-in started here goes.",
     "operationId": "claude_sign_in_claude_sign_in_get",
     "responses": {
      "200": {
@@ -2747,7 +2747,9 @@
     "enum": [
      "signed_in",
      "signed_out",
-     "unknown"
+     "unknown",
+     "not_installed",
+     "too_old"
     ],
     "title": "ClaudeSignIn"
    },
@@ -2789,12 +2791,42 @@
       ],
       "title": "Error",
       "description": "Why the last sign-in from the app failed"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version",
+      "description": "The installed Claude Code's version; none when it is missing"
+     },
+     "minimum": {
+      "type": "string",
+      "title": "Minimum",
+      "description": "The oldest Claude Code version the app works with"
+     },
+     "update_command": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Update Command",
+      "description": "The command that updates the installed Claude Code; none when it is missing"
      }
     },
     "type": "object",
     "required": [
      "state",
-     "hint"
+     "hint",
+     "minimum"
     ],
     "title": "ClaudeSignInView"
    },
@@ -4155,10 +4187,10 @@
       "title": "Errors",
       "description": "Human-readable, ready to show"
      },
-     "claude_signed_out": {
+     "claude_unavailable": {
       "type": "boolean",
-      "title": "Claude Signed Out",
-      "description": "Claude Code has no login: nothing was read; the user must sign in first",
+      "title": "Claude Unavailable",
+      "description": "Claude Code is missing, too old or signed out: nothing was read",
       "default": false
      },
      "running": {
@@ -4186,7 +4218,7 @@
      "posts_read",
      "events_touched",
      "errors",
-     "claude_signed_out",
+     "claude_unavailable",
      "running"
     ],
     "title": "RefreshProgress"

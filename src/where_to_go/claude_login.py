@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import threading
@@ -14,7 +12,12 @@ from enum import StrEnum
 from pathlib import Path
 from typing import IO
 
+from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
+from where_to_go.launcher.tools import Tools
+
+CLAUDE_INSTALL_COMMAND = "curl -fsSL https://claude.ai/install.sh | bash"
 SIGN_IN_HINT = "Sign in to Claude Code: run `claude` in a terminal and type /login"
+CLAUDE_MINIMUM = "2.1.321"
 
 
 class ClaudeCliEnvironment:
@@ -42,10 +45,34 @@ class ClaudeCliEnvironment:
         return configured is not None and configured.strip() != "" and Path(configured).expanduser().resolve() == (Path.home() / ".claude").resolve()
 
 
+def claude_places(environ: Mapping[str, str], home: Path) -> list[Path]:
+    """Where Claude Code's installers put it: native installer, Homebrew, the old local install, then npm."""
+    fixed = [home / ".local" / "bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin"), home / ".claude" / "local"]
+    return list(dict.fromkeys([*fixed, *Tools(environ, home).program_dirs()]))
+
+
+def claude_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None) -> InstalledCli:
+    folder = home or Path.home()
+    return InstalledCli(
+        "claude",
+        CLAUDE_MINIMUM,
+        extra_dirs=lambda: claude_places(environ, folder),
+        environ=ClaudeCliEnvironment.cleaned(environ),
+    )
+
+
+def unavailable_hint(found: FoundCli) -> str:
+    if found.status is CliStatus.MISSING:
+        return "Install Claude Code: What To Do needs it to read posts"
+    return f"Update Claude Code: you have {found.version or 'an unknown version'}, What To Do needs {found.minimum} or newer"
+
+
 class ClaudeSignIn(StrEnum):
     SIGNED_IN = "signed_in"
     SIGNED_OUT = "signed_out"
     UNKNOWN = "unknown"
+    NOT_INSTALLED = "not_installed"
+    TOO_OLD = "too_old"
 
 
 class ClaudeLogin:
@@ -57,18 +84,21 @@ class ClaudeLogin:
     TIMEOUT_S = 15
     # What the CLI answers a call with when nobody is logged in.
     SIGNED_OUT_MARKERS = ("not logged in", "please run /login", "invalid api key", "oauth token has expired")
+    UNAVAILABLE = {CliStatus.MISSING: ClaudeSignIn.NOT_INSTALLED, CliStatus.TOO_OLD: ClaudeSignIn.TOO_OLD}
 
-    def __init__(self, cli: list[str] | None = None) -> None:
+    def __init__(self, cli: InstalledCli) -> None:
         self._cli = cli
 
     def check(self) -> ClaudeSignIn:
-        cli = self._cli or self._found_cli()
-        if not cli:
-            return ClaudeSignIn.UNKNOWN
+        return self.state_of(self._cli.find())
+
+    def state_of(self, found: FoundCli) -> ClaudeSignIn:
+        if found.status is not CliStatus.READY or found.path is None:
+            return self.UNAVAILABLE.get(found.status, ClaudeSignIn.UNKNOWN)
         environ = ClaudeCliEnvironment.cleaned(os.environ)
         try:
             completed = subprocess.run(
-                [*cli, "auth", "status"], capture_output=True, text=True, timeout=self.TIMEOUT_S, stdin=subprocess.DEVNULL, env=environ
+                [str(found.path), "auth", "status"], capture_output=True, text=True, timeout=self.TIMEOUT_S, stdin=subprocess.DEVNULL, env=environ
             )
             answer = json.loads(completed.stdout)
         except (OSError, subprocess.TimeoutExpired, ValueError):
@@ -81,22 +111,6 @@ class ClaudeLogin:
     def means_signed_out(cls, message: str) -> bool:
         lowered = message.lower()
         return any(marker in lowered for marker in cls.SIGNED_OUT_MARKERS)
-
-    @classmethod
-    def _found_cli(cls) -> list[str]:
-        cli = cls.find_cli()
-        return [str(cli)] if cli else []
-
-    @staticmethod
-    def find_cli() -> Path | None:
-        """The CLI bundled with claude-agent-sdk, which the SDK prefers; else a `claude` on PATH."""
-        spec = importlib.util.find_spec("claude_agent_sdk")
-        if spec is not None and spec.origin:
-            bundled = Path(spec.origin).parent / "_bundled" / ("claude.exe" if os.name == "nt" else "claude")
-            if bundled.is_file():
-                return bundled
-        found = shutil.which("claude")
-        return Path(found) if found else None
 
 
 @dataclass(frozen=True)
@@ -118,10 +132,11 @@ class ClaudeSignInFlow:
     CODE_PROMPT = "Paste code here if prompted >"
     STOP_TIMEOUT_S = 5
 
-    def __init__(self, cli: list[str] | None = None) -> None:
+    def __init__(self, cli: InstalledCli) -> None:
         self._cli = cli
         self._lock = threading.Lock()
         self._process: subprocess.Popen[bytes] | None = None
+        self._output_dir: tempfile.TemporaryDirectory[str] | None = None
         self._output: IO[bytes] | None = None
         self._error: str | None = None
 
@@ -130,21 +145,24 @@ class ClaudeSignInFlow:
             if self._running():
                 return
             self._close_output()
-            cli = self._cli or ClaudeLogin._found_cli()
-            if not cli:
-                self._error = "Claude Code, which the app reads posts with, is missing. Reinstall What To Do."
+            found = self._cli.find()
+            if found.status is not CliStatus.READY or found.path is None:
+                self._error = unavailable_hint(found)
                 return
             self._error = None
-            self._output = tempfile.TemporaryFile()
+            self._output_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+            output_path = Path(self._output_dir.name) / "output"
             try:
-                self._process = subprocess.Popen(
-                    [*cli, "auth", "login", "--claudeai"],
-                    stdin=subprocess.PIPE,
-                    stdout=self._output,
-                    stderr=subprocess.STDOUT,
-                    env=ClaudeCliEnvironment.cleaned(os.environ),
-                    start_new_session=True,
-                )
+                with output_path.open("wb") as cli_output:
+                    self._output = output_path.open("rb")
+                    self._process = subprocess.Popen(
+                        [str(found.path), "auth", "login", "--claudeai"],
+                        stdin=subprocess.PIPE,
+                        stdout=cli_output,
+                        stderr=subprocess.STDOUT,
+                        env=ClaudeCliEnvironment.cleaned(os.environ),
+                        start_new_session=True,
+                    )
             except OSError as error:
                 self._process = None
                 self._error = f"Couldn't start signing in: {error}"
@@ -199,3 +217,6 @@ class ClaudeSignInFlow:
         if self._output is not None:
             self._output.close()
             self._output = None
+        if self._output_dir is not None:
+            self._output_dir.cleanup()
+            self._output_dir = None

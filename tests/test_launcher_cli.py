@@ -5,15 +5,23 @@ from __future__ import annotations
 import io
 import plistlib
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
+import psutil
 import pytest
 
+from tests.helpers import FakeClaude
+from where_to_go.installed_cli import CliStatus
 from where_to_go.launcher.cli import NOT_RUNNING_EXIT, Cli
 from where_to_go.launcher.config import DEFAULT_PORT, ConfigError, InstanceConfig
+from where_to_go.launcher.control import RunningServer
 from where_to_go.launcher.logs import LogFollower
 from where_to_go.launcher.macos_apps import MacApps
 from where_to_go.launcher.paths import ProjectPaths
+from where_to_go.launcher.spec import ServerSpec
 from where_to_go.launcher.uninstall import Uninstaller, UninstallRefusedError
 
 
@@ -255,3 +263,34 @@ def test_the_port_command_prints_only_the_port_and_moves_off_a_taken_one(tmp_pat
     [port] = printed
     assert int(port) != taken
     assert f"Port {taken} is taken by another program" in capsys.readouterr().err
+
+
+class OneRunningServer:
+    def __init__(self, paths: ProjectPaths, config: InstanceConfig, say: Callable[[str], None]) -> None:
+        self._spec = ServerSpec(port=config.port, data_dir=config.data_dir, ui=None, instance=config.instance)
+
+    def running(self, port: int | None) -> list[RunningServer]:
+        return [RunningServer(process=cast(psutil.Process, SimpleNamespace(pid=4242)), spec=self._spec)]
+
+    def version_of(self, spec: ServerSpec) -> str:
+        return "1.0.0"
+
+
+@pytest.mark.parametrize(
+    ("claude", "warnings"),
+    [
+        (FakeClaude(CliStatus.MISSING), ["Install Claude Code: What To Do needs it to read posts.", "Run: curl -fsSL https://claude.ai/install.sh | bash"]),
+        (FakeClaude(CliStatus.TOO_OLD, version="2.1.200"), ["Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer. Run: claude update"]),
+    ],
+)
+def test_status_warns_when_claude_code_is_missing_or_too_old(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, claude: FakeClaude, warnings: list[str]) -> None:
+    paths = copy_at(tmp_path)
+    said: list[str] = []
+    monkeypatch.setattr("where_to_go.claude_login.claude_cli", lambda: claude)
+    monkeypatch.setattr("where_to_go.launcher.control.ServerControl", OneRunningServer)
+
+    assert Cli(paths, InstanceConfig.load(paths, environ={}), out=said.append).run(["status"]) == 0
+
+    assert said[0] == "What To Do is running."
+    assert said[-len(warnings):] == warnings
+    assert claude.calls == 1

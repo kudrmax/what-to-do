@@ -27,7 +27,8 @@ from where_to_go.phone_page.snapshot import SnapshotBuilder
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.refresh import PostReader, RefreshService
 from where_to_go.retagging import EventRetagger, RetagService
-from where_to_go.claude_login import ClaudeSignInFlow
+from where_to_go.claude_login import ClaudeSignInFlow, claude_cli
+from where_to_go.installed_cli import InstalledCli
 from where_to_go.launcher.config import InstanceConfig
 from where_to_go.launcher.paths import ProjectPaths
 from where_to_go.releases import Releases, ReleaseSource
@@ -89,6 +90,7 @@ class Container:
     refresh: RefreshService
     retag: RetagService
     releases: Releases
+    claude: InstalledCli
     claude_sign_in: ClaudeSignInFlow
     statistics: Statistics
     phone_config: PhonePageConfigRepository
@@ -109,6 +111,7 @@ class Container:
         phone_token: SecretStore | None = None,
         primary_data_dir: Path | None = None,
         instagram_pause: float = 1.0,
+        claude: InstalledCli | None = None,
     ) -> Container:
         project = project or ProjectPaths.here()
         db = Database(data_dir / "where-to-go.sqlite3")
@@ -128,9 +131,10 @@ class Container:
         frames = VideoFrames(data_dir / "images", http)
         reader = TelegramChannelReader(http)
         cards = EventCards(events, mentions, EventResolver(tags.fallback), db.transaction)
-        matching_llm = matching_llm or ClaudeJsonLlm(lambda: settings.load().matching_model)
-        extraction_llm = extraction_llm or ClaudeJsonLlm(lambda: settings.load().extraction_model)
-        photo_llm = photo_llm or ClaudeJsonLlm(lambda: settings.load().photo_model)
+        claude = claude or claude_cli()
+        matching_llm = matching_llm or ClaudeJsonLlm(lambda: settings.load().matching_model, claude)
+        extraction_llm = extraction_llm or ClaudeJsonLlm(lambda: settings.load().extraction_model, claude)
+        photo_llm = photo_llm or ClaudeJsonLlm(lambda: settings.load().photo_model, claude)
         linker = EventLinker(CandidateFinder(events), DuplicateJudge(matching_llm, lambda: settings.load().matching_prompt), cards, DetailsLinks(mentions, events))
         photo_texts = PhotoTextRepository(db)
         sitemaps = SitemapReader(http)
@@ -228,7 +232,8 @@ class Container:
             retag=RetagService(EventRetagger(extraction_llm, cities, events, tags)),
             releases=Releases.build(project, data_dir, release_source),
             statistics=Statistics(db),
-            claude_sign_in=ClaudeSignInFlow(),
+            claude=claude,
+            claude_sign_in=ClaudeSignInFlow(claude),
             phone_config=phone_config,
             phone_page=phone_page,
         )

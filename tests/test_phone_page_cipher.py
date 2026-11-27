@@ -47,6 +47,6 @@ def test_malformed_blob():
 
 
 def test_shared_vector_decrypts():
-    v = json.loads((FIXTURES / "phone_page_vector.json").read_text())
+    v = json.loads((FIXTURES / "phone_page_vector.json").read_text(encoding="utf-8"))
     blob = base64.b64decode(v["blob_base64"])
     assert SnapshotCipher(v["password"], blob[4:20]).decrypt(blob).decode() == v["plaintext"]
