@@ -101,9 +101,19 @@ See how many posts and photos Claude read, how many announcements were merged in
 
 ## Requirements
 
-A Claude subscription ([claude.ai](https://claude.ai)): Claude reads the posts. The app signs in to it from its own window and uses your subscription through Claude Code, with no API key.
+A Claude subscription ([claude.ai](https://claude.ai)) and [Claude Code](https://code.claude.com/docs/en/setup) 2.1.321 or newer installed: Claude reads the posts through Claude Code with your subscription, with no API key. The app finds Claude Code by itself and signs in to it from its own window.
 
-That is all the macOS app needs. On Linux and Windows, and to run the app from its code, you also need:
+Install Claude Code with one of these commands:
+
+| System | Command |
+| --- | --- |
+| macOS, Linux | `curl -fsSL https://claude.ai/install.sh \| bash` |
+| macOS with Homebrew | `brew install --cask claude-code@latest` |
+| Windows (PowerShell) | `irm https://claude.ai/install.ps1 \| iex` |
+
+If you already have it, `claude update` brings it up to date; a Homebrew copy updates with `brew upgrade --cask claude-code@latest`.
+
+On Linux and Windows, and to run the app from its code, you also need:
 
 | What | Why | How to get it |
 | --- | --- | --- |
@@ -249,6 +259,9 @@ Click a card for the full details and the original posts. With a long feed, try 
 
 **Refresh says to sign in to Claude.**
 Press **Sign in to Claude** under **Refresh**. The sign-in page opens in your browser; sign in with the account of your Claude subscription, come back and press **Refresh** again. If the browser didn't open, the note has a link to the page and a field for the code the page shows. The app keeps this login in Claude Code's place in your keychain, so Claude Code on the same Mac is signed in too, and the other way round.
+
+**Refresh says to install Claude Code.**
+The app reads posts through the Claude Code installed on your computer, and it found none, or one older than 2.1.321. The box under **Refresh** shows the command for your case with a **Copy** button: run it in Terminal, then press **Refresh** again. The commands are in [Requirements](#requirements). If you installed Claude Code somewhere unusual, make sure `claude --version` works in a new Terminal window.
 
 **Another program uses the app's port.**
 What To Do moves to a free port next to its own by itself and stays there: the macOS app opens on it, and `uv run where-to-go up` prints the new address. A port you set yourself is kept as it is: `PORT` in `.env` of a copy run from the code, or in `~/Library/Application Support/What To Do/.env` for the macOS app. If that one is busy, the app says which program holds it; change the number or remove the line.

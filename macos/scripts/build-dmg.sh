@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Builds the self-contained What To Do.app for one kind of Mac and its disk image: Python, the app's
-# packages, the built interface and the Claude CLI all go inside the bundle, so the user needs nothing else.
+# packages and the built interface go inside the bundle. Posts are read by the Claude Code the user installed.
 #
 # Usage: build-dmg.sh <arm64|x86_64> [output dir] [version]
 #   The version defaults to the one in pyproject.toml; a different one is for testing updates.
@@ -57,7 +57,9 @@ if [[ $arch == x86_64 ]]; then
 fi
 uv pip install --quiet --target "$site_packages" --python-platform "$python_triple" --python-version 3.13 --only-binary :all: \
     --requirement "$work/requirements.txt" "$work"/wheel/*.whl
-[[ -x $site_packages/claude_agent_sdk/_bundled/claude ]] || { echo "ERROR: the Claude CLI is missing from claude-agent-sdk"; exit 1; }
+bundled_cli=$site_packages/claude_agent_sdk/_bundled
+[[ -e $bundled_cli ]] && trash "$bundled_cli"
+[[ ! -e $bundled_cli ]] || { echo "ERROR: the Claude CLI of claude-agent-sdk is still in the bundle"; exit 1; }
 [[ -e $site_packages/bin ]] && trash "$site_packages/bin"
 
 echo "==> The interface"
@@ -104,11 +106,8 @@ done
 iconutil -c icns "$iconset" -o "$resources/AppIcon.icns"
 
 echo "==> Signing ad hoc (no Apple Developer ID): every program inside, then the bundle"
-# The Claude CLI keeps its own Developer ID signature; everything else gets an ad hoc one, which Apple
-# Silicon requires to run code at all.
 find "$resources" -type f \( -perm -u+x -o -name '*.so' -o -name '*.dylib' \) -print0 | while IFS= read -r -d '' file; do
     [[ $(file -b "$file") == Mach-O* ]] || continue
-    [[ $(codesign -dvv "$file" 2>&1) == *$'\nAuthority=Developer ID Application'* ]] && continue
     codesign --force --sign - "$file" 2>/dev/null
 done
 codesign --force --sign - "$bundle"
