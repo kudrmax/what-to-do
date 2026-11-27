@@ -17,7 +17,7 @@ from typing import Any, ClassVar
 from urllib.parse import quote_plus
 
 from dateutil.rrule import rrulestr
-from pydantic import ConfigDict, TypeAdapter, computed_field, model_validator
+from pydantic import ConfigDict, TypeAdapter, computed_field, field_validator, model_validator
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, Relationship, SQLModel
@@ -234,6 +234,11 @@ class EventFacts(SQLModel):
         "links to. null when the post gives none; never the channel or another post about the event",
     )
 
+    @field_validator("start_time")
+    @classmethod
+    def _local_start_time(cls, value: time | None) -> time | None:
+        return wall_clock(value)
+
     def happens_on(self, day: Day) -> bool:
         if self.kind == EventKind.RECURRING and self.rrule:
             rule = rrulestr(self.rrule, dtstart=datetime.combine(self.start_date, time()))
@@ -267,6 +272,11 @@ class EventFacts(SQLModel):
         if not data.get("price"):
             data["currency"] = None
         return data
+
+
+def wall_clock(value: time | None) -> time | None:
+    """Posts give local time: a reader that adds a UTC offset or Z gets it dropped, never converted."""
+    return value.replace(tzinfo=None) if value is not None else None
 
 
 def _valid_rule(rule: Any, start: Any) -> bool:
@@ -612,6 +622,11 @@ class PageFacts(SQLModel):
     address: str | None = None
     price: float | None = None
     currency: str | None = None
+
+    @field_validator("start_time")
+    @classmethod
+    def _local_start_time(cls, value: time | None) -> time | None:
+        return wall_clock(value)
 
     def settle(self, event: ExtractedEvent) -> ExtractedEvent:
         """Claude keeps the title, description, tags and how it split the page; the facts are the page's."""

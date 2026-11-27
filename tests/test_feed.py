@@ -2,7 +2,7 @@ from dataclasses import replace
 from datetime import date, time
 
 from where_to_go.feed import Feed, FeedFilter, PlanFilter
-from where_to_go.models import City, Event, EventKind, HiddenTags, Plan
+from where_to_go.models import City, Event, EventFacts, EventKind, HiddenTags, Plan
 from where_to_go.search import SearchQuery
 
 CITY = City(id=1, name="Белград", country="Сербия", timezone="Europe/Belgrade")
@@ -197,3 +197,13 @@ def test_priority_card_is_never_hidden_by_tags():
     )
     criteria = replace(WEEK, hidden_tags=HiddenTags(hidden=frozenset({"Театр"}), always=frozenset({"Детям"})))
     assert [o.event.id for o in feed.occurrences(CITY, criteria)] == [1, 3]
+
+
+def test_time_with_an_offset_reads_as_local_and_sorts_with_plain_times():
+    facts = EventFacts.model_validate(
+        {"title": "Party", "original_title": "Party", "description": "", "kind": "single", "start_date": "2026-11-10", "start_time": "19:00:00+01:00"}
+    ).facts()
+    offset = event(id=1, start_time=facts["start_time"])
+    plain = event(id=2, start_time=time(18, 0))
+    occurrences = Feed(Events(offset, plain), Sources()).occurrences(CITY, WEEK)
+    assert [(o.event.id, o.event.start_time) for o in occurrences] == [(2, time(18, 0)), (1, time(19, 0))]
