@@ -66,6 +66,7 @@ export function snapshot(occurrences: Occurrence[], madeAt = MADE_AT, mentions: 
     settings: {
       active_city_id: 1,
       recent_posts: 20,
+      partial_refresh_posts: 30,
       priority_wish: "",
       collections_enabled: false,
       extraction_prompt: "",

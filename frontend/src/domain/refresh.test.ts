@@ -22,6 +22,8 @@ function status(fields: Partial<RefreshStatus>): RefreshStatus {
     photos_read: 0,
     posts_to_read: 0,
     posts_read: 0,
+    limit: null,
+    posts_left: null,
     events_touched: 0,
     errors: [],
     reader_unavailable: false, reader: null, reader_error: null,
