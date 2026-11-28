@@ -12,6 +12,7 @@ vi.mock("../updates/UpdatesSection", () => ({ UpdatesSection: () => <h2>App</h2>
 const SETTINGS = {
   active_city_id: null,
   recent_posts: 25,
+  partial_refresh_posts: 30,
   priority_wish: "",
   photo_model: "claude-haiku-5-5",
   extraction_model: "claude-sonnet-5-5",
@@ -72,6 +73,19 @@ describe("settings", () => {
 
     expect(screen.getByLabelText("Recent posts per channel")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Claude prompts" })).toBeVisible();
+  });
+
+  it("saves the posts per short refresh", async () => {
+    const api = setup();
+    const change = vi.spyOn(api, "changeSettings").mockResolvedValue({ ...SETTINGS, partial_refresh_posts: 50 });
+    fireEvent.click(await screen.findByRole("button", { name: /Advanced/ }));
+
+    const field = screen.getByLabelText("Posts per short refresh");
+    expect(field).toHaveValue(30);
+    fireEvent.change(field, { target: { value: "50" } });
+    fireEvent.blur(field);
+
+    await waitFor(() => expect(change).toHaveBeenCalledWith({ partial_refresh_posts: 50 }));
   });
 
   it("saves what a tag means for Claude", async () => {

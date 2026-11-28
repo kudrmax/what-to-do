@@ -278,3 +278,82 @@ describe("refresh errors with Codex reading", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 });
+
+function setupShort(progress: RefreshStatus, partial = 30) {
+  const api = createApi("");
+  const status = vi.spyOn(api, "refreshStatus").mockResolvedValue(progress);
+  vi.spyOn(api, "settings").mockResolvedValue({ llm_provider: "claude", partial_refresh_posts: partial } as Settings);
+  const refresh = vi.spyOn(api, "refresh");
+  render(
+    <ApiContext.Provider value={api}>
+      <QueryClientProvider client={new QueryClient()}>
+        <RefreshButton />
+      </QueryClientProvider>
+    </ApiContext.Provider>,
+  );
+  return { refresh, status };
+}
+
+const RUNNING = { stage: "reading", finished_at: null, posts_to_read: 30, posts_read: 4, running: true } as const;
+
+describe("short refresh", () => {
+  it("names the button with the number of posts from the settings", async () => {
+    setupShort(finished({}), 45);
+
+    const button = await screen.findByRole("button", { name: "Refresh 45" });
+    expect(button.getAttribute("data-tip")).toBe("Collect what’s new from every source, but read only the next 45 posts, top to bottom in your source order");
+  });
+
+  it("asks for only that many posts, while Refresh asks for all", async () => {
+    const { refresh } = setupShort(finished({}));
+    refresh.mockResolvedValue(finished({ ...RUNNING, limit: 30 }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh 30" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledWith(30));
+  });
+
+  it("sends no limit from the plain Refresh", async () => {
+    const { refresh } = setupShort(finished({}));
+    refresh.mockResolvedValue(finished(RUNNING));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledWith(undefined));
+  });
+
+  it("disables both while a short refresh runs and shows its stage on its own button", async () => {
+    setupShort(finished({ ...RUNNING, limit: 30 }));
+
+    const busy = await screen.findByRole("button", { name: /Reading posts and pages: 4 of 30/ });
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    expect(busy).toHaveClass("button--quiet");
+    const plain = screen.getByRole("button", { name: "Refresh" });
+    expect(plain).toBeDisabled();
+    expect(plain).toHaveAttribute("aria-busy", "false");
+  });
+
+  it("shows the stage on Refresh while a full refresh runs, whichever button was pressed", async () => {
+    setupShort(finished({ ...RUNNING, limit: null }));
+
+    const busy = await screen.findByRole("button", { name: /Reading posts and pages: 4 of 30/ });
+    expect(busy).not.toHaveClass("button--quiet");
+    expect(screen.getByRole("button", { name: "Refresh 30" })).toBeDisabled();
+  });
+
+  it.each([
+    [12, "12 posts left to read"],
+    [1, "1 post left to read"],
+    [0, "All posts are read"],
+  ])("says how many posts are left after a short refresh: %i", async (left, text) => {
+    setupShort(finished({ limit: 30, posts_left: left }));
+
+    expect(await screen.findByText(text)).toHaveClass("refresh__posts-left");
+  });
+
+  it("says nothing about posts left after a full refresh", async () => {
+    setupShort(finished({}));
+
+    await screen.findByRole("button", { name: "Refresh 30" });
+    expect(screen.queryByText(/left to read|All posts are read/)).toBeNull();
+  });
+});

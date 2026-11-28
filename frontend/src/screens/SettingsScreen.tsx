@@ -103,6 +103,12 @@ function AdvancedSection({ settings, reader }: { settings: Settings; reader: Rea
         label="Recent posts per channel"
         hint="How many of each channel’s latest posts a refresh reads. More finds older events but makes every refresh longer. Takes effect from the next refresh."
       />
+      <SettingRow
+        name="partial_refresh_posts"
+        value={settings.partial_refresh_posts}
+        label="Posts per short refresh"
+        hint={`How many posts Refresh ${settings.partial_refresh_posts} on the feed reads. It collects everything new, but reads only the next posts, top to bottom in your source order; press it again for the next ones. 30 posts with Codex use about 5% of the ChatGPT Plus five-hour limit.`}
+      />
       <ProviderRow value={settings.llm_provider} />
       <ModelsSubsection settings={settings} reader={reader} />
       <PromptsSubsection settings={settings} reader={reader} />
@@ -110,7 +116,7 @@ function AdvancedSection({ settings, reader }: { settings: Settings; reader: Rea
   );
 }
 
-type EditableSetting = "recent_posts";
+type EditableSetting = "recent_posts" | "partial_refresh_posts";
 
 type ClaudeModelSetting = "photo_model" | "extraction_model" | "matching_model";
 type ClaudeModel = Settings[ClaudeModelSetting];
