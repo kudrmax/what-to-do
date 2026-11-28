@@ -25,12 +25,15 @@ const normal = (name: string) => name.trim().toLocaleLowerCase();
 export const LANGUAGE_NAMES: string[] = [...new Set(LANGUAGE_CODES.map((code) => englishNames("language").of(code)).filter((name): name is string => Boolean(name)))];
 
 /** Every country Intl knows by name, A to Z. */
-export const COUNTRY_NAMES: string[] = Array.from(LETTERS, (a) => Array.from(LETTERS, (b) => a + b))
-  .flat()
-  .filter((code) => !NOT_COUNTRIES.has(code) && !/^[QX]/.test(code))
-  .map((code) => englishNames("region").of(code))
-  .filter((name): name is string => Boolean(name))
-  .sort((a, b) => a.localeCompare(b, "en"));
+export const COUNTRY_NAMES: string[] = [
+  ...new Set(
+    Array.from(LETTERS, (a) => Array.from(LETTERS, (b) => a + b))
+      .flat()
+      .filter((code) => !NOT_COUNTRIES.has(code) && !/^[QX]/.test(code))
+      .map((code) => englishNames("region").of(code))
+      .filter((name): name is string => Boolean(name)),
+  ),
+].sort((a, b) => a.localeCompare(b, "en"));
 
 /** The browser's language in English words: "English", "Spanish". */
 export function browserLanguageName(preferred: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages): string {

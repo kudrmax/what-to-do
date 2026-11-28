@@ -30,4 +30,8 @@ describe("languages", () => {
     expect(COUNTRY_NAMES).not.toContain("European Union");
     expect(LANGUAGE_NAMES[0]).toBe("English");
   });
+
+  it("names every country once", () => {
+    expect(new Set(COUNTRY_NAMES).size).toBe(COUNTRY_NAMES.length);
+  });
 });
