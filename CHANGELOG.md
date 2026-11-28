@@ -2,6 +2,24 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.31.0 — 2026-11-28
+
+What To Do can now read posts with Codex and your ChatGPT plan instead of Claude.
+
+### Codex instead of Claude
+In **Settings → Advanced → Reads posts with**, choose **Codex**. Each step gets its own Codex model and how hard it thinks; your Claude models stay as they were for when you switch back. The defaults were picked by reading the same real posts with every model: Terra for photos and posts, Luna for merging duplicates.
+![](docs/images/changelog/1.31.0/reader-switch.png)
+
+To use it, install Codex once in Terminal, then sign in with **Sign in to ChatGPT** under **Refresh**:
+
+- Installer: `curl -fsSL https://chatgpt.com/codex/install.sh | sh`
+- Homebrew: `brew install --cask codex`
+
+Codex reads posts only. It gets no tools, cannot open your files or reach the internet, and the app checks this before every first call with a new Codex version. A big refresh can use a noticeable part of the ChatGPT Plus five-hour limit. Reading with Codex works on macOS.
+
+### Fixed
+- Event times that come with a time zone no longer break sorting the feed.
+
 ## 1.30.0 — 2026-11-27
 
 What To Do now reads posts with the Claude Code you install yourself, and the download is less than half the size.
