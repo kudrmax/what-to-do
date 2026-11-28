@@ -129,7 +129,7 @@ export function createApi(baseUrl: string) {
     merge: (id: number, otherId: number) => answer(client.POST("/events/{event_id}/merge", { ...event(id), body: { other_event_id: otherId } })),
     split: (id: number, mentionId: number) => answer(client.POST("/events/{event_id}/split", { ...event(id), body: { mention_id: mentionId } })),
 
-    refresh: () => answer(client.POST("/refresh")),
+    refresh: (limit?: number) => answer(client.POST("/refresh", limit === undefined ? {} : { body: { limit } })),
     refreshStatus: () => answer(client.GET("/refresh")),
     claudeSignIn: () => answer(client.GET("/claude/sign-in")),
     startClaudeSignIn: () => answer(client.POST("/claude/sign-in")),

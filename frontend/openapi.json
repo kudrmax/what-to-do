@@ -1883,8 +1883,25 @@
      "refresh"
     ],
     "summary": "Start Refresh",
-    "description": "Starts a refresh of the active city's sources (only that city's) in the background and returns at once.\nA second call while one runs returns the running one. 409: cards are being re-tagged.",
+    "description": "Starts a refresh of the active city's sources (only that city's) in the background and returns at once.\nEvery source is downloaded; with a `limit` only the next unread posts are read, and `posts_left` tells how many\nremain. No body reads everything. A second call while one runs returns the running one. 409: cards are being re-tagged.",
     "operationId": "start_refresh_refresh_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/RefreshRequest"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Request"
+       }
+      }
+     }
+    },
     "responses": {
      "202": {
       "description": "Successful Response",
@@ -1892,6 +1909,16 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/RefreshProgress"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
         }
        }
       }
@@ -2421,6 +2448,14 @@
       "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh",
       "default": 20
      },
+     "partial_refresh_posts": {
+      "type": "integer",
+      "maximum": 500.0,
+      "minimum": 1.0,
+      "title": "Partial Refresh Posts",
+      "description": "How many unread posts a partial refresh reads: it downloads every source but reads only the next posts in the order of sources, so a long backlog is read in parts",
+      "default": 30
+     },
      "priority_wish": {
       "type": "string",
       "maxLength": 2000,
@@ -2510,6 +2545,7 @@
     "required": [
      "active_city_id",
      "recent_posts",
+     "partial_refresh_posts",
      "priority_wish",
      "collections_enabled",
      "extraction_prompt",
@@ -4423,6 +4459,30 @@
       "title": "Posts Read",
       "default": 0
      },
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Limit",
+      "description": "How many unread posts this refresh reads; null for a full refresh"
+     },
+     "posts_left": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Posts Left",
+      "description": "Unread posts left after a refresh with a limit; null for a full refresh"
+     },
      "events_touched": {
       "type": "integer",
       "title": "Events Touched",
@@ -4489,6 +4549,8 @@
      "photos_read",
      "posts_to_read",
      "posts_read",
+     "limit",
+     "posts_left",
      "events_touched",
      "errors",
      "reader_unavailable",
@@ -4497,6 +4559,26 @@
      "running"
     ],
     "title": "RefreshProgress"
+   },
+   "RefreshRequest": {
+    "properties": {
+     "limit": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 500.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Limit",
+      "description": "Read only this many unread posts, in the order of sources; null reads them all"
+     }
+    },
+    "type": "object",
+    "title": "RefreshRequest"
    },
    "RetagProgress": {
     "properties": {
@@ -4607,6 +4689,20 @@
       ],
       "title": "Recent Posts",
       "description": "How many latest posts of every channel are read; raising it reads older posts on the next refresh"
+     },
+     "partial_refresh_posts": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 500.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Partial Refresh Posts",
+      "description": "How many unread posts a partial refresh reads: it downloads every source but reads only the next posts in the order of sources, so a long backlog is read in parts"
      },
      "priority_wish": {
       "anyOf": [

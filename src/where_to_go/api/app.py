@@ -164,6 +164,12 @@ class MergeRequest(SQLModel):
     other_event_id: int = Field(description="This card is merged into the one in the path and disappears")
 
 
+class RefreshRequest(SQLModel):
+    limit: int | None = Field(
+        default=None, ge=1, le=500, description="Read only this many unread posts, in the order of sources; null reads them all"
+    )
+
+
 class SplitRequest(SQLModel):
     mention_id: int = Field(description="The mention to move into a card of its own")
 
@@ -655,12 +661,13 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
     # ---------- refresh ----------
 
     @app.post("/refresh", response_model=RefreshProgress, status_code=202, tags=[ApiTag.REFRESH])
-    async def start_refresh(c: ContainerDep, city: CityDep):
+    async def start_refresh(c: ContainerDep, city: CityDep, request: RefreshRequest | None = None):
         """Starts a refresh of the active city's sources (only that city's) in the background and returns at once.
-        A second call while one runs returns the running one. 409: cards are being re-tagged."""
+        Every source is downloaded; with a `limit` only the next unread posts are read, and `posts_left` tells how many
+        remain. No body reads everything. A second call while one runs returns the running one. 409: cards are being re-tagged."""
         if c.retag.progress.running:
             raise HTTPException(409, "Cards are being re-tagged: refresh when it is done")
-        return c.refresh.start()
+        return c.refresh.start(request.limit if request else None)
 
     @app.get("/refresh", response_model=RefreshProgress, tags=[ApiTag.REFRESH])
     def refresh_status(c: ContainerDep):

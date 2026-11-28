@@ -48,6 +48,13 @@ class AppSettings(BaseModel):
         le=300,
         description="How many latest posts of every channel are read; raising it reads older posts on the next refresh",
     )
+    partial_refresh_posts: int = Field(
+        default=30,
+        ge=1,
+        le=500,
+        description="How many unread posts a partial refresh reads: it downloads every source but reads only the next "
+        "posts in the order of sources, so a long backlog is read in parts",
+    )
     priority_wish: str = Field(
         default="",
         max_length=2000,

@@ -216,12 +216,14 @@ export function useRefresh() {
     queryFn: () => api.refreshStatus(),
     refetchInterval: (query) => (query.state.data?.running ? 1500 : false),
   });
-  const start = useMutation({ mutationFn: () => api.refresh(), onSuccess: (data) => client.setQueryData(keys.refresh, data) });
+  const start = useMutation({ mutationFn: (limit?: number) => api.refresh(limit), onSuccess: (data) => client.setQueryData(keys.refresh, data) });
   const finishedAt = status.data?.running ? null : status.data?.finished_at;
   useEffect(() => {
     if (finishedAt) client.invalidateQueries({ predicate: (query) => query.queryKey[0] !== keys.refresh[0] });
   }, [client, finishedAt]);
-  return { status: status.data, running: (status.data?.running ?? false) || start.isPending, start: () => start.mutate() };
+  const running = (status.data?.running ?? false) || start.isPending;
+  const runningLimit = status.data?.running ? status.data.limit : (start.variables ?? null);
+  return { status: status.data, running, runningLimit: running ? runningLimit : null, start: (limit?: number) => start.mutate(limit) };
 }
 
 /** Where each reader's sign-in state lives and how a sign-in from the app starts. */

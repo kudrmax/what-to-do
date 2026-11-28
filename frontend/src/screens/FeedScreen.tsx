@@ -30,7 +30,7 @@ function FirstRefresh({ count, city }: { count: number; city: string }) {
     <EmptyState
       title="Ready for the first refresh"
       text={`${count} ${plural(count, "source is", "sources are")} waiting to be read. Refresh collects ${plural(count, "its", "their")} recent posts, and ${reader.name} turns them into event cards.`}
-      action={{ label: "Refresh now", onClick: refresh.start }}
+      action={{ label: "Refresh now", onClick: () => refresh.start() }}
     />
   );
 }

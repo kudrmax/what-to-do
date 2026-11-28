@@ -418,7 +418,7 @@ p {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 50%;
-  transform: translateX(calc(-50% + var(--tip-shift, 0px)));
+  transform: translateX(-50%);
   z-index: 60;
   border-radius: 6px;
   background: var(--tip-bg);
@@ -426,6 +426,19 @@ p {
   pointer-events: none;
   opacity: 0;
   animation: tip-in 120ms ease 300ms forwards;
+}
+
+[data-tip-align="start"]:hover::after,
+[data-tip-align="start"]:focus-visible::after {
+  left: 0;
+  transform: none;
+}
+
+[data-tip-align="end"]:hover::after,
+[data-tip-align="end"]:focus-visible::after {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 
 [data-tip-below]:hover::after,

@@ -74,6 +74,8 @@ class RefreshProgress(Public):
     photos_read: int = 0
     posts_to_read: int = Field(default=0, description="Posts the reader reads in this refresh")
     posts_read: int = 0
+    limit: int | None = Field(default=None, description="How many unread posts this refresh reads; null for a full refresh")
+    posts_left: int | None = Field(default=None, description="Unread posts left after a refresh with a limit; null for a full refresh")
     events_touched: int = Field(default=0, description="Cards created or updated")
     errors: list[str] = Field(default_factory=list, description="Human-readable, ready to show")
     reader_unavailable: bool = Field(
@@ -250,9 +252,11 @@ class RefreshService:
         self._task: asyncio.Task | None = None
         self._cancel: anyio.CancelScope | None = None
 
-    def start(self) -> RefreshProgress:
+    def start(self, limit: int | None = None) -> RefreshProgress:
+        """Downloads every source; then reads all unread posts, or only the first `limit` of them in the order of sources."""
         if not self.progress.running:
-            self.progress = RefreshProgress(stage=Stage.COLLECTING, started_at=datetime.now(UTC), stage_started_at=datetime.now(UTC))
+            now = datetime.now(UTC)
+            self.progress = RefreshProgress(stage=Stage.COLLECTING, started_at=now, stage_started_at=now, limit=limit)
             self._cancel = anyio.CancelScope()
             self._task = asyncio.create_task(self._run_safely(self._cancel))
         return self.progress
@@ -306,6 +310,8 @@ class RefreshService:
         if linked:
             self.progress.new_posts += linked
             posts = self._posts.to_read(sources, context.rules, recent, today, readings)
+        if self.progress.limit is not None:
+            posts = posts[: self.progress.limit]
 
         self.progress.enter(Stage.PHOTOS)
         with_photos = [p for p in posts if sources[p.source_id].kind != SourceKind.WEB]  # a site gives its facts as text
@@ -318,6 +324,8 @@ class RefreshService:
         self.progress.enter(Stage.READING)
         self.progress.posts_to_read = len(posts)
         await self._bounded(self.READ_CONCURRENCY, [self._read(batch, sources, context) for batch in self._post_reader.batches(posts)])
+        if self.progress.limit is not None:
+            self.progress.posts_left = len(self._posts.to_read(sources, context.rules, recent, today, readings))
 
         self._post_mentions.share_posters()
 

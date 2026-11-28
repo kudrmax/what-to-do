@@ -745,7 +745,8 @@ export interface paths {
         /**
          * Start Refresh
          * @description Starts a refresh of the active city's sources (only that city's) in the background and returns at once.
-         *     A second call while one runs returns the running one. 409: cards are being re-tagged.
+         *     Every source is downloaded; with a `limit` only the next unread posts are read, and `posts_left` tells how many
+         *     remain. No body reads everything. A second call while one runs returns the running one. 409: cards are being re-tagged.
          */
         post: operations["start_refresh_refresh_post"];
         delete?: never;
@@ -1071,6 +1072,12 @@ export interface components {
              * @default 20
              */
             recent_posts: number;
+            /**
+             * Partial Refresh Posts
+             * @description How many unread posts a partial refresh reads: it downloads every source but reads only the next posts in the order of sources, so a long backlog is read in parts
+             * @default 30
+             */
+            partial_refresh_posts: number;
             /**
              * Priority Wish
              * @description What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged
@@ -2138,6 +2145,16 @@ export interface components {
              */
             posts_read: number;
             /**
+             * Limit
+             * @description How many unread posts this refresh reads; null for a full refresh
+             */
+            limit: number | null;
+            /**
+             * Posts Left
+             * @description Unread posts left after a refresh with a limit; null for a full refresh
+             */
+            posts_left: number | null;
+            /**
              * Events Touched
              * @description Cards created or updated
              * @default 0
@@ -2163,6 +2180,14 @@ export interface components {
             reader_error: string | null;
             /** Running */
             readonly running: boolean;
+        };
+        /** RefreshRequest */
+        RefreshRequest: {
+            /**
+             * Limit
+             * @description Read only this many unread posts, in the order of sources; null reads them all
+             */
+            limit?: number | null;
         };
         /** RetagProgress */
         RetagProgress: {
@@ -2221,6 +2246,11 @@ export interface components {
              * @description How many latest posts of every channel are read; raising it reads older posts on the next refresh
              */
             recent_posts?: number | null;
+            /**
+             * Partial Refresh Posts
+             * @description How many unread posts a partial refresh reads: it downloads every source but reads only the next posts in the order of sources, so a long backlog is read in parts
+             */
+            partial_refresh_posts?: number | null;
             /**
              * Priority Wish
              * @description What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged
@@ -3922,7 +3952,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -3931,6 +3965,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefreshProgress"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
