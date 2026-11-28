@@ -59,5 +59,5 @@ window. Max wants his favourite sources read first, and a way to read only a sli
 ## Verification before each release
 
 Tests for ordering, migration of positions, the reorder API, the limit slicing, photos only of chosen posts,
-`posts_left`; on screen in the built app on a copy of the data: drag sources, refresh reads in the new order (by the
+`posts_left`; on screen in the built app on the dev copy's data (never Max's real data folder): drag sources, refresh reads in the new order (by the
 order of read posts in the database), Refresh 30 reads 30 posts and says how many are left.
