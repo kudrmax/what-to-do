@@ -12,7 +12,7 @@ const LONDON: City = { id: 1, name: "London", country: "United Kingdom", timezon
 const IDLE = { stage: "idle", running: false, errors: [] } as unknown as RefreshStatus;
 
 function channel(refreshed: string | null): Source {
-  return { id: 1, title: "London Events", status: "new", kind: "telegram", handle: "londonevents", url: "https://t.me/londonevents", last_refreshed_at: refreshed, last_error: null, events_found: 0, paused: false, instagram: null };
+  return { id: 1, title: "London Events", status: "new", kind: "telegram", handle: "londonevents", url: "https://t.me/londonevents", last_refreshed_at: refreshed, last_error: null, events_found: 0, paused: false, position: 0, instagram: null };
 }
 
 function setup(sources: Source[], ui = <FeedScreen />) {

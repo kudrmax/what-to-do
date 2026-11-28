@@ -8,6 +8,7 @@ from collections.abc import Callable
 from sqlalchemy.engine import Connection
 
 from where_to_go.card_photos import CardPhotos, PostPictures
+from where_to_go.models import SourceStatus
 from where_to_go.reading_rules import ReadingRules
 
 LEGACY_CARD_LANGUAGE = "русский"
@@ -50,8 +51,21 @@ def _photos_of_cards(connection: Connection) -> None:
         connection.exec_driver_sql("UPDATE events SET image_paths = ? WHERE id = ?", (json.dumps(CardPhotos.pick(main, posts)), event_id))
 
 
+def _source_positions_as_shown(connection: Connection) -> None:
+    """Sources added before they had an order keep the order the Sources screen showed: favorites first, then by title."""
+    rows = connection.exec_driver_sql("SELECT id, city_id, status, title FROM sources").all()
+    cities: dict[int, list[tuple[int, str, str]]] = {}
+    for source_id, city_id, status, title in rows:
+        cities.setdefault(city_id, []).append((source_id, status, title))
+    for sources in cities.values():
+        shown = sorted(sources, key=lambda s: (s[1] != SourceStatus.FAVORITE.name, s[2].casefold(), s[0]))
+        for position, (source_id, _, _) in enumerate(shown):
+            connection.exec_driver_sql("UPDATE sources SET position = ? WHERE id = ?", (position, source_id))
+
+
 AFTER_NEW_COLUMN: dict[str, Callable[[Connection], None]] = {
     "cities.card_language": _card_language_from_settings,
     "tags.visibility": _tag_visibility_from_hidden,
     "events.image_paths": _photos_of_cards,
+    "sources.position": _source_positions_as_shown,
 }

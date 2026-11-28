@@ -43,7 +43,7 @@
 
 .sources-table {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) max-content max-content minmax(0, 0.5fr) 96px;
+  grid-template-columns: 28px 32px minmax(0, 1fr) max-content max-content minmax(0, 0.5fr) 96px;
   column-gap: 16px;
 }
 
@@ -62,6 +62,14 @@
 
 .sources-table__row + .sources-table__row {
   border-top: 1px solid var(--line);
+}
+
+.sources-table__row--dragging {
+  background: var(--bg-muted);
+}
+
+.sources-table__row--dragging > * {
+  opacity: 0.5;
 }
 
 .sources-table__name {

@@ -494,6 +494,9 @@ class SourceBase(SQLModel):
     paused: bool = Field(
         default=False, sa_column_kwargs={"server_default": "0"}, description="Skipped by refresh: no new posts, its cards stay"
     )
+    position: int = Field(
+        default=0, sa_column_kwargs={"server_default": "0"}, description="Place in the user's order of the city's sources; refresh reads in it"
+    )
 
 
 class Source(SourceBase, table=True):
@@ -878,6 +881,10 @@ class PotentialSourceOrigin(Public):
     source_title: str
     post_url: str
     published_at: datetime
+
+
+class SourceOrder(SQLModel):
+    ids: list[int] = Field(description="Every source of the active city, paused ones too, in the new order")
 
 
 class SourceStatusChange(SQLModel):

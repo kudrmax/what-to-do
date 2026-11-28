@@ -145,7 +145,10 @@ class SourceRepository:
         self._db = db
 
     def add(self, source: Source) -> Source:
+        """A new source goes last in its city."""
         with self._db.session() as s:
+            last = s.exec(select(func.max(Source.position)).where(Source.city_id == source.city_id)).one()
+            source.position = 0 if last is None else last + 1
             s.add(source)
             s.commit()
             s.refresh(source)
@@ -160,7 +163,19 @@ class SourceRepository:
 
     def in_city(self, city_id: int) -> list[Source]:
         with self._db.session() as s:
-            return list(s.exec(select(Source).where(Source.city_id == city_id).order_by(Source.title)))
+            return list(s.exec(select(Source).where(Source.city_id == city_id).order_by(col(Source.position), col(Source.id))))
+
+    def reorder(self, city_id: int, ids: list[int]) -> list[Source]:
+        """Puts the city's sources in the given order; every source of the city, paused ones too, is listed once."""
+        with self._db.session() as s:
+            here = {source.id: source for source in s.exec(select(Source).where(Source.city_id == city_id))}
+            if sorted(ids) != sorted(here):
+                raise ValueError("The order must list every source of the city, each once")
+            for position, source_id in enumerate(ids):
+                here[source_id].position = position
+                s.add(here[source_id])
+            s.commit()
+        return self.in_city(city_id)
 
     def paused_ids(self, city_id: int) -> set[int]:
         with self._db.session() as s:
@@ -345,8 +360,8 @@ class PostRepository:
     def to_read(
         self, source_ids: Iterable[int], rules: str, recent: int, today: date, instagram: dict[int, InstagramReading] = _NO_INSTAGRAM
     ) -> list[Post]:
-        """Posts never read, and those read with other rules: the latest `recent` of every channel or Instagram profile,
-        the Instagram stories of the last 30 days (counted from the start of `today`, UTC), and the pages of websites
+        """Posts never read, and those read with other rules, in the user's order of sources and newest first inside one:
+        the latest `recent` of every channel or Instagram profile, the Instagram stories of the last 30 days (counted from the start of `today`, UTC), and the pages of websites
         whose events are still ahead.
 
         A post whose events the user merged or split by hand is not read again: their decision stays.
@@ -378,7 +393,9 @@ class PostRepository:
                 .where(col(Post.source_id).in_(others), func.coalesce(WebPage.end_day, WebPage.start_day) >= today)
             )
             chosen |= {p.id: p for p in s.exec(ahead).unique() if p.read_with != rules and p.id not in curated}
-        return sorted(chosen.values(), key=lambda p: p.published_at)
+            positions = dict(s.exec(select(Source.id, Source.position).where(col(Source.id).in_(ids))).all())
+        newest_first = sorted(chosen.values(), key=lambda p: p.published_at, reverse=True)
+        return sorted(newest_first, key=lambda p: (positions.get(p.source_id, 0), p.source_id))
 
     def own_handles(self, source_ids: Iterable[int]) -> set[str]:
         """The handles channels publish their latest posts under: a renamed channel keeps its old handle as a source.

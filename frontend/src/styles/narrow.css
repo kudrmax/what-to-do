@@ -44,9 +44,14 @@
 
   .sources-table__row {
     column-gap: 16px;
-    grid-template-columns: 32px auto auto minmax(0, 1fr) auto;
-    grid-template-areas: "favorite name name name actions" "favorite updated count state state";
+    grid-template-columns: 28px 32px auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "handle favorite name name name actions" "handle favorite updated count state state";
     row-gap: 6px;
+  }
+
+  .sources-table__handle {
+    grid-area: handle;
+    align-self: start;
   }
 
   .sources-table__favorite {

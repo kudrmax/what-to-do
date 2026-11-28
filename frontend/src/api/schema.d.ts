@@ -151,6 +151,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sources/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Sources
+         * @description Sets the order of the active city's sources: the list shows it and a refresh reads posts in it.
+         *     422 unless every source of the city, paused ones too, is listed once.
+         */
+        put: operations["reorder_sources_sources_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sources/preview": {
         parameters: {
             query?: never;
@@ -2299,6 +2320,14 @@ export interface components {
          * @enum {string}
          */
         SourceKind: "telegram" | "web" | "instagram";
+        /** SourceOrder */
+        SourceOrder: {
+            /**
+             * Ids
+             * @description Every source of the active city, paused ones too, in the new order
+             */
+            ids: number[];
+        };
         /** SourcePause */
         SourcePause: {
             /** Paused */
@@ -2339,6 +2368,12 @@ export interface components {
              * @default false
              */
             paused: boolean;
+            /**
+             * Position
+             * @description Place in the user's order of the city's sources; refresh reads in it
+             * @default 0
+             */
+            position: number;
             /** Id */
             id: number;
             /** @description What is read from an Instagram source; null for other kinds */
@@ -2848,6 +2883,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourcePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_sources_sources_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcePublic"][];
                 };
             };
             /** @description Validation Error */

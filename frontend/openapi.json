@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.30.0"
+  "version": "1.31.0"
  },
  "paths": {
   "/settings": {
@@ -335,6 +335,52 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/SourcePublic"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/sources/order": {
+   "put": {
+    "tags": [
+     "sources"
+    ],
+    "summary": "Reorder Sources",
+    "description": "Sets the order of the active city's sources: the list shows it and a refresh reads posts in it.\n422 unless every source of the city, paused ones too, is listed once.",
+    "operationId": "reorder_sources_sources_order_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SourceOrder"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/SourcePublic"
+         },
+         "type": "array",
+         "title": "Response Reorder Sources Sources Order Put"
         }
        }
       }
@@ -4846,6 +4892,23 @@
     ],
     "title": "SourceKind"
    },
+   "SourceOrder": {
+    "properties": {
+     "ids": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array",
+      "title": "Ids",
+      "description": "Every source of the active city, paused ones too, in the new order"
+     }
+    },
+    "type": "object",
+    "required": [
+     "ids"
+    ],
+    "title": "SourceOrder"
+   },
    "SourcePause": {
     "properties": {
      "paused": {
@@ -4915,6 +4978,12 @@
       "description": "Skipped by refresh: no new posts, its cards stay",
       "default": false
      },
+     "position": {
+      "type": "integer",
+      "title": "Position",
+      "description": "Place in the user's order of the city's sources; refresh reads in it",
+      "default": 0
+     },
      "id": {
       "type": "integer",
       "title": "Id"
@@ -4947,6 +5016,7 @@
      "events_found",
      "status",
      "paused",
+     "position",
      "id",
      "instagram",
      "url"

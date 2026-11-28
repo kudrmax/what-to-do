@@ -122,32 +122,6 @@
   opacity: 0.5;
 }
 
-.tag-row__handle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 32px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--text-faint);
-  cursor: grab;
-}
-
-.tag-row__handle:hover,
-.tag-row__handle:focus-visible {
-  background: var(--bg-muted);
-  color: var(--text);
-}
-
-.tag-row__handle--fixed,
-.tag-row__handle--fixed:hover {
-  background: none;
-  cursor: default;
-}
-
 .tag-row__text {
   display: flex;
   flex: 1;

@@ -18,6 +18,7 @@ function source(id: number, title: string, status: Source["status"], paused = fa
     last_error: null,
     events_found: 0,
     paused,
+    position: id,
     instagram: null,
   };
 }
@@ -27,6 +28,7 @@ function setup(sources: Source[]) {
   vi.spyOn(api, "sources").mockResolvedValue(sources);
   const mark = vi.spyOn(api, "markSource").mockResolvedValue(sources[0]);
   const pause = vi.spyOn(api, "pauseSource").mockResolvedValue(sources[0]);
+  const reorder = vi.spyOn(api, "reorderSources");
   render(
     <ApiContext.Provider value={api}>
       <QueryClientProvider client={new QueryClient()}>
@@ -34,16 +36,16 @@ function setup(sources: Source[]) {
       </QueryClientProvider>
     </ApiContext.Provider>,
   );
-  return { mark, pause };
+  return { mark, pause, reorder };
 }
 
 describe("source status", () => {
-  it("puts favorite sources first and shows which are favorite", async () => {
+  it("keeps the order from the API and shows which are favorite", async () => {
     setup([source(1, "Афиша", "new"), source(2, "Квизы", "favorite")]);
     const rows = await screen.findAllByRole("row");
-    expect(within(rows[0]).getByText("Квизы")).toBeTruthy();
-    expect(within(rows[0]).getByRole("button", { name: "Remove from favorites" }).getAttribute("aria-pressed")).toBe("true");
-    expect(within(rows[1]).getByRole("button", { name: "Add to favorites" }).getAttribute("aria-pressed")).toBe("false");
+    expect(within(rows[0]).getByText("Афиша")).toBeTruthy();
+    expect(within(rows[0]).getByRole("button", { name: "Add to favorites" }).getAttribute("aria-pressed")).toBe("false");
+    expect(within(rows[1]).getByRole("button", { name: "Remove from favorites" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("toggles a source between new and favorite", async () => {
@@ -52,6 +54,44 @@ describe("source status", () => {
     await waitFor(() => expect(mark).toHaveBeenCalledWith(1, "favorite"));
     fireEvent.click(screen.getByRole("button", { name: "Remove from favorites" }));
     await waitFor(() => expect(mark).toHaveBeenCalledWith(2, "new"));
+  });
+});
+
+const order = () => screen.getAllByRole("row").map((row) => within(row).getByRole("link").textContent);
+
+function drag(from: HTMLElement, over: HTMLElement) {
+  fireEvent.dragStart(from, { dataTransfer: { setData: () => {}, effectAllowed: "" } });
+  fireEvent.dragEnter(over);
+  fireEvent.dragEnd(from);
+}
+
+describe("source order", () => {
+  const sources = [source(1, "Афиша", "new"), source(2, "Квизы", "favorite"), source(3, "Кино", "new")];
+
+  it("saves the dragged order once the row is dropped", async () => {
+    const { reorder } = setup(sources);
+    reorder.mockResolvedValue([sources[2], sources[0], sources[1]]);
+    const rows = await screen.findAllByRole("row");
+    drag(rows[2], rows[0]);
+    await waitFor(() => expect(reorder).toHaveBeenCalledWith([3, 1, 2]));
+    expect(reorder).toHaveBeenCalledTimes(1);
+    expect(order()).toEqual(["@channel3", "@channel1", "@channel2"]);
+  });
+
+  it("moves a source with the arrow keys on its handle", async () => {
+    const { reorder } = setup(sources);
+    reorder.mockResolvedValue([sources[1], sources[0], sources[2]]);
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Move “Квизы” with the up and down arrows" }), { key: "ArrowUp" });
+    await waitFor(() => expect(reorder).toHaveBeenCalledWith([2, 1, 3]));
+  });
+
+  it("puts the old order back and says why when saving fails", async () => {
+    const { reorder } = setup(sources);
+    reorder.mockRejectedValue(new ApiError(500, "Couldn’t save the order"));
+    const rows = await screen.findAllByRole("row");
+    drag(rows[0], rows[2]);
+    expect(await screen.findByText("Couldn’t save the order")).toBeTruthy();
+    expect(order()).toEqual(["@channel1", "@channel2", "@channel3"]);
   });
 });
 
