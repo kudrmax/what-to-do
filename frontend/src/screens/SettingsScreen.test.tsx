@@ -82,6 +82,7 @@ describe("settings", () => {
 
     const field = screen.getByLabelText("Posts per short refresh");
     expect(field).toHaveValue(30);
+    expect(screen.getByText("How many posts the second Refresh button reads, top to bottom in your source order. It still collects every source; the rest is read by the next press or a full refresh.")).toBeVisible();
     fireEvent.change(field, { target: { value: "50" } });
     fireEvent.blur(field);
 

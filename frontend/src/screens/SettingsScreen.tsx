@@ -107,7 +107,7 @@ function AdvancedSection({ settings, reader }: { settings: Settings; reader: Rea
         name="partial_refresh_posts"
         value={settings.partial_refresh_posts}
         label="Posts per short refresh"
-        hint={`How many posts Refresh ${settings.partial_refresh_posts} on the feed reads. It collects everything new, but reads only the next posts, top to bottom in your source order; press it again for the next ones. 30 posts with Codex use about 5% of the ChatGPT Plus five-hour limit.`}
+        hint="How many posts the second Refresh button reads, top to bottom in your source order. It still collects every source; the rest is read by the next press or a full refresh."
       />
       <ProviderRow value={settings.llm_provider} />
       <ModelsSubsection settings={settings} reader={reader} />
