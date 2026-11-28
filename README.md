@@ -124,21 +124,23 @@ On Linux and Windows, and to run the app from its code, you also need:
 
 ### Codex instead of Claude
 
-With a ChatGPT subscription ([chatgpt.com](https://chatgpt.com)) instead of a Claude one, OpenAI's [Codex](https://developers.openai.com/codex) 0.172.0 or newer can read the posts on macOS and Linux. On Windows, Codex can't keep the model away from your files, so the app reads posts there with Claude only.
+With a ChatGPT subscription ([chatgpt.com](https://chatgpt.com)) instead of a Claude one, OpenAI's [Codex](https://developers.openai.com/codex) 0.172.0 or newer can read the posts on macOS. On other systems, read posts with Claude: on Windows the app refuses Codex, because Codex can't keep the model away from your files there.
 
 To switch:
 
 1. Choose **Codex** in **Settings → Advanced → Reads posts with**. Codex has its own models and thinking settings there; Claude's stay as they were for when you switch back.
 2. Install Codex with one of these commands:
 
-   | System | Command |
+   | Way | Command |
    | --- | --- |
-   | macOS, Linux | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` |
-   | macOS with Homebrew | `brew install --cask codex` |
+   | Installer | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` |
+   | Homebrew | `brew install --cask codex` |
 
 3. Press **Sign in to ChatGPT** in the box under **Refresh** and sign in with the account of your subscription.
 
-Codex gets no tools and no access to your files: posts are strangers' text, so a post that asks to read or change something on your computer must have nothing to do it with. It only reads the text and photos the app hands it.
+Codex gets no tools and can't see your folders: posts are strangers' text, so a post that asks to read or change something on your computer must have nothing to do it with. It reads the text and photos the app hands it. Outside them it can still read the folder Codex is installed in and the system settings in `/etc`, which Codex's own macOS sandbox always allows.
+
+For developers: on Linux the app does let Codex read, but Codex's sandbox there leaves `/tmp` readable, so it is not a supported way to run the app.
 
 ## Install and run
 
