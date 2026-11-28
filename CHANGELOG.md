@@ -2,6 +2,18 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.33.0 — 2026-11-28
+
+Read just a slice of what's new when your Claude or ChatGPT limit is low.
+
+### Refresh only the next posts
+Next to **Refresh** there is now **Refresh 30**. It collects every source as usual, but reads only the next 30 unread posts, top to bottom in your source order. Under the buttons the app says how many posts are left. Press it again for the next 30, or press **Refresh** to read everything left. Set the number in **Settings → Advanced → Posts per short refresh**.
+![](docs/images/changelog/1.33.0/refresh-n.png)
+
+### Fixed
+- Tooltips of buttons at the right edge of the window are no longer cut off.
+- The country list in the city form names each country once.
+
 ## 1.32.0 — 2026-11-28
 
 Your favourite sources are read first.
