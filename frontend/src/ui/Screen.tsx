@@ -6,7 +6,7 @@ import { Icon } from "./Icon";
 import "./Screen.css";
 
 /** A screen of the app; without a title and an action (the phone page) the header is just the toolbar. */
-export function Screen({ title, action, toolbar, children, narrow }: { title?: string; action?: ReactNode; toolbar?: ReactNode; children: ReactNode; narrow?: boolean }) {
+export function Screen({ title, hint, action, toolbar, children, narrow }: { title?: string; hint?: string; action?: ReactNode; toolbar?: ReactNode; children: ReactNode; narrow?: boolean }) {
   return (
     <div className={`screen${narrow ? " screen--narrow" : ""}`}>
       <header className="screen__header">
@@ -16,6 +16,7 @@ export function Screen({ title, action, toolbar, children, narrow }: { title?: s
             {action}
           </div>
         )}
+        {hint && <p className="screen-section__hint screen__hint">{hint}</p>}
         {toolbar}
       </header>
       {children}

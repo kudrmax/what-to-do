@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
 import { CardCache, keepUnchangedCards } from "./cardCache";
-import type { Api, CityChange, LlmProvider, ReaderSignIn, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange, TagVisibility } from "./client";
+import type { Api, CityChange, LlmProvider, ReaderSignIn, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, Source, SourceKind, SourceStatus, Tag, TagChange, TagVisibility } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -157,6 +157,22 @@ export const usePauseSource = () =>
   useApiMutation((api, { id, paused }: { id: number; paused: boolean }) => api.pauseSource(id, paused), STALE.sourceCards);
 export const useSetInstagramReading = () =>
   useApiMutation((api, { id, reading }: { id: number; reading: InstagramReading }) => api.setInstagramReading(id, reading), STALE.sources);
+/** Saves a new order of the sources at once on screen; gives the old order back when saving fails. */
+export function useReorderSources() {
+  const api = useApi();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (ordered: Source[]) => api.reorderSources(ordered.map((s) => s.id)),
+    onMutate: async (ordered: Source[]) => {
+      await client.cancelQueries({ queryKey: keys.sources });
+      const previous = client.getQueryData<Source[]>(keys.sources);
+      client.setQueryData(keys.sources, ordered);
+      return { previous };
+    },
+    onError: (_error, _ordered, context) => client.setQueryData(keys.sources, context?.previous),
+    onSuccess: (sources) => client.setQueryData(keys.sources, sources),
+  });
+}
 export const useDeleteSource = () => useApiMutation((api, id: number) => api.deleteSource(id), STALE.city);
 export const useAddTag = () => useApiMutation((api, name: string) => api.addTag(name), STALE.tags);
 export const useTagVisibility = () =>

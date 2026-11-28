@@ -1,11 +1,14 @@
 import { useId, useState, type FormEvent } from "react";
 
 import type { InstagramReading, SitePreview, Source, SourceKind } from "../api/client";
-import { useAddSource, useDeleteSource, useMarkSource, usePauseSource, usePreviewSource, useRenameSource, useSetInstagramReading, useSources } from "../api/queries";
+import { useAddSource, useDeleteSource, useMarkSource, usePauseSource, usePreviewSource, useRenameSource, useReorderSources, useSetInstagramReading, useSources } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
 import { SECTIONS } from "../app/routes";
 import { ago, clock, longDate, plural } from "../domain/dates";
 import { ambiguousName } from "../domain/sources";
+import { moved } from "../domain/tags";
+import { DragHandle } from "../ui/DragHandle";
+import { useDragOrder, type DragRowProps } from "../ui/useDragOrder";
 import { errorText } from "../ui/errors";
 import { Icon, type IconName } from "../ui/Icon";
 import { IconButton } from "../ui/IconButton";
@@ -21,7 +24,7 @@ import "./SourcesScreen.css";
 export function SourcesScreen() {
   const { city } = useActiveCity();
   return (
-    <Screen title={SECTIONS.sources.title} narrow>
+    <Screen title={SECTIONS.sources.title} hint="Sources are read top to bottom: drag the ones you care about most to the top." narrow>
       {city ? (
         <>
           <AddSourceForm />
@@ -154,20 +157,31 @@ function SitePreviewCard({ site, adding, onAdd, onCancel }: { site: SitePreview;
 
 export function SourceList() {
   const sources = useSources();
+  const reorder = useReorderSources();
   const { city } = useActiveCity();
+  const [preview, setPreview] = useState<Source[] | null>(null);
+  const list = preview ?? sources.data ?? [];
+  const save = (ordered: Source[]) => reorder.mutate(ordered, { onSettled: () => setPreview(null) });
+  const { dragged, rowProps } = useDragOrder({
+    onMove: (from, to) => setPreview(moved(list, from, to)),
+    onEnd: () => preview && save(preview),
+  });
+  const step = (index: number, by: -1 | 1) => {
+    const to = index + by;
+    if (to >= 0 && to < list.length) save(moved(list, index, to));
+  };
   if (sources.data?.length === 0 && city) return <FindingSources city={city.name} />;
   if (!sources.data?.length) return null;
   return (
-    <div className="sources-table" role="table" aria-label="Sources">
-      {favoritesFirst(sources.data).map((source) => (
-        <SourceRow key={source.id} source={source} />
-      ))}
-    </div>
+    <>
+      <div className="sources-table" role="table" aria-label="Sources">
+        {list.map((source, index) => (
+          <SourceRow key={source.id} source={source} dragging={dragged === index} drag={rowProps(index, source.title)} onMove={(by) => step(index, by)} />
+        ))}
+      </div>
+      {reorder.error && <p className="error-text">{errorText(reorder.error)}</p>}
+    </>
   );
-}
-
-function favoritesFirst(sources: Source[]): Source[] {
-  return [...sources].sort((a, b) => Number(b.status === "favorite") - Number(a.status === "favorite"));
 }
 
 function FavoriteToggle({ source }: { source: Source }) {
@@ -231,14 +245,25 @@ function ReadingToggle({ name, on, last, onChange }: { name: string; on: boolean
   );
 }
 
-function SourceRow({ source }: { source: Source }) {
+interface SourceRowProps {
+  source: Source;
+  dragging: boolean;
+  drag: DragRowProps;
+  onMove: (step: -1 | 1) => void;
+}
+
+function SourceRow({ source, dragging, drag, onMove }: SourceRowProps) {
   const rename = useRenameSource();
   const remove = useDeleteSource();
   const [confirming, setConfirming] = useState(false);
   const kind = KINDS[source.kind];
   const state = sourceState(source);
+  const classes = ["sources-table__row", source.paused && "sources-table__row--paused", dragging && "sources-table__row--dragging"].filter(Boolean).join(" ");
   return (
-    <div className={`sources-table__row${source.paused ? " sources-table__row--paused" : ""}`} role="row">
+    <div className={classes} role="row" {...drag}>
+      <span role="cell" className="sources-table__handle">
+        <DragHandle name={source.title} onMove={onMove} />
+      </span>
       <span role="cell" className="sources-table__favorite">
         <FavoriteToggle source={source} />
       </span>

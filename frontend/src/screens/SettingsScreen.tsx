@@ -7,6 +7,8 @@ import { useThemeChoice, type ThemeChoice } from "../app/theme";
 import { plural } from "../domain/dates";
 import { READERS, type Reader } from "../domain/readers";
 import { moved } from "../domain/tags";
+import { DragHandle } from "../ui/DragHandle";
+import { useDragOrder, type DragRowProps } from "../ui/useDragOrder";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
 import { TagVisibilityMenu } from "./TagVisibilityMenu";
@@ -267,13 +269,13 @@ function TagsSubsection({ reader }: { reader: Reader }) {
   const add = useAddTag();
   const reorder = useReorderTags();
   const [name, setName] = useState("");
-  const [dragged, setDragged] = useState<number | null>(null);
   const list = tags.data ?? [];
   const fallback = list.find((t) => t.is_fallback)?.name;
   const movable = list.filter((t) => !t.is_fallback).length;
   const move = (from: number, to: number) => {
     if (from !== to && to >= 0 && to < movable) reorder.mutate(moved(list, from, to));
   };
+  const { dragged, rowProps } = useDragOrder({ onMove: move });
   return (
     <Subsection
       title="Tags"
@@ -286,13 +288,7 @@ function TagsSubsection({ reader }: { reader: Reader }) {
             tag={tag}
             reader={reader}
             dragging={dragged === index}
-            onDragStart={() => setDragged(index)}
-            onDragEnter={() => {
-              if (dragged === null || tag.is_fallback || dragged === index) return;
-              move(dragged, index);
-              setDragged(index);
-            }}
-            onDragEnd={() => setDragged(null)}
+            drag={rowProps(index, tag.name, tag.is_fallback)}
             onMove={(step) => move(index, index + step)}
           />
         ))}
@@ -316,47 +312,20 @@ interface TagRowProps {
   tag: Tag;
   reader: Reader;
   dragging: boolean;
-  onDragStart: () => void;
-  onDragEnter: () => void;
-  onDragEnd: () => void;
+  drag: DragRowProps;
   onMove: (step: -1 | 1) => void;
 }
 
-function TagRow({ tag, reader, dragging, onDragStart, onDragEnter, onDragEnd, onMove }: TagRowProps) {
+function TagRow({ tag, reader, dragging, drag, onMove }: TagRowProps) {
   const change = useChangeTag();
   const visibility = useTagVisibility();
   const classes = ["tag-row", tag.visibility !== "shown" && "tag-row--hidden", dragging && "tag-row--dragging"].filter(Boolean).join(" ");
   return (
-    <li
-      className={classes}
-      draggable={!tag.is_fallback}
-      onDragStart={(e) => {
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", tag.name);
-        onDragStart();
-      }}
-      onDragEnter={onDragEnter}
-      onDragOver={(e) => e.preventDefault()}
-      onDragEnd={onDragEnd}
-      onDrop={(e) => e.preventDefault()}
-    >
+    <li className={classes} {...drag}>
       {tag.is_fallback ? (
-        <span className="tag-row__handle tag-row__handle--fixed" data-tip="Put when no other tag fits: always last" />
+        <span className="drag-handle drag-handle--fixed" data-tip="Put when no other tag fits: always last" />
       ) : (
-        <button
-          type="button"
-          className="tag-row__handle"
-          aria-label={`Move “${tag.name}” with the up and down arrows`}
-          data-tip="Drag to reorder"
-          onKeyDown={(e) => {
-            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-              e.preventDefault();
-              onMove(e.key === "ArrowUp" ? -1 : 1);
-            }
-          }}
-        >
-          <Icon name="grip" size={16} />
-        </button>
+        <DragHandle name={tag.name} onMove={onMove} />
       )}
       <span className="tag-row__text">
         <span className="tag-row__name">

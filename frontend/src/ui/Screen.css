@@ -24,6 +24,10 @@
   min-height: 38px;
 }
 
+.screen__hint {
+  margin-top: -12px;
+}
+
 .screen-section {
   display: flex;
   flex-direction: column;

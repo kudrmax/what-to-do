@@ -98,6 +98,7 @@ export function createApi(baseUrl: string) {
     setInstagramReading: (id: number, reading: InstagramReading) =>
       answer(client.PUT("/sources/{source_id}/instagram", { ...source(id), body: reading })),
     deleteSource: (id: number) => answer(client.DELETE("/sources/{source_id}", source(id))),
+    reorderSources: (ids: number[]) => answer(client.PUT("/sources/order", { body: { ids } })),
     potentialSources: () => answer(client.GET("/potential-sources")),
     adoptPotentialSource: (id: number) => answer(client.POST("/potential-sources/{potential_id}/source", { params: { path: { potential_id: id } } })),
     markPotentialSource: (id: number, processed: boolean) =>
