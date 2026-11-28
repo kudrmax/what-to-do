@@ -50,6 +50,7 @@ from where_to_go.models import (
     Source,
     SourceKind,
     SourcePublic,
+    SourceOrder,
     SourcePause,
     SourceStatusChange,
     TagBase,
@@ -340,6 +341,15 @@ def create_app(container_factory: ContainerFactory) -> FastAPI:
         except DuplicateSourceError as error:
             raise HTTPException(409, str(error)) from None
         except SourceError as error:
+            raise HTTPException(422, str(error)) from None
+
+    @app.put("/sources/order", response_model=list[SourcePublic], tags=[ApiTag.SOURCES])
+    def reorder_sources(body: SourceOrder, c: ContainerDep, city: CityDep):
+        """Sets the order of the active city's sources: the list shows it and a refresh reads posts in it.
+        422 unless every source of the city, paused ones too, is listed once."""
+        try:
+            return _sources_public(c, c.sources.reorder(city.id, body.ids))
+        except ValueError as error:
             raise HTTPException(422, str(error)) from None
 
     @app.post("/sources/preview", response_model=SitePreview, tags=[ApiTag.SOURCES])

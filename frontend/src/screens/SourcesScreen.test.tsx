@@ -18,6 +18,7 @@ function source(id: number, title: string, status: Source["status"], paused = fa
     last_error: null,
     events_found: 0,
     paused,
+    position: id,
     instagram: null,
   };
 }
