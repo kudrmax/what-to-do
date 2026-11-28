@@ -25,6 +25,7 @@ from where_to_go.codex_login import CODEX_MINIMUM, CodexHome, ToolGuard
 from where_to_go.installed_cli import CliStatus, FoundCli
 from where_to_go.llm import (
     CodexRefusedError,
+    CodexToolAttemptError,
     CodexSignedOutError,
     CodexUnavailableError,
     LlmError,
@@ -565,9 +566,10 @@ def tool_item(kind: str, started: bool = False) -> Any:
 async def test_a_tool_in_the_turn_stops_it_and_drops_the_answer(tmp_path, kind, started):
     clients = FakeClients([tool_item(kind, started), answered(json.dumps({"title": "leaked"})), completed()])
     rt = runtime(clients, tmp_path)
-    with pytest.raises(CodexRefusedError) as raised:
+    with pytest.raises(CodexToolAttemptError) as raised:
         await reader(rt).complete_json("s", "p", SCHEMA)
-    assert str(raised.value) == "Codex tried to use a tool; nothing was read"
+    assert str(raised.value) == "Codex tried to use a tool"
+    assert not isinstance(raised.value, ReaderNotReadyError)
     assert clients.made[0].handles[0].interrupted
     await rt.close()
 

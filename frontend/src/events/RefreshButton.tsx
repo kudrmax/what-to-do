@@ -1,6 +1,6 @@
 import { useReaderSignInStatus, useRefresh, useSettings } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
-import { READERS, boxExplains, staysAsLine } from "../domain/readers";
+import { READERS } from "../domain/readers";
 import { refreshLabel, timeLeft } from "../domain/refresh";
 import { Icon } from "../ui/Icon";
 import { InlineCode } from "../ui/InlineCode";
@@ -15,11 +15,12 @@ export function RefreshButton() {
   const provider = knownProvider ?? "claude";
   const reader = READERS[provider];
   const finishedErrors = refresh.running ? [] : (refresh.status?.errors ?? []);
-  const readerUnavailable = !refresh.running && (refresh.status?.reader_unavailable ?? false);
-  const boxWanted = readerUnavailable && knownProvider !== undefined && !finishedErrors.some((error) => staysAsLine(reader, error));
+  const readerError = refresh.running ? null : (refresh.status?.reader_error ?? null);
+  const boxWanted = readerError !== null && knownProvider !== undefined;
   const signIn = useReaderSignInStatus(provider, boxWanted);
-  const boxKnows = boxWanted && signIn.data !== undefined && signIn.data.state !== "unknown";
-  const errors = finishedErrors.filter((error) => !(boxKnows && boxExplains(reader, error)));
+  const boxKnows = boxWanted && signIn.data !== undefined && (reader.boxWhenSignInUnknown || signIn.data.state !== "unknown");
+  const boxShown = reader.boxWhenSignInUnknown ? boxWanted : boxKnows;
+  const errors = readerError !== null && !boxKnows ? [readerError, ...finishedErrors] : finishedErrors;
   const { city } = useActiveCity();
   const label = refresh.running ? refreshLabel(refresh.status) : "Refresh";
   const left = refresh.running ? timeLeft(refresh.status) : null;
@@ -30,7 +31,7 @@ export function RefreshButton() {
         {label}
         {left && <span className="refresh__left">{left}</span>}
       </button>
-      {boxKnows && <ReaderSignIn provider={provider} />}
+      {boxShown && <ReaderSignIn provider={provider} />}
       {errors.length > 0 && (
         <div className="note refresh__errors" role="status">
           {errors.map((error) => (

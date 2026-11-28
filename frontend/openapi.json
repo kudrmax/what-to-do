@@ -4394,7 +4394,7 @@
      "reader_unavailable": {
       "type": "boolean",
       "title": "Reader Unavailable",
-      "description": "The reader is missing, too old, signed out, refused or out of plan limit: nothing more was read",
+      "description": "Some calls failed because the reader was missing, too old, signed out, refused or out of plan limit; calls that went through still read their posts",
       "default": false
      },
      "reader": {
@@ -4407,6 +4407,18 @@
        }
       ],
       "description": "Whose reader was not ready, when reader_unavailable"
+     },
+     "reader_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reader Error",
+      "description": "Why the reader was not ready, when the box under Refresh explains it; kept out of errors, shown as a line only where that box can't be shown"
      },
      "running": {
       "type": "boolean",
@@ -4435,6 +4447,7 @@
      "errors",
      "reader_unavailable",
      "reader",
+     "reader_error",
      "running"
     ],
     "title": "RefreshProgress"

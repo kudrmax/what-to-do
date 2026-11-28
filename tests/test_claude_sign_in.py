@@ -139,7 +139,7 @@ async def test_a_refresh_without_a_usable_claude_code_says_so_once(tmp_path, err
 
     assert progress.stage is Stage.DONE
     assert (progress.reader_unavailable, progress.reader) == (True, LlmProvider.CLAUDE)
-    assert progress.errors == [line]
+    assert (progress.reader_error, progress.errors) == (line, [])
     assert extraction.calls > 1
     await container.close()
 

@@ -4,6 +4,7 @@ not ready is said once in a refresh, a re-tag and the launcher."""
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import time
 from pathlib import Path
@@ -21,12 +22,12 @@ from tests.test_launcher_cli import OneRunningServer, copy_at
 from tests.test_pipeline import RECENT, serve_channels
 from where_to_go.active_provider import ActiveProvider
 from where_to_go.api import create_app
-from where_to_go.codex_login import CODEX_SIGN_IN_HINT
+from where_to_go.codex_login import CODEX_SIGN_IN_HINT, CodexHome, ToolGuard, UnsafeCodexPath
 from where_to_go.container import Container
 from where_to_go.installed_cli import CliStatus
 from where_to_go.launcher.cli import Cli
 from where_to_go.launcher.config import InstanceConfig
-from where_to_go.llm import CodexRefusedError, CodexSignedOutError, LlmError, PlanLimitError, ProviderJsonLlm
+from where_to_go.llm import CodexRefusedError, CodexSignedOutError, CodexToolAttemptError, LlmError, PlanLimitError, ProviderJsonLlm
 from where_to_go.models import Source
 from where_to_go.refresh import Stage
 from where_to_go.retagging import EventRetagger
@@ -161,17 +162,20 @@ def refresh_container(tmp_path: Path, provider: LlmProvider, runtime: FakeRuntim
 
 @respx.mock
 @pytest.mark.parametrize(
-    ("errors", "line"),
+    ("errors", "reader_error", "lines"),
     [
-        ((CodexSignedOutError(),), CODEX_SIGN_IN_HINT),
+        ((CodexSignedOutError(),), CODEX_SIGN_IN_HINT, []),
         (
             (PlanLimitError("You've hit your usage limit. Try again at 3:45 PM."), PlanLimitError("You've hit your usage limit. Try again at 3:46 PM.")),
-            "ChatGPT plan limit reached, resets at 3:45 PM",
+            None,
+            ["ChatGPT plan limit reached, resets at 3:45 PM"],
         ),
-        ((CodexRefusedError("Codex tried to use a tool; nothing was read"),), "Codex tried to use a tool; nothing was read"),
+        ((CodexRefusedError(ToolGuard.OFFERS_TOOLS),), ToolGuard.OFFERS_TOOLS, []),
+        ((CodexRefusedError(CodexHome.UNWRITABLE_PATH),), CodexHome.UNWRITABLE_PATH, []),
+        ((CodexRefusedError(ToolGuard.CANNOT_LIMIT_READS),), ToolGuard.CANNOT_LIMIT_READS, []),
     ],
 )
-async def test_a_refresh_with_codex_not_ready_says_so_once(tmp_path: Path, errors: tuple[LlmError, ...], line: str) -> None:
+async def test_a_refresh_with_codex_not_ready_says_so_once(tmp_path: Path, errors: tuple[LlmError, ...], reader_error: str | None, lines: list[str]) -> None:
     runtime = FakeRuntime(*errors)
     container = refresh_container(tmp_path, LlmProvider.CODEX, runtime, FakeClaude(CliStatus.MISSING))
 
@@ -181,8 +185,40 @@ async def test_a_refresh_with_codex_not_ready_says_so_once(tmp_path: Path, error
 
     assert progress.stage is Stage.DONE
     assert (progress.reader_unavailable, progress.reader) == (True, LlmProvider.CODEX)
-    assert progress.errors == [line]
+    assert (progress.reader_error, progress.errors) == (reader_error, lines)
     assert runtime.asked > 1
+
+
+@respx.mock
+async def test_a_codex_path_refused_while_preparing_is_explained_by_the_box(tmp_path: Path) -> None:
+    unsafe = UnsafeCodexPath(
+        "Codex is installed right in /usr/local; What To Do would have to let the model read that whole folder, "
+        "so reinstall Codex with its installer or Homebrew"
+    )
+    runtime = FakeRuntime(CodexRefusedError(str(unsafe)))
+    container = refresh_container(tmp_path, LlmProvider.CODEX, runtime, FakeClaude(CliStatus.MISSING))
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+    await container.close()
+
+    assert (progress.reader_error, progress.errors) == (str(unsafe), [])
+
+
+@respx.mock
+async def test_a_tool_attempt_skips_its_posts_and_the_refresh_goes_on(tmp_path: Path) -> None:
+    runtime = FakeRuntime(CodexToolAttemptError(), CodexSignedOutError())
+    container = refresh_container(tmp_path, LlmProvider.CODEX, runtime, FakeClaude(CliStatus.MISSING))
+
+    container.refresh.start()
+    progress = await container.refresh.wait()
+    await container.close()
+
+    skipped = [line for line in progress.errors if line.startswith("Codex tried to use a tool while reading ")]
+    assert len(skipped) == 1 and re.fullmatch(r"Codex tried to use a tool while reading (1 post; it was|\d+ posts; they were) skipped", skipped[0])
+    assert (progress.reader_unavailable, progress.reader, progress.reader_error) == (True, LlmProvider.CODEX, CODEX_SIGN_IN_HINT)
+    assert CODEX_SIGN_IN_HINT not in progress.errors
+    assert runtime.asked > 2
 
 
 @respx.mock
@@ -195,7 +231,7 @@ async def test_a_refresh_with_claude_chosen_never_asks_codex(tmp_path: Path) -> 
     await container.close()
 
     assert (progress.reader_unavailable, progress.reader) == (True, LlmProvider.CLAUDE)
-    assert progress.errors == ["Install Claude Code: What To Do needs it to read posts"]
+    assert (progress.reader_error, progress.errors) == ("Install Claude Code: What To Do needs it to read posts", [])
     assert runtime.asked == 0
 
 
@@ -209,7 +245,7 @@ def retag_finished(client: TestClient) -> dict:
     raise AssertionError(status)
 
 
-def test_a_retag_with_codex_out_of_plan_says_so_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_retag_with_codex_not_ready_says_each_reason_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(EventRetagger, "BATCH_SIZE", 1)
     runtime = FakeRuntime(
         PlanLimitError("You've hit your usage limit. Try again at 3:45 PM."),
@@ -224,7 +260,7 @@ def test_a_retag_with_codex_out_of_plan_says_so_once(tmp_path: Path, monkeypatch
         status = retag_finished(client)
 
     assert runtime.asked == 3
-    assert len(status["errors"]) == 1 and status["errors"][0] in ("ChatGPT plan limit reached, resets at 3:45 PM", CODEX_SIGN_IN_HINT, "ChatGPT plan limit reached, resets at 3:47 PM")
+    assert sorted(status["errors"]) == ["ChatGPT plan limit reached, resets at 3:45 PM", CODEX_SIGN_IN_HINT]
 
 
 def data_with_provider(folder: Path, provider: LlmProvider) -> Path:
@@ -247,25 +283,23 @@ class FakeToolGuard:
 
 
 @pytest.mark.parametrize(
-    ("codex", "verdict", "warnings"),
+    ("codex", "warnings"),
     [
         (
             FakeCodexCli(CliStatus.MISSING),
-            None,
             ["Install Codex: What To Do needs it to read posts.", "Run: curl -fsSL https://chatgpt.com/codex/install.sh | sh", "Or: brew install --cask codex"],
         ),
-        (FakeCodexCli(CliStatus.TOO_OLD, version="0.100.0"), None, ["Update Codex: you have 0.100.0, What To Do needs 0.172.0 or newer. Run: codex update"]),
-        (FakeCodexCli(), "This Codex version offers tools", ["Codex can't read posts: This Codex version offers tools."]),
+        (FakeCodexCli(CliStatus.TOO_OLD, version="0.100.0"), ["Update Codex: you have 0.100.0, What To Do needs 0.172.0 or newer. Run: codex update"]),
     ],
 )
 def test_status_warns_about_codex_when_codex_reads(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, codex: FakeCodexCli, verdict: str | None, warnings: list[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, codex: FakeCodexCli, warnings: list[str]
 ) -> None:
     paths = copy_at(tmp_path)
     data = data_with_provider(tmp_path / "data", LlmProvider.CODEX)
     claude = FakeClaude(CliStatus.MISSING)
     said: list[str] = []
-    FakeToolGuard.verdict, FakeToolGuard.checked = verdict, []
+    FakeToolGuard.verdict, FakeToolGuard.checked = None, []
     monkeypatch.setattr("where_to_go.claude_login.claude_cli", lambda: claude)
     monkeypatch.setattr("where_to_go.codex_login.codex_cli", lambda codex_home=None: codex)
     monkeypatch.setattr("where_to_go.codex_login.ToolGuard", FakeToolGuard)
@@ -276,23 +310,33 @@ def test_status_warns_about_codex_when_codex_reads(
 
     assert said[-len(warnings):] == warnings
     assert not any("Claude" in line for line in said)
-    assert FakeToolGuard.checked == ([] if codex.found.status is not CliStatus.READY else [codex.found.path])
+    assert FakeToolGuard.checked == []
 
 
-def test_status_says_nothing_when_codex_reads_and_is_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+class StartingServer(OneRunningServer):
+    def choose_port(self) -> int:
+        return 18765
+
+    def up(self, spec, build: bool) -> None:
+        pass
+
+
+@pytest.mark.parametrize("command", ["status", "up"])
+def test_the_launcher_never_runs_the_codex_tool_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str) -> None:
     paths = copy_at(tmp_path)
     data = data_with_provider(tmp_path / "data", LlmProvider.CODEX)
     said: list[str] = []
-    FakeToolGuard.verdict, FakeToolGuard.checked = None, []
+    FakeToolGuard.verdict, FakeToolGuard.checked = "This Codex version offers tools", []
     monkeypatch.setattr("where_to_go.claude_login.claude_cli", lambda: FakeClaude(CliStatus.MISSING))
     monkeypatch.setattr("where_to_go.codex_login.codex_cli", lambda codex_home=None: FakeCodexCli())
     monkeypatch.setattr("where_to_go.codex_login.ToolGuard", FakeToolGuard)
     monkeypatch.setattr("where_to_go.codex_login.CodexHome.default", classmethod(lambda cls: cls(tmp_path / "codex-home")))
-    monkeypatch.setattr("where_to_go.launcher.control.ServerControl", OneRunningServer)
+    monkeypatch.setattr("where_to_go.launcher.control.ServerControl", StartingServer)
 
-    Cli(paths, InstanceConfig.load(paths, environ={"WHERE_TO_GO_DATA_DIR": str(data)}), out=said.append).run(["status"])
+    Cli(paths, InstanceConfig.load(paths, environ={"WHERE_TO_GO_DATA_DIR": str(data)}), out=said.append).run([command])
 
-    assert said[-1].startswith("  Log")
+    assert FakeToolGuard.checked == []
+    assert not any("tool" in line for line in said)
 
 
 def model_compare() -> ModuleType:

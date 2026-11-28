@@ -146,17 +146,16 @@ class RetagService:
 
     async def _run(self, batches: list[list[Event]], cancel: anyio.CancelScope) -> None:
         limit = asyncio.Semaphore(self.CONCURRENCY)
-        reader_said = False
+        reasons_said: set[type[ReaderNotReadyError]] = set()
 
         async def one(batch: list[Event]) -> None:
-            nonlocal reader_said
             async with limit:
                 try:
                     changed = await self._retagger.retag(batch)
                     self.progress.cards_changed += changed
                 except ReaderNotReadyError as error:
-                    if not reader_said:
-                        reader_said = True
+                    if type(error) not in reasons_said:
+                        reasons_said.add(type(error))
                         self.progress.errors.append(str(error))
                 except LlmError as error:
                     self.progress.errors.append(f"Couldn't re-tag {len(batch)} cards: {error}")

@@ -2129,12 +2129,17 @@ export interface components {
             errors: string[];
             /**
              * Reader Unavailable
-             * @description The reader is missing, too old, signed out, refused or out of plan limit: nothing more was read
+             * @description Some calls failed because the reader was missing, too old, signed out, refused or out of plan limit; calls that went through still read their posts
              * @default false
              */
             reader_unavailable: boolean;
             /** @description Whose reader was not ready, when reader_unavailable */
             reader: components["schemas"]["LlmProvider"] | null;
+            /**
+             * Reader Error
+             * @description Why the reader was not ready, when the box under Refresh explains it; kept out of errors, shown as a line only where that box can't be shown
+             */
+            reader_error: string | null;
             /** Running */
             readonly running: boolean;
         };

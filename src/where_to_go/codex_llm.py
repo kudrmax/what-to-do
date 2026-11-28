@@ -30,6 +30,7 @@ from where_to_go.installed_cli import CliStatus, InstalledCli
 from where_to_go.llm import (
     CodexRefusedError,
     CodexSignedOutError,
+    CodexToolAttemptError,
     CodexUnavailableError,
     LlmError,
     LlmImage,
@@ -38,7 +39,6 @@ from where_to_go.llm import (
 from where_to_go.strict_schema import StrictSchema
 
 CLEAN_ENV = Path("/usr/bin/env")
-TRIED_A_TOOL = "Codex tried to use a tool; nothing was read"
 UNSAFE_PATH = "Codex is installed at a path What To Do cannot start safely"
 
 DECLINED: dict[str, dict[str, Any]] = {
@@ -249,7 +249,7 @@ class CodexJsonLlm:
                     item = payload.item.root
                     if getattr(item, "type", None) not in self.ALLOWED_ITEMS:
                         await self._interrupt(handle)
-                        raise CodexRefusedError(TRIED_A_TOOL)
+                        raise CodexToolAttemptError
                     if isinstance(payload, ItemCompletedNotification) and isinstance(item, AgentMessageThreadItem):
                         messages.append(item)
                 elif isinstance(payload, TurnCompletedNotification) and payload.turn.id == handle.id:

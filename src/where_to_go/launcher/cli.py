@@ -264,13 +264,13 @@ class Cli:
                 self._warn_if_claude_not_ready()
 
     def _warn_if_codex_not_ready(self) -> None:
-        """Only what can be checked without starting Codex: installed, new enough and offering no tool. Whether
-        someone is signed in needs a running app-server, so the app says that on the first refresh instead."""
-        from where_to_go.codex_login import CODEX_INSTALL_COMMANDS, CodexHome, ToolGuard, codex_cli, codex_unavailable_hint
+        """Only installed and new enough: both are quick. The tool guard runs Codex for up to 20 seconds, and the app
+        runs it before every call anyway; whether someone is signed in needs a running app-server. The app says both
+        on the first refresh instead."""
+        from where_to_go.codex_login import CODEX_INSTALL_COMMANDS, CodexHome, codex_cli, codex_unavailable_hint
         from where_to_go.installed_cli import CliStatus
 
-        home = CodexHome.default()
-        found = codex_cli(codex_home=home).find()
+        found = codex_cli(codex_home=CodexHome.default()).find()
         if found.status is not CliStatus.READY or found.path is None:
             update = f" Run: {found.update_command}" if found.update_command and found.status is CliStatus.TOO_OLD else ""
             self._out(f"{codex_unavailable_hint(found)}.{update}")
@@ -279,10 +279,6 @@ class Cli:
                 self._out(f"Run: {first}")
                 for other in others:
                     self._out(f"Or: {other}")
-            return
-        refusal = ToolGuard(home).check(found.path)
-        if refusal is not None:
-            self._out(f"Codex can't read posts: {refusal}.")
 
     def _warn_if_claude_not_ready(self) -> None:
         from where_to_go.claude_login import CLAUDE_INSTALL_COMMAND, SIGN_IN_HINT, ClaudeLogin, claude_cli, unavailable_hint

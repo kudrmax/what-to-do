@@ -20,9 +20,12 @@ class LlmError(Exception):
 
 
 class ReaderNotReadyError(LlmError):
-    """Every call fails the same way until the user fixes the reader (Claude Code or Codex), so it is said once."""
+    """Every call fails the same way until the user fixes the reader (Claude Code or Codex), so it is said once.
+
+    The box under Refresh explains it and offers the fix, unless box_explains says the box has nothing to offer."""
 
     provider: ClassVar[LlmProvider | None] = None
+    box_explains: ClassVar[bool] = True
 
 
 class ClaudeSignedOutError(ReaderNotReadyError):
@@ -61,8 +64,18 @@ class CodexRefusedError(ReaderNotReadyError):
     provider = LlmProvider.CODEX
 
 
+class CodexToolAttemptError(LlmError):
+    """The model reached for a tool while reading: that call's answer is dropped, the other calls go on."""
+
+    MESSAGE = "Codex tried to use a tool"
+
+    def __init__(self) -> None:
+        super().__init__(self.MESSAGE)
+
+
 class PlanLimitError(ReaderNotReadyError):
     provider = LlmProvider.CODEX
+    box_explains = False
     MESSAGE = "ChatGPT plan limit reached"
     RESET = re.compile(r"try again at (?P<time>.+?)(?=\.\s|\.?\s*$)", re.IGNORECASE | re.MULTILINE)
 
