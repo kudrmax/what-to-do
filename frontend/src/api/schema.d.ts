@@ -777,6 +777,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/codex/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Codex Sign In
+         * @description Whether Codex is installed, new enough, accepted by the tool check and signed in to ChatGPT, and how a sign-in started here goes.
+         */
+        get: operations["codex_sign_in_codex_sign_in_get"];
+        put?: never;
+        /**
+         * Start Codex Sign In
+         * @description Opens the ChatGPT sign-in page in the browser; poll `GET /codex/sign-in` until `state` is signed_in.
+         */
+        post: operations["start_codex_sign_in_codex_sign_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stats": {
         parameters: {
             query?: never;
@@ -1028,7 +1052,7 @@ export interface components {
             recent_posts: number;
             /**
              * Priority Wish
-             * @description What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             * @description What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged
              * @default
              */
             priority_wish: string;
@@ -1040,7 +1064,7 @@ export interface components {
             collections_enabled: boolean;
             /**
              * Extraction Prompt
-             * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
+             * @description Instructions the reader gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
              * @default You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.
              *
              *     For every post return the events and places it announces. Most posts announce nothing: return empty lists for them.
@@ -1075,7 +1099,7 @@ export interface components {
             extraction_prompt: string;
             /**
              * Matching Prompt
-             * @description Instructions Claude gets for merging duplicates
+             * @description Instructions the reader gets for merging duplicates
              * @default You merge duplicate event announcements collected from several Telegram channels and websites.
              *
              *     You get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.
@@ -1090,7 +1114,7 @@ export interface components {
             matching_prompt: string;
             /**
              * Photo Prompt
-             * @description Instructions Claude gets for transcribing post photos
+             * @description Instructions the reader gets for transcribing post photos
              * @default You transcribe the photos of posts that announce events: posters, event cards, schedules, digests.
              *
              *     Every photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema.
@@ -1111,6 +1135,41 @@ export interface components {
              * @default claude-haiku-5-5
              */
             matching_model: components["schemas"]["ClaudeModel"];
+            /**
+             * @description Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models
+             * @default claude
+             */
+            llm_provider: components["schemas"]["LlmProvider"];
+            /**
+             * @description Transcribes post photos when Codex reads
+             * @default gpt-6.1-terra
+             */
+            codex_photo_model: components["schemas"]["CodexModel"];
+            /**
+             * @description How long Codex thinks over post photos
+             * @default low
+             */
+            codex_photo_effort: components["schemas"]["CodexEffort"];
+            /**
+             * @description Reads posts into events and places when Codex reads
+             * @default gpt-6.1-terra
+             */
+            codex_extraction_model: components["schemas"]["CodexModel"];
+            /**
+             * @description How long Codex thinks over posts
+             * @default medium
+             */
+            codex_extraction_effort: components["schemas"]["CodexEffort"];
+            /**
+             * @description Merges duplicate announcements when Codex reads
+             * @default gpt-6-luna
+             */
+            codex_matching_model: components["schemas"]["CodexModel"];
+            /**
+             * @description How long Codex thinks over duplicates
+             * @default low
+             */
+            codex_matching_effort: components["schemas"]["CodexEffort"];
         };
         /**
          * Booking
@@ -1284,13 +1343,11 @@ export interface components {
          */
         ClaudeModel: "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
         /**
-         * ClaudeSignIn
-         * @enum {string}
+         * ClaudeSignInView
+         * @description Claude Code: a sign-in page opened by hand shows a code to paste.
          */
-        ClaudeSignIn: "signed_in" | "signed_out" | "unknown" | "not_installed" | "too_old";
-        /** ClaudeSignInView */
         ClaudeSignInView: {
-            state: components["schemas"]["ClaudeSignIn"];
+            state: components["schemas"]["ReaderSignIn"];
             /** Hint */
             hint: string;
             /**
@@ -1301,7 +1358,7 @@ export interface components {
             signing_in: boolean;
             /**
              * Page Url
-             * @description The sign-in page to open by hand; it shows a code to paste
+             * @description The sign-in page to open by hand while a sign-in waits
              */
             page_url?: string | null;
             /**
@@ -1311,19 +1368,74 @@ export interface components {
             error?: string | null;
             /**
              * Version
-             * @description The installed Claude Code's version; none when it is missing
+             * @description The installed reader's version; none when it is missing
              */
             version?: string | null;
             /**
              * Minimum
-             * @description The oldest Claude Code version the app works with
+             * @description The oldest version of the reader the app works with
              */
             minimum: string;
             /**
              * Update Command
-             * @description The command that updates the installed Claude Code; none when it is missing
+             * @description The command that updates the installed reader; none when it is missing
              */
             update_command?: string | null;
+        };
+        /**
+         * CodexEffort
+         * @enum {string}
+         */
+        CodexEffort: "low" | "medium" | "high";
+        /**
+         * CodexModel
+         * @enum {string}
+         */
+        CodexModel: "gpt-6-luna" | "gpt-6.1-terra" | "gpt-6.2-sol" | "gpt-6.2-astra";
+        /**
+         * CodexSignInView
+         * @description Codex with ChatGPT: the sign-in page hands the login back by itself.
+         */
+        CodexSignInView: {
+            state: components["schemas"]["ReaderSignIn"];
+            /** Hint */
+            hint: string;
+            /**
+             * Signing In
+             * @description A sign-in started from the app waits for the browser
+             * @default false
+             */
+            signing_in: boolean;
+            /**
+             * Page Url
+             * @description The sign-in page to open by hand while a sign-in waits
+             */
+            page_url?: string | null;
+            /**
+             * Error
+             * @description Why the last sign-in from the app failed
+             */
+            error?: string | null;
+            /**
+             * Version
+             * @description The installed reader's version; none when it is missing
+             */
+            version?: string | null;
+            /**
+             * Minimum
+             * @description The oldest version of the reader the app works with
+             */
+            minimum: string;
+            /**
+             * Update Command
+             * @description The command that updates the installed reader; none when it is missing
+             */
+            update_command?: string | null;
+            /**
+             * Message
+             * @description Why the app refuses this Codex; set when `state` is refused
+             */
+            message?: string | null;
         };
         /** CollectionBase */
         CollectionBase: {
@@ -1677,6 +1789,11 @@ export interface components {
             count: number;
         };
         /**
+         * LlmProvider
+         * @enum {string}
+         */
+        LlmProvider: "claude" | "codex";
+        /**
          * Mark
          * @description What the user decided about an event: how interesting it is, and whether they are going.
          */
@@ -1919,6 +2036,12 @@ export interface components {
             /** Url */
             readonly url: string;
         };
+        /**
+         * ReaderSignIn
+         * @description Whether the reader the app calls is there and signed in; the same answers for Claude Code and Codex.
+         * @enum {string}
+         */
+        ReaderSignIn: "signed_in" | "signed_out" | "unknown" | "not_installed" | "too_old" | "refused";
         /** RefreshProgress */
         RefreshProgress: {
             /** @default idle */
@@ -1973,7 +2096,7 @@ export interface components {
             new_posts: number;
             /**
              * Photos To Read
-             * @description Photos Claude transcribes in this refresh
+             * @description Photos the reader transcribes in this refresh
              * @default 0
              */
             photos_to_read: number;
@@ -1984,7 +2107,7 @@ export interface components {
             photos_read: number;
             /**
              * Posts To Read
-             * @description Posts Claude reads in this refresh
+             * @description Posts the reader reads in this refresh
              * @default 0
              */
             posts_to_read: number;
@@ -2005,11 +2128,18 @@ export interface components {
              */
             errors: string[];
             /**
-             * Claude Unavailable
-             * @description Claude Code is missing, too old or signed out: nothing was read
+             * Reader Unavailable
+             * @description Some calls failed because the reader was missing, too old, signed out, refused or out of plan limit; calls that went through still read their posts
              * @default false
              */
-            claude_unavailable: boolean;
+            reader_unavailable: boolean;
+            /** @description Whose reader was not ready, when reader_unavailable */
+            reader: components["schemas"]["LlmProvider"] | null;
+            /**
+             * Reader Error
+             * @description Why the reader was not ready, when the box under Refresh explains it; kept out of errors, shown as a line only where that box can't be shown
+             */
+            reader_error: string | null;
             /** Running */
             readonly running: boolean;
         };
@@ -2072,7 +2202,7 @@ export interface components {
             recent_posts?: number | null;
             /**
              * Priority Wish
-             * @description What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged
+             * @description What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged
              */
             priority_wish?: string | null;
             /**
@@ -2082,17 +2212,17 @@ export interface components {
             collections_enabled?: boolean | null;
             /**
              * Extraction Prompt
-             * @description Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
+             * @description Instructions the reader gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}
              */
             extraction_prompt?: string | null;
             /**
              * Matching Prompt
-             * @description Instructions Claude gets for merging duplicates
+             * @description Instructions the reader gets for merging duplicates
              */
             matching_prompt?: string | null;
             /**
              * Photo Prompt
-             * @description Instructions Claude gets for transcribing post photos
+             * @description Instructions the reader gets for transcribing post photos
              */
             photo_prompt?: string | null;
             /** @description Transcribes post photos; Haiku misreads tables and collages */
@@ -2101,6 +2231,20 @@ export interface components {
             extraction_model?: components["schemas"]["ClaudeModel"] | null;
             /** @description Merges duplicate announcements */
             matching_model?: components["schemas"]["ClaudeModel"] | null;
+            /** @description Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models */
+            llm_provider?: components["schemas"]["LlmProvider"] | null;
+            /** @description Transcribes post photos when Codex reads */
+            codex_photo_model?: components["schemas"]["CodexModel"] | null;
+            /** @description How long Codex thinks over post photos */
+            codex_photo_effort?: components["schemas"]["CodexEffort"] | null;
+            /** @description Reads posts into events and places when Codex reads */
+            codex_extraction_model?: components["schemas"]["CodexModel"] | null;
+            /** @description How long Codex thinks over posts */
+            codex_extraction_effort?: components["schemas"]["CodexEffort"] | null;
+            /** @description Merges duplicate announcements when Codex reads */
+            codex_matching_model?: components["schemas"]["CodexModel"] | null;
+            /** @description How long Codex thinks over duplicates */
+            codex_matching_effort?: components["schemas"]["CodexEffort"] | null;
         };
         /** SignInCodeRequest */
         SignInCodeRequest: {
@@ -3792,6 +3936,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    codex_sign_in_codex_sign_in_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexSignInView"];
+                };
+            };
+        };
+    };
+    start_codex_sign_in_codex_sign_in_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexSignInView"];
                 };
             };
         };

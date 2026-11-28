@@ -118,7 +118,7 @@ class Cli:
         spec = self._spec(arguments)
         self._control().up(spec, build=not arguments.no_build)
         self._banner(spec)
-        self._warn_if_claude_not_ready()
+        self._warn_if_reader_not_ready([spec.data_dir])
         if arguments.open:
             webbrowser.open(spec.url)
         return 0
@@ -159,7 +159,7 @@ class Cli:
                 ("Instance", server.spec.instance),
                 ("Log", str(self._paths.app_log)),
             ])
-        self._warn_if_claude_not_ready()
+        self._warn_if_reader_not_ready([server.spec.data_dir for server in servers])
         return 0
 
     def logs(self, arguments: argparse.Namespace) -> int:
@@ -253,8 +253,36 @@ class Cli:
         self._out(f"{RULE}{reset}")
         self._out(f"→ {spec.url}\n")
 
+    def _warn_if_reader_not_ready(self, data_dirs: list[Path]) -> None:
+        from where_to_go.active_provider import ActiveProvider
+        from where_to_go.settings import LlmProvider
+
+        for provider in dict.fromkeys(ActiveProvider.of(folder) for folder in data_dirs):
+            if provider is LlmProvider.CODEX:
+                self._warn_if_codex_not_ready()
+            else:
+                self._warn_if_claude_not_ready()
+
+    def _warn_if_codex_not_ready(self) -> None:
+        """Only installed and new enough: both are quick. The tool guard runs Codex for up to 20 seconds, and the app
+        runs it before every call anyway; whether someone is signed in needs a running app-server. The app says both
+        on the first refresh instead."""
+        from where_to_go.codex_login import CODEX_INSTALL_COMMANDS, CodexHome, codex_cli, codex_unavailable_hint
+        from where_to_go.installed_cli import CliStatus
+
+        found = codex_cli(codex_home=CodexHome.default()).find()
+        if found.status is not CliStatus.READY or found.path is None:
+            update = f" Run: {found.update_command}" if found.update_command and found.status is CliStatus.TOO_OLD else ""
+            self._out(f"{codex_unavailable_hint(found)}.{update}")
+            if found.status is CliStatus.MISSING:
+                first, *others = CODEX_INSTALL_COMMANDS
+                self._out(f"Run: {first}")
+                for other in others:
+                    self._out(f"Or: {other}")
+
     def _warn_if_claude_not_ready(self) -> None:
-        from where_to_go.claude_login import CLAUDE_INSTALL_COMMAND, SIGN_IN_HINT, ClaudeLogin, ClaudeSignIn, claude_cli, unavailable_hint
+        from where_to_go.claude_login import CLAUDE_INSTALL_COMMAND, SIGN_IN_HINT, ClaudeLogin, claude_cli, unavailable_hint
+        from where_to_go.reader_sign_in import ReaderSignIn
         from where_to_go.installed_cli import CliStatus
 
         claude = claude_cli()
@@ -264,7 +292,7 @@ class Cli:
             self._out(f"{unavailable_hint(found)}.{update}")
             if found.status is CliStatus.MISSING:
                 self._out(f"Run: {CLAUDE_INSTALL_COMMAND}")
-        elif ClaudeLogin(claude).state_of(found) is ClaudeSignIn.SIGNED_OUT:
+        elif ClaudeLogin(claude).state_of(found) is ReaderSignIn.SIGNED_OUT:
             self._out(f"Claude Code is not signed in, so refreshes can't read posts. {SIGN_IN_HINT}.")
 
     def _rows(self, rows: list[tuple[str, str]]) -> None:

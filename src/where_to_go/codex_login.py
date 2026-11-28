@@ -1,0 +1,301 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import threading
+import unicodedata
+from collections.abc import Callable, Iterator, Mapping
+from pathlib import Path
+
+from platformdirs import user_data_dir
+
+from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
+from where_to_go.launcher.bundle import STATE_DIR_NAME
+from where_to_go.launcher.tools import Tools
+
+CODEX_MINIMUM = "0.172.0"
+CODEX_INSTALL_COMMANDS = ("curl -fsSL https://chatgpt.com/codex/install.sh | sh", "brew install --cask codex")
+CODEX_SIGN_IN_HINT = "Sign in to ChatGPT in What To Do to read posts with Codex"
+
+
+def codex_unavailable_hint(found: FoundCli) -> str:
+    if found.status is CliStatus.MISSING:
+        return "Install Codex: What To Do needs it to read posts"
+    return f"Update Codex: you have {found.version or 'an unknown version'}, What To Do needs {found.minimum} or newer"
+
+
+def codex_places(environ: Mapping[str, str], home: Path) -> list[Path]:
+    """Where Codex's installers put it: the install script, Homebrew, then npm."""
+    fixed = [home / ".local" / "bin", home / ".codex" / "bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin")]
+    return list(dict.fromkeys([*fixed, *Tools(environ, home).program_dirs()]))
+
+
+def codex_cli(environ: Mapping[str, str] = os.environ, home: Path | None = None, codex_home: CodexHome | None = None) -> InstalledCli:
+    """Even `codex --version` writes into its home, so the version is asked with the app's home, never ~/.codex."""
+    folder = home or Path.home()
+    app_home = codex_home or CodexHome.default()
+    return InstalledCli(
+        "codex",
+        CODEX_MINIMUM,
+        extra_dirs=lambda: codex_places(environ, folder),
+        environ=app_home.environ(environ),
+        program_for=app_home.program_for_version,
+    )
+
+
+class UnsafeCodexPath(Exception):
+    """The real file of the Codex found can't be let into the sandbox without letting in much more."""
+
+
+class CodexHome:
+    """The app's own CODEX_HOME. Posts are strangers' text, so its config gives the model no tool, no skills
+    and a sandbox that reads nothing and has no network. The user's own ~/.codex never reaches the app's calls.
+
+    It lives outside the data folder, so the ChatGPT login never travels with backups or data copies."""
+
+    CONFIG = """\
+web_search = "disabled"
+skills.include_instructions = false
+default_permissions = "answer-only"
+
+[features]
+code_mode_host = false
+shell_tool = false
+unified_exec = false
+multi_agent = false
+multi_agent_v2 = false
+sleep_tool = false
+apps = false
+plugins = false
+remote_plugin = false
+image_generation = false
+browser_use = false
+browser_use_external = false
+computer_use = false
+in_app_browser = false
+goals = false
+hooks = false
+tool_suggest = false
+skill_search = false
+incremental_tools = false
+shell_snapshot = false
+view_image = false
+memories = false
+
+[permissions.answer-only]
+extends = ":read-only"
+
+[permissions.answer-only.filesystem]
+":root" = "deny"
+":minimal" = "read"
+
+[permissions.answer-only.network]
+enabled = false
+"""
+    MINIMAL_READ = '":minimal" = "read"\n'
+    SHARED_TEMP_DENIED = '"/tmp" = "deny"\n"/private/tmp" = "deny"\n"/var/tmp" = "deny"\n"/private/var/tmp" = "deny"\n'
+    UNWRITABLE_PATH = "Codex is installed at a path What To Do cannot put into its settings safely; reinstall Codex with its installer or Homebrew"
+    VARIABLE = "CODEX_HOME"
+    PROXIES = ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY")
+    WINDOWS = ("SYSTEMROOT", "WINDIR", "PATHEXT", "COMSPEC", "TEMP", "TMP", "USERPROFILE")
+    ALLOWED_VARIABLES = frozenset(
+        {"HOME", "USER", "LOGNAME", "SHELL", "PATH", "TMPDIR", "LANG", "SSL_CERT_FILE", "SSL_CERT_DIR", *PROXIES, *WINDOWS}
+    )
+    INSTRUCTION_FILES = ("AGENTS.md", "AGENTS.override.md")
+
+    def __init__(self, folder: Path, user_home: Path | None = None) -> None:
+        self.folder = folder
+        self._user_home = user_home
+
+    @classmethod
+    def default(cls) -> CodexHome:
+        return cls(Path(user_data_dir(STATE_DIR_NAME, appauthor=False)) / "codex")
+
+    def prepare(self, codex: Path) -> Path:
+        """Writes the config for this Codex and returns the real file to start. Codex starts its own file again inside
+        the sandbox to read its instructions, so the folder of that real file, and nothing wider, is readable there.
+        A path that can't be let in safely leaves the strict config without that folder and is refused."""
+        program = Path(os.path.realpath(codex))
+        try:
+            config = self.config_for(program)
+        except UnsafeCodexPath:
+            self._write(self.strict_config())
+            raise
+        self._write(config)
+        return program
+
+    def program_for_version(self, codex: Path) -> Path:
+        """`codex --version` needs no sandbox: a home that can't be prepared still lets the version be asked, and the
+        tool guard then refuses with the reason."""
+        try:
+            return self.prepare(codex)
+        except (UnsafeCodexPath, OSError):
+            return Path(os.path.realpath(codex))
+
+    def config_for(self, program: Path) -> str:
+        folder = program.parent
+        if any(unicodedata.category(character) in ("Cc", "Cs") for character in str(folder)):
+            raise UnsafeCodexPath(self.UNWRITABLE_PATH)
+        if self._too_wide(folder):
+            raise UnsafeCodexPath(
+                f"Codex is installed right in {folder}; What To Do would have to let the model read that whole folder, "
+                "so reinstall Codex with its installer or Homebrew"
+            )
+        entry = f'{self._toml_string(str(folder))} = "read"\n'
+        return self.strict_config().replace(self.MINIMAL_READ, self.MINIMAL_READ + entry)
+
+    @classmethod
+    def strict_config(cls, platform: str = sys.platform) -> str:
+        """On macOS `:minimal` also lets in the shared temporary folders, where other programs leave files. On Linux and
+        Windows, development platforms only, the temporary folder is /tmp itself and holds Codex's working folder, so
+        Codex fails to start without it."""
+        if platform != "darwin":
+            return cls.CONFIG
+        return cls.CONFIG.replace(cls.MINIMAL_READ, cls.MINIMAL_READ + cls.SHARED_TEMP_DENIED)
+
+    def _too_wide(self, folder: Path) -> bool:
+        user_home = Path(os.path.realpath(self._user_home or Path.home()))
+        return folder == Path(folder.anchor) or user_home.is_relative_to(folder)
+
+    @staticmethod
+    def _toml_string(text: str) -> str:
+        return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    def _write(self, config: str) -> None:
+        self.folder.mkdir(parents=True, exist_ok=True)
+        target = self.folder / "config.toml"
+        try:
+            if target.read_text(encoding="utf-8") == config:
+                return
+        except OSError:
+            pass
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=self.folder, prefix="config.toml.", delete=False) as draft:
+            draft.write(config)
+        os.replace(draft.name, target)
+
+    def instruction_files(self) -> list[Path]:
+        """Codex hands the model the AGENTS files of its home: the app's calls must have none."""
+        return [path for path in (self.folder / name for name in self.INSTRUCTION_FILES) if path.exists()]
+
+    def environ(self, base: Mapping[str, str]) -> dict[str, str]:
+        """Only what a program needs to run and reach the network: keys, tokens and Codex overrides in the
+        app's own environment never reach Codex. Every start of Codex by the app uses this."""
+        kept = {name: value for name, value in base.items() if self._allowed(name)}
+        return {**kept, self.VARIABLE: str(self.folder)}
+
+    @classmethod
+    def _allowed(cls, name: str) -> bool:
+        return name.upper() in cls.ALLOWED_VARIABLES or name.startswith("LC_")
+
+
+class ReadsCannotBeLimited(Exception):
+    """Codex refuses to run the app's profile because it can't keep the model from reading files (Windows)."""
+
+
+class ToolGuard:
+    """The app runs the Codex the user installed, which may be newer than the one tested and bring a tool turned on
+    by default. Before the first call with a given file, `codex debug prompt-input` shows what the model would be
+    given under the app's home; any tool or skills list refuses the calls. No login and no model call are needed.
+
+    A check that gives no answer refuses too and is asked again next time; a clear answer is kept per file."""
+
+    TIMEOUT_S = 20
+    OFFERS_TOOLS = "This Codex version offers tools What To Do cannot turn off; update What To Do"
+    CANNOT_CHECK = "What To Do could not check that Codex has no tools; try again, or update Codex"
+    CANNOT_LIMIT_READS = "Codex can't limit file access on Windows; use Claude there"
+    READS_UNLIMITED_MARKER = "cannot enforce split filesystem read restrictions"
+    SKILLS_MARKER = "<skills_instructions>"
+    KNOWN_ITEMS = frozenset({"message"})
+
+    @staticmethod
+    def instructions_refusal(path: Path) -> str:
+        return f"Codex would give the model the instructions in {path}; move that file away so What To Do can use Codex"
+
+    def __init__(self, home: CodexHome, run: Callable[[Path, Mapping[str, str]], str | None] | None = None) -> None:
+        self._home = home
+        self._run = run or self._prompt_input
+        self._verdicts: dict[tuple[Path, int], str | None] = {}
+        self._lock = threading.Lock()
+
+    def check(self, codex: Path) -> str | None:
+        with self._lock:
+            try:
+                resolved = codex.resolve()
+                key = (resolved, resolved.stat().st_mtime_ns)
+            except OSError:
+                return self.CANNOT_CHECK
+            try:
+                program = self._home.prepare(resolved)
+                instructions = self._home.instruction_files()
+            except UnsafeCodexPath as error:
+                return str(error)
+            except OSError:
+                return self.CANNOT_CHECK
+            if instructions:
+                return self.instructions_refusal(instructions[0])
+            if key in self._verdicts:
+                return self._verdicts[key]
+            try:
+                verdict = self.refusal(self._run(program, self._home.environ(os.environ)))
+            except ReadsCannotBeLimited:
+                verdict = self.CANNOT_LIMIT_READS
+            if verdict != self.CANNOT_CHECK:
+                self._verdicts[key] = verdict
+            return verdict
+
+    @classmethod
+    def refusal(cls, output: str | None) -> str | None:
+        try:
+            given = json.loads(output or "")
+        except ValueError:
+            return cls.CANNOT_CHECK
+        if not isinstance(given, list) or not given:
+            return cls.CANNOT_CHECK
+        if any(not isinstance(item, dict) or item.get("type") not in cls.KNOWN_ITEMS for item in given):
+            return cls.OFFERS_TOOLS
+        if cls._offers_tools(given) or any(cls.SKILLS_MARKER in text for text in cls._texts(given)):
+            return cls.OFFERS_TOOLS
+        return None
+
+    @classmethod
+    def _offers_tools(cls, item: object) -> bool:
+        if isinstance(item, dict):
+            tools = item.get("tools")
+            if isinstance(tools, list) and tools:
+                return True
+            return any(cls._offers_tools(value) for value in item.values())
+        if isinstance(item, list):
+            return any(cls._offers_tools(value) for value in item)
+        return False
+
+    @classmethod
+    def _texts(cls, item: object) -> Iterator[str]:
+        if isinstance(item, str):
+            yield item
+        elif isinstance(item, dict):
+            for value in item.values():
+                yield from cls._texts(value)
+        elif isinstance(item, list):
+            for value in item:
+                yield from cls._texts(value)
+
+    def _prompt_input(self, codex: Path, environ: Mapping[str, str]) -> str | None:
+        with tempfile.TemporaryDirectory(prefix="what-to-do-codex-check-") as empty:
+            try:
+                done = subprocess.run(
+                    [str(codex), "debug", "prompt-input", "x"],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.TIMEOUT_S,
+                    stdin=subprocess.DEVNULL,
+                    cwd=empty,
+                    env=dict(environ),
+                )
+            except (OSError, subprocess.SubprocessError):
+                return None
+        if done.returncode != 0 and self.READS_UNLIMITED_MARKER in done.stderr:
+            raise ReadsCannotBeLimited(done.stderr)
+        return done.stdout if done.returncode == 0 else None

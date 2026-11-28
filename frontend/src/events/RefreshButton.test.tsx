@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { createApi, type ClaudeSignIn, type RefreshStatus } from "../api/client";
+import { createApi, type ClaudeSignIn, type CodexSignIn, type LlmProvider, type RefreshStatus, type Settings } from "../api/client";
 import { ApiContext } from "../api/queries";
 import { RefreshButton } from "./RefreshButton";
 
@@ -27,7 +27,7 @@ function finished(overrides: Partial<RefreshStatus>): RefreshStatus {
     posts_read: 0,
     events_touched: 0,
     errors: [],
-    claude_unavailable: false,
+    reader_unavailable: false, reader: null, reader_error: null,
     running: false,
     ...overrides,
   };
@@ -36,10 +36,16 @@ function finished(overrides: Partial<RefreshStatus>): RefreshStatus {
 const SIGNED_OUT: ClaudeSignIn = { state: "signed_out", hint: SIGN_IN, signing_in: false, page_url: null, error: null, version: "2.1.325", minimum: "2.1.321", update_command: "claude update" };
 const PAGE = "https://claude.com/cai/oauth/authorize?code=true";
 
-function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<ClaudeSignIn>) = SIGNED_OUT) {
+const CODEX_SIGN_IN = "Sign in to ChatGPT in What To Do to read posts with Codex";
+const CODEX_SIGNED_OUT: CodexSignIn = { ...SIGNED_OUT, hint: CODEX_SIGN_IN, version: "0.172.0", minimum: "0.172.0", update_command: "codex update", message: null };
+const OFFERS_TOOLS = "This Codex version offers tools What To Do cannot turn off; update What To Do";
+
+function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<ClaudeSignIn>) = SIGNED_OUT, provider: LlmProvider = "claude", codexSignIn: CodexSignIn = CODEX_SIGNED_OUT) {
   const api = createApi("");
   vi.spyOn(api, "refreshStatus").mockResolvedValue(progress);
-  vi.spyOn(api, "claudeSignIn").mockImplementation(typeof signIn === "function" ? signIn : async () => signIn);
+  vi.spyOn(api, "settings").mockResolvedValue({ llm_provider: provider } as Settings);
+  const codex = vi.spyOn(api, "codexSignIn").mockResolvedValue(codexSignIn);
+  const claude = vi.spyOn(api, "claudeSignIn").mockImplementation(typeof signIn === "function" ? signIn : async () => signIn);
   const view = typeof signIn === "function" ? SIGNED_OUT : signIn;
   const start = vi.spyOn(api, "startClaudeSignIn").mockResolvedValue({ ...view, signing_in: true, page_url: PAGE });
   const submit = vi.spyOn(api, "submitClaudeSignInCode").mockResolvedValue({ ...view, signing_in: true, page_url: PAGE });
@@ -51,12 +57,12 @@ function setup(progress: RefreshStatus, signIn: ClaudeSignIn | (() => Promise<Cl
       </QueryClientProvider>
     </ApiContext.Provider>,
   );
-  return { start, submit, refresh };
+  return { start, submit, refresh, codex, claude };
 }
 
 describe("refresh errors", () => {
   it("offers to sign in to Claude instead of the raw error", async () => {
-    setup(finished({ errors: ["Кафана: couldn't read it", SIGN_IN], claude_unavailable: true }));
+    setup(finished({ errors: ["Кафана: couldn't read it"], reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }));
 
     const note = await screen.findByRole("alert");
     expect(note).toHaveTextContent("Sign in to Claude to read the posts");
@@ -68,7 +74,7 @@ describe("refresh errors", () => {
   });
 
   it("signs in through the browser and takes the code when the browser didn't open", async () => {
-    const { start, submit } = setup(finished({ claude_unavailable: true }));
+    const { start, submit } = setup(finished({ reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Sign in to Claude" }));
 
@@ -82,21 +88,21 @@ describe("refresh errors", () => {
   });
 
   it("says why the pasted code didn't work", async () => {
-    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
+    setup(finished({ reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, signing_in: true, page_url: PAGE, error: "Invalid code. Please make sure the full code was copied." });
 
     expect(await screen.findByText("Invalid code. Please make sure the full code was copied.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open the sign-in page" })).toBeTruthy();
   });
 
   it("says when the sign-in is done", async () => {
-    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
+    setup(finished({ reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, state: "signed_in" });
 
     expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
   });
 
   it("explains a read that failed before Claude Code got ready during the refresh", async () => {
-    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), { ...SIGNED_OUT, state: "signed_in" });
+    setup(finished({ reader_error: "Install Claude Code: What To Do needs it to read posts", reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, state: "signed_in" });
 
     expect(await screen.findByText("Signed in to Claude")).toBeTruthy();
     expect(screen.getByText("Press Refresh to read the posts.")).toBeTruthy();
@@ -104,13 +110,13 @@ describe("refresh errors", () => {
   });
 
   it("tells why the last sign-in failed", async () => {
-    setup(finished({ claude_unavailable: true }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
+    setup(finished({ reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, error: "Login failed: That code wasn't accepted." });
 
     expect(await screen.findByText("Login failed: That code wasn't accepted.")).toBeTruthy();
   });
 
   it("says how to install Claude Code instead of the raw error", async () => {
-    setup(finished({ errors: ["Кафана: couldn't read it", "Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), {
+    setup(finished({ errors: ["Кафана: couldn't read it"], reader_error: "Install Claude Code: What To Do needs it to read posts", reader_unavailable: true, reader: "claude" }), {
       ...SIGNED_OUT,
       state: "not_installed",
       version: null,
@@ -123,7 +129,7 @@ describe("refresh errors", () => {
   });
 
   it("says how to update Claude Code instead of the raw error", async () => {
-    setup(finished({ errors: ["Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer"], claude_unavailable: true }), {
+    setup(finished({ reader_error: "Update Claude Code: you have 2.1.200, What To Do needs 2.1.321 or newer", reader_unavailable: true, reader: "claude" }), {
       ...SIGNED_OUT,
       state: "too_old",
       version: "2.1.200",
@@ -134,7 +140,7 @@ describe("refresh errors", () => {
   });
 
   it("keeps the backend's line when it can't tell whether Claude Code is there", async () => {
-    setup(finished({ errors: ["Install Claude Code: What To Do needs it to read posts"], claude_unavailable: true }), () => Promise.reject(new Error("offline")));
+    setup(finished({ reader_error: "Install Claude Code: What To Do needs it to read posts", reader_unavailable: true, reader: "claude" }), () => Promise.reject(new Error("offline")));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Install Claude Code: What To Do needs it to read posts");
     expect(screen.queryByRole("alert")).toBeNull();
@@ -142,11 +148,11 @@ describe("refresh errors", () => {
 
   it("offers to sign in once Claude Code is installed and the next refresh ends, without a restart", async () => {
     let signIn: ClaudeSignIn = { ...SIGNED_OUT, state: "not_installed", version: null, update_command: null };
-    const { refresh } = setup(finished({ claude_unavailable: true }), async () => signIn);
+    const { refresh } = setup(finished({ reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }), async () => signIn);
     expect(await screen.findByText("Install Claude Code to read the posts")).toBeTruthy();
 
     signIn = SIGNED_OUT;
-    refresh.mockResolvedValue(finished({ finished_at: "2026-11-16T11:00:00Z", errors: [SIGN_IN], claude_unavailable: true }));
+    refresh.mockResolvedValue(finished({ finished_at: "2026-11-16T11:00:00Z", reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }));
     fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
 
     expect(await screen.findByText("Sign in to Claude to read the posts")).toBeTruthy();
@@ -159,5 +165,114 @@ describe("refresh errors", () => {
     const errors = await screen.findByRole("status");
     expect(errors.querySelector("code")).toHaveTextContent("where-to-go restart");
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("refresh errors with Codex reading", () => {
+  it("offers to sign in to ChatGPT instead of the raw error and never asks Claude Code", async () => {
+    const { claude, codex } = setup(finished({ errors: ["Кафана: couldn't read it"], reader_error: CODEX_SIGN_IN, reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex");
+
+    const note = await screen.findByRole("alert");
+    expect(note).toHaveTextContent("Sign in to ChatGPT to read the posts");
+    expect(screen.getByRole("button", { name: "Sign in to ChatGPT" })).toBeTruthy();
+    expect(screen.getByRole("status")).toHaveTextContent("Кафана: couldn't read it");
+    expect(screen.getByRole("status")).not.toHaveTextContent(CODEX_SIGN_IN);
+    expect(codex).toHaveBeenCalled();
+    expect(claude).not.toHaveBeenCalled();
+  });
+
+  it("says how to install Codex instead of the raw error", async () => {
+    setup(finished({ reader_error: "Install Codex: What To Do needs it to read posts", reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", {
+      ...CODEX_SIGNED_OUT,
+      state: "not_installed",
+      version: null,
+      update_command: null,
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Install Codex to read the posts");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("says how to update Codex instead of the raw error", async () => {
+    setup(finished({ reader_error: "Update Codex: you have 0.150.0, What To Do needs 0.172.0 or newer", reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", {
+      ...CODEX_SIGNED_OUT,
+      state: "too_old",
+      version: "0.150.0",
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Update Codex to read the posts");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it.each([
+    OFFERS_TOOLS,
+    "Codex is installed right in /usr/local; What To Do would have to let the model read that whole folder, so reinstall Codex with its installer or Homebrew",
+    "Codex is installed at a path What To Do cannot put into its settings safely; reinstall Codex with its installer or Homebrew",
+    "Codex can't limit file access on Windows; use Claude there",
+  ])("says once why Codex is refused: %s", async (refusal) => {
+    setup(finished({ reader_error: refusal, reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "refused", message: refusal });
+
+    const box = await screen.findByRole("alert");
+    expect(box).toHaveTextContent("Codex can’t be used safely");
+    expect(screen.getAllByText(refusal)).toHaveLength(1);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the plan limit as a plain note without asking Codex", async () => {
+    const { codex } = setup(finished({ errors: ["ChatGPT plan limit reached, resets at 18:40"], reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "signed_in" });
+
+    expect(await screen.findByRole("status")).toHaveTextContent("ChatGPT plan limit reached, resets at 18:40");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Sign in/ })).toBeNull();
+    expect(screen.queryByText("Signed in to ChatGPT")).toBeNull();
+    expect(codex).not.toHaveBeenCalled();
+  });
+
+  it("keeps the line about a tool Codex tried to use without asking Codex", async () => {
+    const skipped = "Codex tried to use a tool while reading 3 posts; they were skipped";
+    const { codex } = setup(finished({ errors: [skipped] }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "signed_in" });
+
+    expect(await screen.findByRole("status")).toHaveTextContent(skipped);
+    expect(screen.queryByText("Signed in to ChatGPT")).toBeNull();
+    expect(codex).not.toHaveBeenCalled();
+  });
+
+  it("names the reader from the settings when the refresh doesn't say whose it was", async () => {
+    const { claude } = setup(finished({ reader_error: CODEX_SIGN_IN, reader_unavailable: true, reader: null }), SIGNED_OUT, "codex");
+
+    expect(await screen.findByRole("button", { name: "Sign in to ChatGPT" })).toBeTruthy();
+    expect(claude).not.toHaveBeenCalled();
+  });
+
+  it("asks no reader while every read went fine", async () => {
+    const { claude, codex } = setup(finished({ errors: ["Кафана: couldn't read it"] }), SIGNED_OUT, "codex");
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Кафана: couldn't read it");
+    expect(codex).not.toHaveBeenCalled();
+    expect(claude).not.toHaveBeenCalled();
+  });
+
+  it("asks only Claude Code when Claude is the reader that isn't ready", async () => {
+    const { claude, codex } = setup(finished({ reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }), SIGNED_OUT, "codex");
+
+    expect(await screen.findByRole("button", { name: "Sign in to Claude" })).toBeTruthy();
+    expect(claude).toHaveBeenCalled();
+    expect(codex).not.toHaveBeenCalled();
+  });
+
+  it("keeps the backend's line when Codex can't tell whether someone is signed in", async () => {
+    setup(finished({ reader_error: CODEX_SIGN_IN, reader_unavailable: true, reader: "codex" }), SIGNED_OUT, "codex", { ...CODEX_SIGNED_OUT, state: "unknown" });
+
+    expect(await screen.findByRole("status")).toHaveTextContent(CODEX_SIGN_IN);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sign in to ChatGPT" })).toBeNull();
+  });
+
+  it("still offers to sign in to Claude when Claude Code can't tell whether someone is signed in", async () => {
+    setup(finished({ reader_error: SIGN_IN, reader_unavailable: true, reader: "claude" }), { ...SIGNED_OUT, state: "unknown" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sign in to Claude to read the posts");
+    expect(screen.getByRole("button", { name: "Sign in to Claude" })).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

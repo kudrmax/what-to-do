@@ -1,23 +1,26 @@
-import { useClaudeSignInStatus, useRefresh } from "../api/queries";
+import { useReaderSignInStatus, useRefresh, useSettings } from "../api/queries";
 import { useActiveCity } from "../api/useActiveCity";
+import { READERS } from "../domain/readers";
 import { refreshLabel, timeLeft } from "../domain/refresh";
 import { Icon } from "../ui/Icon";
 import { InlineCode } from "../ui/InlineCode";
-import { ClaudeSignIn } from "./ClaudeSignIn";
+import { ReaderSignIn } from "./ReaderSignIn";
 import "./RefreshButton.css";
-
-/** The backend's own lines for Claude Code missing, too old or signed out; the box below replaces them once it knows which. */
-const CLAUDE_UNAVAILABLE_ERRORS = ["Install Claude Code", "Update Claude Code", "Sign in to Claude Code"];
-
-const saysClaudeUnavailable = (error: string) => CLAUDE_UNAVAILABLE_ERRORS.some((start) => error.startsWith(start));
 
 /** Starts a refresh, shows its stage while it runs and what went wrong when it ends. */
 export function RefreshButton() {
   const refresh = useRefresh();
-  const signIn = useClaudeSignInStatus();
-  const claudeUnavailable = !refresh.running && (refresh.status?.claude_unavailable ?? false);
-  const boxShown = claudeUnavailable && signIn.data !== undefined;
-  const errors = (refresh.running ? [] : (refresh.status?.errors ?? [])).filter((error) => !(boxShown && saysClaudeUnavailable(error)));
+  const settings = useSettings();
+  const knownProvider = refresh.status?.reader ?? settings.data?.llm_provider;
+  const provider = knownProvider ?? "claude";
+  const reader = READERS[provider];
+  const finishedErrors = refresh.running ? [] : (refresh.status?.errors ?? []);
+  const readerError = refresh.running ? null : (refresh.status?.reader_error ?? null);
+  const boxWanted = readerError !== null && knownProvider !== undefined;
+  const signIn = useReaderSignInStatus(provider, boxWanted);
+  const boxKnows = boxWanted && signIn.data !== undefined && (reader.boxWhenSignInUnknown || signIn.data.state !== "unknown");
+  const boxShown = reader.boxWhenSignInUnknown ? boxWanted : boxKnows;
+  const errors = readerError !== null && !boxKnows ? [readerError, ...finishedErrors] : finishedErrors;
   const { city } = useActiveCity();
   const label = refresh.running ? refreshLabel(refresh.status) : "Refresh";
   const left = refresh.running ? timeLeft(refresh.status) : null;
@@ -28,7 +31,7 @@ export function RefreshButton() {
         {label}
         {left && <span className="refresh__left">{left}</span>}
       </button>
-      {claudeUnavailable && <ClaudeSignIn />}
+      {boxShown && <ReaderSignIn provider={provider} />}
       {errors.length > 0 && (
         <div className="note refresh__errors" role="status">
           {errors.map((error) => (

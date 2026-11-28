@@ -1,6 +1,6 @@
 import { Icon } from "../ui/Icon";
 
-/** Claude found that the event fits what the user looks for first (the wish in settings). */
+/** The reader found that the event fits what the user looks for first (the wish in settings). */
 export function PriorityBadge() {
   return (
     <span className="badge badge--priority" data-tip="Fits what you look for first">

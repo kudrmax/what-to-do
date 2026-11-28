@@ -1,3 +1,6 @@
+"""The app's settings. The Codex models and efforts default to what the comparison with Claude's reading chose on
+2026-11-28 (spec "Choosing the Codex defaults"): photos Terra low, posts Terra medium, duplicates Luna low."""
+
 from __future__ import annotations
 
 from enum import StrEnum
@@ -9,10 +12,28 @@ from pydantic.fields import FieldInfo
 from where_to_go import prompts
 
 
+class LlmProvider(StrEnum):
+    CLAUDE = "claude"
+    CODEX = "codex"
+
+
 class ClaudeModel(StrEnum):
     HAIKU = "claude-haiku-5-5"
     SONNET = "claude-sonnet-5-5"
     OPUS = "claude-opus-5-5"
+
+
+class CodexModel(StrEnum):
+    LUNA = "gpt-6-luna"
+    TERRA = "gpt-6.1-terra"
+    SOL = "gpt-6.2-sol"
+    ASTRA = "gpt-6.2-astra"
+
+
+class CodexEffort(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
 
 class AppSettings(BaseModel):
@@ -30,7 +51,7 @@ class AppSettings(BaseModel):
     priority_wish: str = Field(
         default="",
         max_length=2000,
-        description="What the user looks for first, in their own words, in every city. While reading posts Claude flags the events "
+        description="What the user looks for first, in their own words, in every city. While reading posts the reader flags the events "
         "that fit it; empty: nothing is flagged",
     )
     collections_enabled: bool = Field(
@@ -39,14 +60,24 @@ class AppSettings(BaseModel):
     extraction_prompt: str = Field(
         default=prompts.EXTRACTION,
         min_length=1,
-        description="Instructions Claude gets for reading posts. Placeholders: "
+        description="Instructions the reader gets for reading posts. Placeholders: "
         + ", ".join("{" + name + "}" for name in prompts.EXTRACTION_PLACEHOLDERS),
     )
-    matching_prompt: str = Field(default=prompts.MATCHING, min_length=1, description="Instructions Claude gets for merging duplicates")
-    photo_prompt: str = Field(default=prompts.PHOTOS, min_length=1, description="Instructions Claude gets for transcribing post photos")
+    matching_prompt: str = Field(default=prompts.MATCHING, min_length=1, description="Instructions the reader gets for merging duplicates")
+    photo_prompt: str = Field(default=prompts.PHOTOS, min_length=1, description="Instructions the reader gets for transcribing post photos")
     photo_model: ClaudeModel = Field(default=ClaudeModel.SONNET, description="Transcribes post photos; Haiku misreads tables and collages")
     extraction_model: ClaudeModel = Field(default=ClaudeModel.SONNET, description="Reads posts into events and places")
     matching_model: ClaudeModel = Field(default=ClaudeModel.HAIKU, description="Merges duplicate announcements")
+    llm_provider: LlmProvider = Field(
+        default=LlmProvider.CLAUDE,
+        description="Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models",
+    )
+    codex_photo_model: CodexModel = Field(default=CodexModel.TERRA, description="Transcribes post photos when Codex reads")
+    codex_photo_effort: CodexEffort = Field(default=CodexEffort.LOW, description="How long Codex thinks over post photos")
+    codex_extraction_model: CodexModel = Field(default=CodexModel.TERRA, description="Reads posts into events and places when Codex reads")
+    codex_extraction_effort: CodexEffort = Field(default=CodexEffort.MEDIUM, description="How long Codex thinks over posts")
+    codex_matching_model: CodexModel = Field(default=CodexModel.LUNA, description="Merges duplicate announcements when Codex reads")
+    codex_matching_effort: CodexEffort = Field(default=CodexEffort.LOW, description="How long Codex thinks over duplicates")
 
     @field_validator("priority_wish")
     @classmethod

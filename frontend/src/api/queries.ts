@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 
 import { CardCache, keepUnchangedCards } from "./cardCache";
-import type { Api, CityChange, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange, TagVisibility } from "./client";
+import type { Api, CityChange, LlmProvider, ReaderSignIn, EventCard, FeedQuery, InstagramReading, Mark, NewCity, NewSource, Occurrence, PhonePage, PhonePageRequest, SettingsChange, SourceKind, SourceStatus, Tag, TagChange, TagVisibility } from "./client";
 
 export const ApiContext = createContext<Api | null>(null);
 
@@ -25,6 +25,7 @@ const keys = {
   refresh: ["refresh"],
   retag: ["tags", "retag"],
   claudeSignIn: ["claude-sign-in"],
+  codexSignIn: ["codex-sign-in"],
   stats: ["stats"],
   phonePage: ["phone-page"],
 } satisfies Record<string, QueryKey>;
@@ -207,23 +208,31 @@ export function useRefresh() {
   return { status: status.data, running: (status.data?.running ?? false) || start.isPending, start: () => start.mutate() };
 }
 
-/** Whether Claude Code is installed, new enough and signed in; polls while the browser has the sign-in page. */
-export function useClaudeSignInStatus() {
+/** Where each reader's sign-in state lives and how a sign-in from the app starts. */
+const SIGN_IN: Record<LlmProvider, { key: QueryKey; load: (api: Api) => Promise<ReaderSignIn>; start: (api: Api) => Promise<ReaderSignIn> }> = {
+  claude: { key: keys.claudeSignIn, load: (api) => api.claudeSignIn(), start: (api) => api.startClaudeSignIn() },
+  codex: { key: keys.codexSignIn, load: (api) => api.codexSignIn(), start: (api) => api.startCodexSignIn() },
+};
+
+/** Whether the reader is installed, new enough, safe and signed in; polls while the browser has the sign-in page.
+ * Asked only when enabled: asking Codex starts its server. */
+export function useReaderSignInStatus(reader: LlmProvider, enabled = true) {
   const api = useApi();
   return useQuery({
-    queryKey: keys.claudeSignIn,
-    queryFn: () => api.claudeSignIn(),
+    queryKey: SIGN_IN[reader].key,
+    queryFn: () => SIGN_IN[reader].load(api),
+    enabled,
     refetchInterval: (query) => (query.state.data?.signing_in ? 2000 : false),
   });
 }
 
-/** Signing in to Claude from the app. */
-export function useClaudeSignIn() {
+/** Signing in to the reader from the app; only Claude's sign-in page hands back a code to paste. */
+export function useReaderSignIn(reader: LlmProvider) {
   const api = useApi();
   const client = useQueryClient();
-  const status = useClaudeSignInStatus();
-  const update = (data: Awaited<ReturnType<Api["claudeSignIn"]>>) => client.setQueryData(keys.claudeSignIn, data);
-  const start = useMutation({ mutationFn: () => api.startClaudeSignIn(), onSuccess: update });
+  const status = useReaderSignInStatus(reader);
+  const update = (data: ReaderSignIn) => client.setQueryData(SIGN_IN[reader].key, data);
+  const start = useMutation({ mutationFn: () => SIGN_IN[reader].start(api), onSuccess: update });
   const submit = useMutation({ mutationFn: (code: string) => api.submitClaudeSignInCode(code), onSuccess: update });
   return {
     status: status.data,

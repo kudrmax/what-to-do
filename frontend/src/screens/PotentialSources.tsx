@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { PotentialSource, PotentialSourceOrigin } from "../api/client";
 import { useAdoptPotentialSource, useMarkPotentialSource, usePotentialSources } from "../api/queries";
+import { useReader } from "../api/useReader";
 import { ago, plural } from "../domain/dates";
 import { errorText } from "../ui/errors";
 import { Icon } from "../ui/Icon";
@@ -17,6 +18,7 @@ const VIA = {
 
 export function PotentialSources() {
   const found = usePotentialSources();
+  const reader = useReader();
   const all = found.data ?? [];
   const waiting = all.filter((p) => !p.processed);
   const processed = all.filter((p) => p.processed);
@@ -33,7 +35,7 @@ export function PotentialSources() {
             ))}
           </ul>
         ) : (
-          <p className="muted">{processed.length ? "No new channels." : "Nothing yet. They turn up during a refresh, when Claude reads posts."}</p>
+          <p className="muted">{processed.length ? "No new channels." : `Nothing yet. They turn up during a refresh, when ${reader.name} reads posts.`}</p>
         )}
         {processed.length > 0 && (
           <details className="potential__processed">

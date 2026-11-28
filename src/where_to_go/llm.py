@@ -2,38 +2,91 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import re
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
 from where_to_go.claude_login import SIGN_IN_HINT, ClaudeCliEnvironment, ClaudeLogin, unavailable_hint
+from where_to_go.codex_login import CODEX_SIGN_IN_HINT, codex_unavailable_hint
 from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
+from where_to_go.settings import LlmProvider
 
 
 class LlmError(Exception):
     pass
 
 
-class ClaudeNotReadyError(LlmError):
-    """Every call fails the same way until the user fixes Claude Code, so it is said once."""
+class ReaderNotReadyError(LlmError):
+    """Every call fails the same way until the user fixes the reader (Claude Code or Codex), so it is said once.
+
+    The box under Refresh explains it and offers the fix, unless box_explains says the box has nothing to offer."""
+
+    provider: ClassVar[LlmProvider | None] = None
+    box_explains: ClassVar[bool] = True
 
 
-class ClaudeSignedOutError(ClaudeNotReadyError):
+class ClaudeSignedOutError(ReaderNotReadyError):
+    provider = LlmProvider.CLAUDE
+
     def __init__(self) -> None:
         super().__init__(SIGN_IN_HINT)
 
 
-class ClaudeUnavailableError(ClaudeNotReadyError):
+class ClaudeUnavailableError(ReaderNotReadyError):
+    provider = LlmProvider.CLAUDE
+
     def __init__(self, found: FoundCli) -> None:
         super().__init__(unavailable_hint(found))
         self.found = found
 
 
+class CodexSignedOutError(ReaderNotReadyError):
+    provider = LlmProvider.CODEX
+
+    def __init__(self) -> None:
+        super().__init__(CODEX_SIGN_IN_HINT)
+
+
+class CodexUnavailableError(ReaderNotReadyError):
+    provider = LlmProvider.CODEX
+
+    def __init__(self, found: FoundCli) -> None:
+        super().__init__(codex_unavailable_hint(found))
+        self.found = found
+
+
+class CodexRefusedError(ReaderNotReadyError):
+    """The tool guard found something the model could act with: no post is sent."""
+
+    provider = LlmProvider.CODEX
+
+
+class CodexToolAttemptError(LlmError):
+    """The model reached for a tool while reading: that call's answer is dropped, the other calls go on."""
+
+    MESSAGE = "Codex tried to use a tool"
+
+    def __init__(self) -> None:
+        super().__init__(self.MESSAGE)
+
+
+class PlanLimitError(ReaderNotReadyError):
+    provider = LlmProvider.CODEX
+    box_explains = False
+    MESSAGE = "ChatGPT plan limit reached"
+    RESET = re.compile(r"try again at (?P<time>.+?)(?=\.\s|\.?\s*$)", re.IGNORECASE | re.MULTILINE)
+
+    def __init__(self, codex_message: str = "") -> None:
+        reset = self.RESET.search(codex_message)
+        super().__init__(f"{self.MESSAGE}, resets at {reset['time'].strip()}" if reset else self.MESSAGE)
+
+
 @dataclass(frozen=True)
 class LlmImage:
-    """A picture Claude looks at, introduced by a caption that names it in the prompt."""
+    """A picture the reader looks at, introduced by a caption that names it in the prompt."""
 
     caption: str
     media_type: str
@@ -44,6 +97,20 @@ class JsonLlm(Protocol):
     async def complete_json(
         self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
     ) -> dict[str, Any]: ...
+
+
+class ProviderJsonLlm:
+    """One step's reader: hands each call to the Claude or the Codex reader of that step, whichever is chosen
+    when the call starts, so switching the provider applies to the next call and never splits one."""
+
+    def __init__(self, provider: Callable[[], LlmProvider], claude: JsonLlm, codex: JsonLlm) -> None:
+        self._provider = provider
+        self._readers: dict[LlmProvider, JsonLlm] = {LlmProvider.CLAUDE: claude, LlmProvider.CODEX: codex}
+
+    async def complete_json(
+        self, system: str, prompt: str, schema: dict[str, Any], images: Sequence[LlmImage] = ()
+    ) -> dict[str, Any]:
+        return await self._readers[self._provider()].complete_json(system, prompt, schema, images)
 
 
 class ClaudeJsonLlm:

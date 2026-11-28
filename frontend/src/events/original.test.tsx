@@ -47,7 +47,7 @@ function viewer(onClose = vi.fn()) {
 }
 
 describe("photo viewer", () => {
-  it("shows each photo with the text Claude read on it", () => {
+  it("shows each photo with the text read on it", () => {
     viewer();
     expect(screen.getByText("Photo 1 of 3")).toBeTruthy();
     expect(screen.getByText(/ВС, 22.11/)).toBeTruthy();

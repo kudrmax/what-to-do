@@ -7,13 +7,12 @@ import subprocess
 import tempfile
 import threading
 from collections.abc import Mapping
-from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path
 from typing import IO
 
 from where_to_go.installed_cli import CliStatus, FoundCli, InstalledCli
 from where_to_go.launcher.tools import Tools
+from where_to_go.reader_sign_in import ReaderSignIn, SignInProgress
 
 CLAUDE_INSTALL_COMMAND = "curl -fsSL https://claude.ai/install.sh | bash"
 SIGN_IN_HINT = "Sign in to Claude Code: run `claude` in a terminal and type /login"
@@ -67,14 +66,6 @@ def unavailable_hint(found: FoundCli) -> str:
     return f"Update Claude Code: you have {found.version or 'an unknown version'}, What To Do needs {found.minimum} or newer"
 
 
-class ClaudeSignIn(StrEnum):
-    SIGNED_IN = "signed_in"
-    SIGNED_OUT = "signed_out"
-    UNKNOWN = "unknown"
-    NOT_INSTALLED = "not_installed"
-    TOO_OLD = "too_old"
-
-
 class ClaudeLogin:
     """Whether the Claude Code login the app calls Claude through is there.
 
@@ -84,17 +75,17 @@ class ClaudeLogin:
     TIMEOUT_S = 15
     # What the CLI answers a call with when nobody is logged in.
     SIGNED_OUT_MARKERS = ("not logged in", "please run /login", "invalid api key", "oauth token has expired")
-    UNAVAILABLE = {CliStatus.MISSING: ClaudeSignIn.NOT_INSTALLED, CliStatus.TOO_OLD: ClaudeSignIn.TOO_OLD}
+    UNAVAILABLE = {CliStatus.MISSING: ReaderSignIn.NOT_INSTALLED, CliStatus.TOO_OLD: ReaderSignIn.TOO_OLD}
 
     def __init__(self, cli: InstalledCli) -> None:
         self._cli = cli
 
-    def check(self) -> ClaudeSignIn:
+    def check(self) -> ReaderSignIn:
         return self.state_of(self._cli.find())
 
-    def state_of(self, found: FoundCli) -> ClaudeSignIn:
+    def state_of(self, found: FoundCli) -> ReaderSignIn:
         if found.status is not CliStatus.READY or found.path is None:
-            return self.UNAVAILABLE.get(found.status, ClaudeSignIn.UNKNOWN)
+            return self.UNAVAILABLE.get(found.status, ReaderSignIn.UNKNOWN)
         environ = ClaudeCliEnvironment.cleaned(os.environ)
         try:
             completed = subprocess.run(
@@ -102,22 +93,15 @@ class ClaudeLogin:
             )
             answer = json.loads(completed.stdout)
         except (OSError, subprocess.TimeoutExpired, ValueError):
-            return ClaudeSignIn.UNKNOWN
+            return ReaderSignIn.UNKNOWN
         if not isinstance(answer, dict) or not isinstance(answer.get("loggedIn"), bool):
-            return ClaudeSignIn.UNKNOWN
-        return ClaudeSignIn.SIGNED_IN if answer["loggedIn"] else ClaudeSignIn.SIGNED_OUT
+            return ReaderSignIn.UNKNOWN
+        return ReaderSignIn.SIGNED_IN if answer["loggedIn"] else ReaderSignIn.SIGNED_OUT
 
     @classmethod
     def means_signed_out(cls, message: str) -> bool:
         lowered = message.lower()
         return any(marker in lowered for marker in cls.SIGNED_OUT_MARKERS)
-
-
-@dataclass(frozen=True)
-class SignInProgress:
-    running: bool
-    page_url: str | None
-    error: str | None
 
 
 class ClaudeSignInFlow:

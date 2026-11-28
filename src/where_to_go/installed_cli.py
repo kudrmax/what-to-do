@@ -44,12 +44,14 @@ class InstalledCli:
         extra_dirs: Callable[[], list[Path]],
         environ: Mapping[str, str] = os.environ,
         run_version: Callable[[Path], str | None] | None = None,
+        program_for: Callable[[Path], Path] = lambda path: path,
     ) -> None:
         self._name = name
         self._minimum = minimum
         self._extra_dirs = extra_dirs
         self._environ = environ
         self._run_version = run_version or self._ask_version
+        self._program_for = program_for
         self._versions: dict[tuple[Path, int], str] = {}
         self._versions_lock = threading.Lock()
 
@@ -94,7 +96,7 @@ class InstalledCli:
     def _ask_version(self, path: Path) -> str | None:
         try:
             done = subprocess.run(
-                [str(path), "--version"],
+                [str(self._program_for(path)), "--version"],
                 capture_output=True,
                 text=True,
                 timeout=self.VERSION_TIMEOUT_S,

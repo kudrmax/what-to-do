@@ -14,7 +14,7 @@ from pydantic import computed_field
 from sqlmodel import Field, SQLModel
 
 from where_to_go.extraction import TagList
-from where_to_go.llm import ClaudeNotReadyError, JsonLlm, LlmError
+from where_to_go.llm import JsonLlm, LlmError, ReaderNotReadyError
 from where_to_go.models import Event, EventKind, Public
 from where_to_go.repositories import CityRepository, EventRepository, TagRepository
 from where_to_go.resolution import MAX_TAGS
@@ -146,14 +146,16 @@ class RetagService:
 
     async def _run(self, batches: list[list[Event]], cancel: anyio.CancelScope) -> None:
         limit = asyncio.Semaphore(self.CONCURRENCY)
+        reasons_said: set[type[ReaderNotReadyError]] = set()
 
         async def one(batch: list[Event]) -> None:
             async with limit:
                 try:
                     changed = await self._retagger.retag(batch)
                     self.progress.cards_changed += changed
-                except ClaudeNotReadyError as error:
-                    if str(error) not in self.progress.errors:
+                except ReaderNotReadyError as error:
+                    if type(error) not in reasons_said:
+                        reasons_said.add(type(error))
                         self.progress.errors.append(str(error))
                 except LlmError as error:
                     self.progress.errors.append(f"Couldn't re-tag {len(batch)} cards: {error}")

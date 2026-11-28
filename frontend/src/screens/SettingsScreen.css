@@ -384,3 +384,18 @@
   margin-top: 2px;
   color: var(--accent-strong);
 }
+
+.setting-row__control .settings-chips--dense {
+  gap: 4px;
+}
+
+.setting-row__control .settings-chips--dense .chip {
+  padding: 0 6px;
+}
+
+.setting-row__caption {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}

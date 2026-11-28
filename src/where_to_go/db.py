@@ -13,6 +13,8 @@ from sqlmodel import Session, SQLModel, create_engine
 from where_to_go import models  # noqa: F401  (registers the tables)
 from where_to_go.migrations import AFTER_NEW_COLUMN
 
+DATABASE_FILE = "where-to-go.sqlite3"
+
 
 class Database:
     """One SQLite file; the tables are the models."""

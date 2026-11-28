@@ -7,7 +7,7 @@ from enum import StrEnum
 from zoneinfo import ZoneInfo
 
 import anyio
-from pydantic import computed_field
+from pydantic import PrivateAttr, computed_field
 from sqlmodel import Field, SQLModel
 
 from where_to_go.models import ChannelReference, City, CollectedPost, ExtractedEvent, Post, Public, Source, SourceKind
@@ -16,7 +16,8 @@ from where_to_go.frames import VideoFrames
 from where_to_go.images import ImageStore
 from where_to_go.linked_posts import LinkedPosts
 from where_to_go.linking import Atomically, EventLinker, PostMentions
-from where_to_go.llm import ClaudeNotReadyError, LlmError
+from where_to_go.llm import CodexToolAttemptError, LlmError, ReaderNotReadyError
+from where_to_go.settings import LlmProvider
 from where_to_go.photos import PhotoTranscriber
 from where_to_go.sources import PotentialSources
 from where_to_go.repositories import (
@@ -69,13 +70,24 @@ class RefreshProgress(Public):
     announcements_to_merge: int = Field(default=0, description="Announcements of this refresh to place on cards")
     announcements_merged: int = 0
     new_posts: int = Field(default=0, description="Posts downloaded in this refresh")
-    photos_to_read: int = Field(default=0, description="Photos Claude transcribes in this refresh")
+    photos_to_read: int = Field(default=0, description="Photos the reader transcribes in this refresh")
     photos_read: int = 0
-    posts_to_read: int = Field(default=0, description="Posts Claude reads in this refresh")
+    posts_to_read: int = Field(default=0, description="Posts the reader reads in this refresh")
     posts_read: int = 0
     events_touched: int = Field(default=0, description="Cards created or updated")
     errors: list[str] = Field(default_factory=list, description="Human-readable, ready to show")
-    claude_unavailable: bool = Field(default=False, description="Claude Code is missing, too old or signed out: nothing was read")
+    reader_unavailable: bool = Field(
+        default=False,
+        description="Some calls failed because the reader was missing, too old, signed out, refused or out of plan limit; "
+        "calls that went through still read their posts",
+    )
+    reader: LlmProvider | None = Field(default=None, description="Whose reader was not ready, when reader_unavailable")
+    reader_error: str | None = Field(
+        default=None,
+        description="Why the reader was not ready, when the box under Refresh explains it; kept out of errors, "
+        "shown as a line only where that box can't be shown",
+    )
+    _reasons_said: set[type[ReaderNotReadyError]] = PrivateAttr(default_factory=set)
 
     @computed_field
     @property
@@ -92,12 +104,20 @@ class RefreshProgress(Public):
     def fetched(self) -> None:
         self.pages_fetched += 1
 
-    def claude_failed(self, error: LlmError, message: str) -> None:
-        """One line per failure, except Claude Code not being ready: it fails every call alike and is said once."""
-        if not isinstance(error, ClaudeNotReadyError):
+    def reader_failed(self, error: LlmError, message: str) -> None:
+        """One line per failure, except the reader not being ready: it fails every call alike, so each reason is said once."""
+        if not isinstance(error, ReaderNotReadyError):
             self.errors.append(message)
-        elif not self.claude_unavailable:
-            self.claude_unavailable = True
+            return
+        if not self.reader_unavailable:
+            self.reader_unavailable = True
+            self.reader = error.provider
+        if type(error) in self._reasons_said:
+            return
+        self._reasons_said.add(type(error))
+        if error.box_explains and self.reader_error is None:
+            self.reader_error = str(error)
+        else:
             self.errors.append(str(error))
 
 
@@ -307,7 +327,7 @@ class RefreshService:
             self.progress.announcements_to_merge = len(unassigned)
             self.progress.events_touched = len(await self._linker.link(city.id, unassigned, self._merged))
         except LlmError as error:
-            self.progress.claude_failed(error, f"Couldn't merge events: {error}")
+            self.progress.reader_failed(error, f"Couldn't merge events: {error}")
         self._sources.recount_events(self._events)
 
     def _merged(self, count: int) -> None:
@@ -377,16 +397,22 @@ class RefreshService:
         """A post waits for its photos: read without them it would lose what its poster says."""
         try:
             await self._photos.transcribe(batch)
+        except CodexToolAttemptError as error:
+            self.progress.errors.append(f"{error} while reading {_count(len(batch), 'photo')}; their posts will be read next time")
+            return
         except LlmError as error:
-            self.progress.claude_failed(error, f"Claude couldn't read {_count(len(batch), 'photo')}; their posts will be read next time: {error}")
+            self.progress.reader_failed(error, f"Couldn't read {_count(len(batch), 'photo')}; their posts will be read next time: {error}")
             return
         self.progress.photos_read += len(batch)
 
     async def _read(self, batch: list[Post], sources: dict[int, Source], context: ExtractionContext) -> None:
         try:
             await self._post_reader.read(batch, sources, context)
+        except CodexToolAttemptError as error:
+            self.progress.errors.append(f"{error} while reading {_count(len(batch), 'post')}; {'it was' if len(batch) == 1 else 'they were'} skipped")
+            return
         except LlmError as error:
-            self.progress.claude_failed(error, f"Claude couldn't read some of the new posts and pages ({len(batch)}): {error}")
+            self.progress.reader_failed(error, f"Couldn't read some of the new posts and pages ({len(batch)}): {error}")
             return
         self.progress.posts_read += len(batch)
 

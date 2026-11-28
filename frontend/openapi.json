@@ -3,7 +3,7 @@
  "info": {
   "title": "What To Do",
   "description": "\nLocal backend of «What To Do». It reads public Telegram channels, public Instagram profiles and event websites, Claude turns posts into event cards\nand merges the same event announced by several channels into one card.\n\n**First run.** The app starts empty: add a city (`POST /cities`, the first one becomes active),\nadd sources (`POST /sources`): Telegram channels, Instagram profiles or websites, press refresh (`POST /refresh`) and poll `GET /refresh` until `running` is false.\n\n**Active city.** Sources, the feed, places and refresh work with the active city only (`active_city_id` in settings).\nWithout a city these answer 409. Tags and the priority wish are shared by all cities; the card language is each city's own.\n\n**Errors** come as `{\"detail\": \"<text ready to show>\"}`.\n",
-  "version": "1.29.2"
+  "version": "1.30.0"
  },
  "paths": {
   "/settings": {
@@ -1937,6 +1937,48 @@
     }
    }
   },
+  "/codex/sign-in": {
+   "get": {
+    "tags": [
+     "refresh"
+    ],
+    "summary": "Codex Sign In",
+    "description": "Whether Codex is installed, new enough, accepted by the tool check and signed in to ChatGPT, and how a sign-in started here goes.",
+    "operationId": "codex_sign_in_codex_sign_in_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CodexSignInView"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "refresh"
+    ],
+    "summary": "Start Codex Sign In",
+    "description": "Opens the ChatGPT sign-in page in the browser; poll `GET /codex/sign-in` until `state` is signed_in.",
+    "operationId": "start_codex_sign_in_codex_sign_in_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CodexSignInView"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/stats": {
    "get": {
     "tags": [
@@ -2337,7 +2379,7 @@
       "type": "string",
       "maxLength": 2000,
       "title": "Priority Wish",
-      "description": "What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged",
+      "description": "What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged",
       "default": ""
      },
      "collections_enabled": {
@@ -2350,21 +2392,21 @@
       "type": "string",
       "minLength": 1,
       "title": "Extraction Prompt",
-      "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
+      "description": "Instructions the reader gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}",
       "default": "You turn posts from Telegram channels and event pages of websites into event cards for a person who lives in {city} and looks for things to do in person.\n\nFor every post return the events and places it announces. Most posts announce nothing: return empty lists for them.\n\nWhat to keep\n- Offline events that take place in {city}. Drop online events, events in other cities, ads, giveaways, news and reports about events that already happened.\n- A digest post that lists many events becomes one item per event.\n- A place with no date goes to \"places\", never to \"events\".\n- A follow-up about an event announced earlier is an item too: a post that adds details (update_kind \"details\"), moves it (\"reschedule\") or cancels it (\"cancellation\"), e.g. «Зачем идти на церемонию к Юле?» or «Сегодня лекции не будет». Name the event as the earlier announcement would. Resolve «сегодня», «завтра» and weekdays against the publication date; when the post gives no date at all, start_date is null. Only details and cancellations may go without a date.\n\nWebsites\n- A website post is the facts of one event page: name, start, end, place, price, organizer, then the page's description. Its \"channel\" is the website: an afisha, never the event's organizer, so from_organizer is false.\n\nPhotos\n- Each post lists its photos by index: \"shows\" says what the photo is, \"text\" is the text on it, transcribed word for word. Read them as part of the post: posters and event cards often carry the date, time, price, venue and the whole description.\n- For every event give \"photo\": the index of its post's photo that shows that event.\n- A poster shared by several events of a post, such as the poster of a lecture series, a festival or a programme, is the photo of every one of them.\n\nChannels\n- For every post list in \"channels\" each other Telegram channel it is forwarded from, links to (t.me/...) or mentions (@name), whatever the post is about, even when it announces no event.\n\nThe description language is {language}.\n\nTags\n- Give every event every allowed tag that fits it, one to four: what kind of event it is, and also its format or genre when a tag says so. A jazz concert is both a concert and jazz.\n- A tag's meaning, when given after a dash, decides which events get it, over its name.\n- Allowed tags:\n{tags}\n- If none fits, use exactly \"{fallback}\".\nEach field's meaning is in the schema."
      },
      "matching_prompt": {
       "type": "string",
       "minLength": 1,
       "title": "Matching Prompt",
-      "description": "Instructions Claude gets for merging duplicates",
+      "description": "Instructions the reader gets for merging duplicates",
       "default": "You merge duplicate event announcements collected from several Telegram channels and websites.\n\nYou get existing event cards and new announcements. For every new announcement decide whether it describes the same real-world event as one of the existing cards, as one of the earlier new announcements, or neither.\n\nSame event: the same happening at the same place on the same date, even when titles differ or are in different languages. Also the same: a post that reschedules, cancels or adds details to an event announced earlier (update_kind says so), and a single date of a recurring event that has a recurring card.\nNot the same: different events at the same venue on the same day; the same show or tour on different dates; different sessions of a festival when each is its own event.\n\nAn announcement without a start_date is a follow-up its channel posted about one of its own events; the existing cards offered for it are that channel's. Pick the card it is about by title, description and venue; if none clearly fits, leave both fields null.\n\nNever set both same_as_card and same_as_announcement."
      },
      "photo_prompt": {
       "type": "string",
       "minLength": 1,
       "title": "Photo Prompt",
-      "description": "Instructions Claude gets for transcribing post photos",
+      "description": "Instructions the reader gets for transcribing post photos",
       "default": "You transcribe the photos of posts that announce events: posters, event cards, schedules, digests.\n\nEvery photo comes after its caption with its number. Return one item per photo. Each field's meaning is in the schema."
      },
      "photo_model": {
@@ -2381,6 +2423,41 @@
       "$ref": "#/components/schemas/ClaudeModel",
       "description": "Merges duplicate announcements",
       "default": "claude-haiku-5-5"
+     },
+     "llm_provider": {
+      "$ref": "#/components/schemas/LlmProvider",
+      "description": "Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models",
+      "default": "claude"
+     },
+     "codex_photo_model": {
+      "$ref": "#/components/schemas/CodexModel",
+      "description": "Transcribes post photos when Codex reads",
+      "default": "gpt-6.1-terra"
+     },
+     "codex_photo_effort": {
+      "$ref": "#/components/schemas/CodexEffort",
+      "description": "How long Codex thinks over post photos",
+      "default": "low"
+     },
+     "codex_extraction_model": {
+      "$ref": "#/components/schemas/CodexModel",
+      "description": "Reads posts into events and places when Codex reads",
+      "default": "gpt-6.1-terra"
+     },
+     "codex_extraction_effort": {
+      "$ref": "#/components/schemas/CodexEffort",
+      "description": "How long Codex thinks over posts",
+      "default": "medium"
+     },
+     "codex_matching_model": {
+      "$ref": "#/components/schemas/CodexModel",
+      "description": "Merges duplicate announcements when Codex reads",
+      "default": "gpt-6-luna"
+     },
+     "codex_matching_effort": {
+      "$ref": "#/components/schemas/CodexEffort",
+      "description": "How long Codex thinks over duplicates",
+      "default": "low"
      }
     },
     "type": "object",
@@ -2394,7 +2471,14 @@
      "photo_prompt",
      "photo_model",
      "extraction_model",
-     "matching_model"
+     "matching_model",
+     "llm_provider",
+     "codex_photo_model",
+     "codex_photo_effort",
+     "codex_extraction_model",
+     "codex_extraction_effort",
+     "codex_matching_model",
+     "codex_matching_effort"
     ],
     "title": "AppSettings",
     "description": "Every setting of the app, described once: storage, the API and its change request all come from here."
@@ -2742,21 +2826,10 @@
     ],
     "title": "ClaudeModel"
    },
-   "ClaudeSignIn": {
-    "type": "string",
-    "enum": [
-     "signed_in",
-     "signed_out",
-     "unknown",
-     "not_installed",
-     "too_old"
-    ],
-    "title": "ClaudeSignIn"
-   },
    "ClaudeSignInView": {
     "properties": {
      "state": {
-      "$ref": "#/components/schemas/ClaudeSignIn"
+      "$ref": "#/components/schemas/ReaderSignIn"
      },
      "hint": {
       "type": "string",
@@ -2778,7 +2851,7 @@
        }
       ],
       "title": "Page Url",
-      "description": "The sign-in page to open by hand; it shows a code to paste"
+      "description": "The sign-in page to open by hand while a sign-in waits"
      },
      "error": {
       "anyOf": [
@@ -2802,12 +2875,12 @@
        }
       ],
       "title": "Version",
-      "description": "The installed Claude Code's version; none when it is missing"
+      "description": "The installed reader's version; none when it is missing"
      },
      "minimum": {
       "type": "string",
       "title": "Minimum",
-      "description": "The oldest Claude Code version the app works with"
+      "description": "The oldest version of the reader the app works with"
      },
      "update_command": {
       "anyOf": [
@@ -2819,7 +2892,7 @@
        }
       ],
       "title": "Update Command",
-      "description": "The command that updates the installed Claude Code; none when it is missing"
+      "description": "The command that updates the installed reader; none when it is missing"
      }
     },
     "type": "object",
@@ -2828,7 +2901,117 @@
      "hint",
      "minimum"
     ],
-    "title": "ClaudeSignInView"
+    "title": "ClaudeSignInView",
+    "description": "Claude Code: a sign-in page opened by hand shows a code to paste."
+   },
+   "CodexEffort": {
+    "type": "string",
+    "enum": [
+     "low",
+     "medium",
+     "high"
+    ],
+    "title": "CodexEffort"
+   },
+   "CodexModel": {
+    "type": "string",
+    "enum": [
+     "gpt-6-luna",
+     "gpt-6.1-terra",
+     "gpt-6.2-sol",
+     "gpt-6.2-astra"
+    ],
+    "title": "CodexModel"
+   },
+   "CodexSignInView": {
+    "properties": {
+     "state": {
+      "$ref": "#/components/schemas/ReaderSignIn"
+     },
+     "hint": {
+      "type": "string",
+      "title": "Hint"
+     },
+     "signing_in": {
+      "type": "boolean",
+      "title": "Signing In",
+      "description": "A sign-in started from the app waits for the browser",
+      "default": false
+     },
+     "page_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Page Url",
+      "description": "The sign-in page to open by hand while a sign-in waits"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error",
+      "description": "Why the last sign-in from the app failed"
+     },
+     "version": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Version",
+      "description": "The installed reader's version; none when it is missing"
+     },
+     "minimum": {
+      "type": "string",
+      "title": "Minimum",
+      "description": "The oldest version of the reader the app works with"
+     },
+     "update_command": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Update Command",
+      "description": "The command that updates the installed reader; none when it is missing"
+     },
+     "message": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Message",
+      "description": "Why the app refuses this Codex; set when `state` is refused"
+     }
+    },
+    "type": "object",
+    "required": [
+     "state",
+     "hint",
+     "minimum"
+    ],
+    "title": "CodexSignInView",
+    "description": "Codex with ChatGPT: the sign-in page hands the login back by itself."
    },
    "CollectionBase": {
     "properties": {
@@ -3560,6 +3743,14 @@
     ],
     "title": "InterestCount"
    },
+   "LlmProvider": {
+    "type": "string",
+    "enum": [
+     "claude",
+     "codex"
+    ],
+    "title": "LlmProvider"
+   },
    "Mark": {
     "properties": {
      "interest": {
@@ -4069,6 +4260,19 @@
     ],
     "title": "PotentialSourcePublic"
    },
+   "ReaderSignIn": {
+    "type": "string",
+    "enum": [
+     "signed_in",
+     "signed_out",
+     "unknown",
+     "not_installed",
+     "too_old",
+     "refused"
+    ],
+    "title": "ReaderSignIn",
+    "description": "Whether the reader the app calls is there and signed in; the same answers for Claude Code and Codex."
+   },
    "RefreshProgress": {
     "properties": {
      "stage": {
@@ -4154,7 +4358,7 @@
      "photos_to_read": {
       "type": "integer",
       "title": "Photos To Read",
-      "description": "Photos Claude transcribes in this refresh",
+      "description": "Photos the reader transcribes in this refresh",
       "default": 0
      },
      "photos_read": {
@@ -4165,7 +4369,7 @@
      "posts_to_read": {
       "type": "integer",
       "title": "Posts To Read",
-      "description": "Posts Claude reads in this refresh",
+      "description": "Posts the reader reads in this refresh",
       "default": 0
      },
      "posts_read": {
@@ -4187,11 +4391,34 @@
       "title": "Errors",
       "description": "Human-readable, ready to show"
      },
-     "claude_unavailable": {
+     "reader_unavailable": {
       "type": "boolean",
-      "title": "Claude Unavailable",
-      "description": "Claude Code is missing, too old or signed out: nothing was read",
+      "title": "Reader Unavailable",
+      "description": "Some calls failed because the reader was missing, too old, signed out, refused or out of plan limit; calls that went through still read their posts",
       "default": false
+     },
+     "reader": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LlmProvider"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Whose reader was not ready, when reader_unavailable"
+     },
+     "reader_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reader Error",
+      "description": "Why the reader was not ready, when the box under Refresh explains it; kept out of errors, shown as a line only where that box can't be shown"
      },
      "running": {
       "type": "boolean",
@@ -4218,7 +4445,9 @@
      "posts_read",
      "events_touched",
      "errors",
-     "claude_unavailable",
+     "reader_unavailable",
+     "reader",
+     "reader_error",
      "running"
     ],
     "title": "RefreshProgress"
@@ -4344,7 +4573,7 @@
        }
       ],
       "title": "Priority Wish",
-      "description": "What the user looks for first, in their own words, in every city. While reading posts Claude flags the events that fit it; empty: nothing is flagged"
+      "description": "What the user looks for first, in their own words, in every city. While reading posts the reader flags the events that fit it; empty: nothing is flagged"
      },
      "collections_enabled": {
       "anyOf": [
@@ -4369,7 +4598,7 @@
        }
       ],
       "title": "Extraction Prompt",
-      "description": "Instructions Claude gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}"
+      "description": "Instructions the reader gets for reading posts. Placeholders: {city}, {language}, {tags}, {fallback}"
      },
      "matching_prompt": {
       "anyOf": [
@@ -4382,7 +4611,7 @@
        }
       ],
       "title": "Matching Prompt",
-      "description": "Instructions Claude gets for merging duplicates"
+      "description": "Instructions the reader gets for merging duplicates"
      },
      "photo_prompt": {
       "anyOf": [
@@ -4395,7 +4624,7 @@
        }
       ],
       "title": "Photo Prompt",
-      "description": "Instructions Claude gets for transcribing post photos"
+      "description": "Instructions the reader gets for transcribing post photos"
      },
      "photo_model": {
       "anyOf": [
@@ -4429,6 +4658,83 @@
        }
       ],
       "description": "Merges duplicate announcements"
+     },
+     "llm_provider": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/LlmProvider"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Whose subscription reads posts: Claude Code or Codex with ChatGPT; the other one keeps its models"
+     },
+     "codex_photo_model": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CodexModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Transcribes post photos when Codex reads"
+     },
+     "codex_photo_effort": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CodexEffort"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "How long Codex thinks over post photos"
+     },
+     "codex_extraction_model": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CodexModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Reads posts into events and places when Codex reads"
+     },
+     "codex_extraction_effort": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CodexEffort"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "How long Codex thinks over posts"
+     },
+     "codex_matching_model": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CodexModel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Merges duplicate announcements when Codex reads"
+     },
+     "codex_matching_effort": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CodexEffort"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "How long Codex thinks over duplicates"
      }
     },
     "type": "object",
