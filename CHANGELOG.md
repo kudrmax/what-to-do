@@ -2,6 +2,14 @@
 
 What changed in each release of What To Do, newest first.
 
+## 1.32.0 — 2026-11-28
+
+Your favourite sources are read first.
+
+### Sources in your order
+On **Sources**, drag a source by its handle to move it up or down. A refresh still collects every source, but Claude or Codex reads their posts and photos top to bottom in this order, newest posts first within a source. The star still marks a favourite, but no longer moves it to the top: the order is yours.
+![](docs/images/changelog/1.32.0/source-order.png)
+
 ## 1.31.0 — 2026-11-28
 
 What To Do can now read posts with Codex and your ChatGPT plan instead of Claude.
